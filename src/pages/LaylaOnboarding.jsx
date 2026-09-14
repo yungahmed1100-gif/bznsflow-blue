@@ -24,6 +24,15 @@ const explanations = {
   catalog_file_too_large:'Use a file smaller than 15 MB.',catalog_file_type:'Use PDF, CSV, XLSX, DOCX, TXT, JPG, PNG or WebP.',catalog_file_empty:'No readable catalog information was found.',
   catalog_limit:'A catalog can contain up to 1,000 active services or products.',invalid_catalog_entry:'Review the extracted item name and price, then try again.',catalog_unavailable:'The catalog could not be saved. Please try again.',
   customer_live_release_pending_review: 'Automatic customer replies will become available after Meta approval and our connection checks.',
+  asset_in_use: 'This WhatsApp number or business account is already connected to another BznsFlow account. Sign in with that account, or choose a different number.',
+  attempt_limit: 'This setup has reached its connection attempt limit. Contact ahmed@bznsflowai.com with the reference below.',
+  attempt_expired: 'The Meta connection expired. Please prepare a new connection.', attempt_used: 'This Meta connection attempt was already used. Please prepare a new connection.',
+  operation_conflict: 'Another connection step is still running. Reload to check your setup before retrying.', session_expired: 'Your setup session expired. Reload the page to continue.',
+  invalid_signup_result: 'Meta did not return a WhatsApp business account and number. Please retry and select both.',
+  token_permissions_incomplete: 'Meta did not grant every permission Layla needs. Retry and keep all requested permissions selected.',
+  waba_not_granted: 'The selected WhatsApp business account was not shared with BznsFlow. Retry and select it in the Meta window.',
+  phone_not_in_customer_waba: 'The selected number does not belong to the shared WhatsApp business account. Retry and choose a number from that account.',
+  sender_not_verified: 'Meta has not confirmed this number’s details yet. Please try again in a few minutes.',
 };
 const arabicExplanations = {
   website_url_invalid:'استخدم رابط HTTPS لموقع عام.', website_unavailable:'تعذّرت قراءة الصفحة. الصق معلومات نشاطك بدلاً من ذلك.', website_empty:'لم نجد نصاً قابلاً للقراءة. الصق المعلومات مباشرة.', website_too_large:'الصفحة كبيرة جداً. الصق مقتطفاً قصيراً.', website_redirect_limit:'تحويلات كثيرة في الرابط. استخدم الرابط النهائي للصفحة.',
@@ -38,6 +47,15 @@ const arabicExplanations = {
   coexistence_not_verified:'لم تؤكد Meta أهلية الرقم للاستخدام المتزامن. لم نفصل تطبيقك.',
   attempt_expired:'انتهت مهلة ربط Meta. جهّز محاولة جديدة.', popup_blocked:'اسمح بنافذة فيسبوك المنبثقة ثم حاول مجدداً.',
   meta_cancelled:'أُلغيت محاولة ربط Meta. يمكنك المحاولة مجدداً.', permission_rejected:'رُفضت أذونات Meta. راجعها وأعد المحاولة.', missing_code:'لم ترسل Meta رمز الربط. أعد المحاولة.',
+  asset_in_use:'رقم واتساب هذا أو حساب الأعمال مرتبط بحساب آخر في BznsFlow. سجّل الدخول بذلك الحساب، أو اختر رقماً مختلفاً.',
+  attempt_limit:'بلغ هذا الإعداد الحد الأقصى لمحاولات الربط. تواصل مع ahmed@bznsflowai.com برقم المرجع أدناه.',
+  attempt_used:'استُخدمت محاولة ربط Meta هذه من قبل. جهّز محاولة جديدة.', operation_conflict:'خطوة ربط أخرى ما زالت قيد التنفيذ. أعد تحميل الصفحة للتحقق قبل المحاولة.',
+  session_expired:'انتهت جلسة الإعداد. أعد تحميل الصفحة للمتابعة.', invalid_signup_result:'لم ترسل Meta حساب أعمال واتساب ورقماً. أعد المحاولة واختر كليهما.',
+  token_permissions_incomplete:'لم تمنح Meta كل الأذونات التي تحتاجها ليلى. أعد المحاولة وأبقِ جميع الأذونات المطلوبة محددة.',
+  waba_not_granted:'لم يُشارَك حساب أعمال واتساب المحدد مع BznsFlow. أعد المحاولة واختره في نافذة Meta.',
+  phone_not_in_customer_waba:'الرقم المحدد لا يتبع حساب الأعمال المشارَك. أعد المحاولة واختر رقماً من ذلك الحساب.',
+  sender_not_verified:'لم تؤكد Meta تفاصيل هذا الرقم بعد. حاول مجدداً بعد بضع دقائق.',
+  business_app_requires_coexistence:'هذا الرقم يستخدم تطبيق واتساب للأعمال. اختر «الاستمرار في استخدام تطبيق واتساب للأعمال».',
 };
 let sdkPromise;
 function loadFacebook() {

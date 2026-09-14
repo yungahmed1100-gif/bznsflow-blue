@@ -40,7 +40,8 @@ export async function executeReview(ctx, a, now = Date.now()) {
     if (!row.profile?.reviewed || !row.profile.humanContact || row.integration || (row.pendingSelection && row.attempt?.expiresAt > now) || row.status === 'reconciliation_required' || (row.status === 'verifying' && row.attempt?.expiresAt > now)) return fail('operation_conflict');
     if (row.attempts >= 10) return fail('attempt_limit');
     if (row.attempt && row.attempt.expiresAt > now && !['cancelled','failed','expired'].includes(row.status)) return fail('operation_conflict');
-    await patch({ status: 'prepared', metrics:{...row.metrics,metaStartedAt:row.metrics?.metaStartedAt || now}, pendingSelection: undefined, attempts: row.attempts + 1, attempt: { id: a.attempt, stateHash: a.stateHash, path: a.path, expiresAt: now + 600000, claimed: false } });
+    // A new attempt starts clean: the previous attempt's diagnostic no longer describes it.
+    await patch({ status: 'prepared', metrics:{...row.metrics,metaStartedAt:row.metrics?.metaStartedAt || now}, pendingSelection: undefined, diagnostic: undefined, attempts: row.attempts + 1, attempt: { id: a.attempt, stateHash: a.stateHash, path: a.path, expiresAt: now + 600000, claimed: false } });
   } else if (['await','claim','cancel'].includes(a.operation)) {
     if (row.attempt?.id !== a.attempt || row.attempt?.stateHash !== a.stateHash) return fail('invalid_state');
     if (row.attempt.expiresAt <= now) return fail('attempt_expired');

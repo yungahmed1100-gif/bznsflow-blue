@@ -120,6 +120,12 @@ test('expired attempts and occupied assets cannot trigger additional subscriptio
   const second=await begin(a);assert.equal((await a.call(second)).body.status,'connected');
   const b=await client(h.handler),other=await begin(b);assert.equal((await b.call(other)).body.reason,'asset_in_use');assert.equal(h.effects.length,1);
 });
+test('a failed signup keeps its diagnostic until the next attempt is prepared',async()=>{
+  const h=harness(),a=await client(h.handler);assert.equal((await a.call(await begin(a))).body.status,'connected');
+  const b=await client(h.handler),other=await begin(b);assert.equal((await b.call(other)).body.reason,'asset_in_use');
+  const failed=(await b.call()).body;assert.equal(failed.status,'failed');assert.deepEqual({reason:failed.diagnostic.reason,stage:failed.diagnostic.stage},{reason:'asset_in_use',stage:'verification'});
+  const retry=await b.call({action:'begin',path:'coexistence'});assert.equal(retry.statusCode,200);assert.equal(retry.body.diagnostic,null);
+});
 test('Blue review webhook checks challenge/signature and never creates message jobs',async()=>{
   const {blueReviewWebhook}=await import('../api/layla-meta-webhook.js');
   const {createHmac}=await import('node:crypto');const {Readable}=await import('node:stream');
