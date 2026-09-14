@@ -124,6 +124,24 @@ test('expired attempts and occupied assets cannot trigger additional subscriptio
   const second=await begin(a);assert.equal((await a.call(second)).body.status,'connected');
   const b=await client(h.handler),other=await begin(b);assert.equal((await b.call(other)).body.reason,'asset_in_use');assert.equal(h.effects.length,1);
 });
+const routedElsewhere={isolated:false,safeToSubscribe:false,pathVerified:true,phoneMatches:true,phoneRoutedElsewhere:true};
+test('an owner-approved WABA and phone pair moves existing routing to Blue, including the phone override',async()=>{
+  let calls=0;
+  const h=harness({env:{...env,BLUE_ROUTING_TAKEOVER:'1712714900182074:1234'},inspect:async()=>calls++===0?routedElsewhere:{isolated:true,connected:true,pathVerified:true,registered:true}});
+  const c=await client(h.handler),body=await begin(c,'existing_cloud');
+  const r=await c.call(body);assert.equal(r.body.status,'connected');
+  assert.deepEqual(h.effects.map(e=>e.path),['/v25.0/1712714900182074/subscribed_apps','/v25.0/1234']);
+  const phoneOverride=JSON.parse(new URLSearchParams(h.effects[1].body).get('webhook_configuration'));
+  assert.equal(phoneOverride.override_callback_uri,'https://bznsflow-blue.vercel.app/api/layla-meta-webhook');
+  assert.equal((await c.call()).body.connectionChecks.routing,true);
+});
+test('existing routing stays refused without the exact approved pair and path',async()=>{
+  for(const [takeover,path] of [[undefined,'existing_cloud'],['1712714900182074:9999','existing_cloud'],['1712714900182074:1234','coexistence'],['1712714900182074:1234:1','existing_cloud']]) {
+    const h=harness({env:{...env,...(takeover?{BLUE_ROUTING_TAKEOVER:takeover}:{})},inspect:async()=>routedElsewhere});
+    const c=await client(h.handler),body=await begin(c,path);
+    assert.equal((await c.call(body)).body.reason,'test_routing_not_verified');assert.equal(h.effects.length,0);
+  }
+});
 async function savedConnection(h) {
   const a=await client(h.handler),body=await begin(a);assert.equal((await a.call(body)).body.status,'connected');
   const row=[...h.db.rows.values()].find(r=>r.__table==='blueReviewSessions' && r.integration);

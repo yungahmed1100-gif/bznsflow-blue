@@ -59,7 +59,14 @@ export async function inspectReviewConnection({ c, integration: i, token, fetche
     (!app || app.override_callback_uri === CALLBACK) &&
     (!routing?.phone_number || routing.phone_number === CALLBACK) &&
     (!routing?.whatsapp_business_account || routing.whatsapp_business_account === CALLBACK);
-  return { nameStatus: ['APPROVED','AVAILABLE_WITHOUT_REVIEW','DECLINED','EXPIRED','PENDING_REVIEW','NONE'].includes(name?.name_status) ? name.name_status : 'UNKNOWN', pathVerified, registered: phone.status === 'CONNECTED', isolated: isolated && pathVerified, safeToSubscribe, connected: isolated && pathVerified && phone.status === 'CONNECTED', subscribed: !!app };
+  return { nameStatus: ['APPROVED','AVAILABLE_WITHOUT_REVIEW','DECLINED','EXPIRED','PENDING_REVIEW','NONE'].includes(name?.name_status) ? name.name_status : 'UNKNOWN', pathVerified, registered: phone.status === 'CONNECTED', isolated: isolated && pathVerified, safeToSubscribe, connected: isolated && pathVerified && phone.status === 'CONNECTED', subscribed: !!app,
+    phoneMatches: phone.id === i.phone, phoneRoutedElsewhere: !!routing?.phone_number && routing.phone_number !== CALLBACK };
+}
+// The owner approved moving exactly one existing Cloud API number from other routing
+// to Blue: BLUE_ROUTING_TAKEOVER="<waba>:<phone id>". Any other asset stays refused.
+export function routingTakeoverApproved(env, i) {
+  const parts = String(env.BLUE_ROUTING_TAKEOVER || '').split(':');
+  return parts.length === 2 && parts.every(assetId) && i?.path === 'existing_cloud' && i.waba === parts[0] && i.phone === parts[1];
 }
 export function createReviewHandler({ env = process.env, fetcher = fetch, now = Date.now, store = reviewStore({ env, fetcher }), catalog = catalogStore({env,fetcher}), exchange = exchangeAndVerify, inspect = inspectReviewConnection, reviewMode = true, accountStore = blueAuthStore({env,fetcher}), websiteImport = importWebsite } = {}) {
   return async (req, res) => {
@@ -114,12 +121,18 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
         await write('credential',{attempt:row.attempt.id,integration:i});
         const c = configuration(env);
         const proof = await inspect({c,integration:i,token,fetcher});
-        if (!proof.isolated && !proof.safeToSubscribe) throw new PilotError('test_routing_not_verified',409);
+        const takeover = routingTakeoverApproved(env,i) && proof.phoneMatches && proof.pathVerified;
+        if (!proof.isolated && !proof.safeToSubscribe && !takeover) throw new PilotError('test_routing_not_verified',409);
         const operationId = randomUUID();
         await write('claim_operation',{operationId,effect:'subscribe'});
         try {
           const subscribed = await metaRequest(c,`${i.waba}/subscribed_apps`,token,fetcher,{override_callback_uri:CALLBACK,verify_token:env.BLUE_REVIEW_VERIFY_TOKEN});
           if (subscribed.success !== true) throw new PilotError('meta_connection_unavailable',502);
+          // A phone-level override outranks the WABA override, so an approved move sets both.
+          if (takeover && proof.phoneRoutedElsewhere) {
+            const phoneRouted = await metaRequest(c,i.phone,token,fetcher,{webhook_configuration:JSON.stringify({override_callback_uri:CALLBACK,verify_token:env.BLUE_REVIEW_VERIFY_TOKEN})});
+            if (phoneRouted.success !== true) throw new PilotError('meta_connection_unavailable',502);
+          }
           const after = await inspect({c,integration:i,token,fetcher});
           const status = after.connected ? 'connected' : after.isolated && i.path === 'new_number' ? 'registration_required' : 'reconciliation_required';
           await write('result',{operationId,status,connectionChecks:checks(after)});
