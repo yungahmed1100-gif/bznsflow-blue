@@ -2,8 +2,13 @@
 
 ## Current implementation — Layla dashboard after activation (2026-09-14)
 
-Implemented locally per the approved dashboard plan; **not deployed, no schema
-pushed, no gates changed, no live sends**. Authority:
+**Deployed 2026-09-14 with authorization:** commits `45ed72b`, `5100f51`; Convex
+schema pushed to `quaint-nightingale-675` and contact migration complete; Vercel
+`BLUE_DASHBOARD_ENABLED=true`, `BLUE_BROADCAST_ENABLED=true` (template sync only);
+production `dpl_ESnM3qtXvc8qbaZzRAoeCkQ52A4Q` READY on the Blue alias. Durable
+Convex `broadcast` gate still **off**; no live sends yet. Review submission
+package, Meta blockers and rehearsal runbook: [meta-app-review-submission.md](meta-app-review-submission.md).
+Authority:
 [Layla dashboard engineering pack](blue-dashboard.md) (scope, interfaces, data,
 qualification, broadcast controls, rollout order, rollback, evidence).
 
@@ -17,8 +22,8 @@ qualification, broadcast controls, rollout order, rollback, evidence).
 - Evidence: npm test (Layla 110, Blue 96), Convex tsc, build, 80 browser
   assertions (320–1440 px, EN/AR, axe). Backup of the pre-change worktree:
   session scratchpad `blue-before-dashboard.tgz`.
-- Next, only with authorization: Convex deploy → migrateContacts → dashboard flag
-  and Blue deploy → approved marketing template → broadcast gates → Meta rehearsal.
+- Next: owner signs in and activates → approved marketing template synced → durable
+  broadcast gate on → live rehearsal with a non-US test recipient → screencasts.
 
 ## Current implementation — services, prices and catalog extraction (2026-09-14)
 
