@@ -12,7 +12,7 @@
 //   - retention comes from the prune intervals in the migrations
 // If any of those change, this file is wrong and must change with them.
 
-export const PRIVACY_UPDATED_ISO = '2026-09-10';
+export const PRIVACY_UPDATED_ISO = '2026-09-14';
 
 /** Shared across both languages — a table of who else touches the data. */
 const PROCESSORS = [
@@ -38,6 +38,18 @@ const PROCESSORS = [
   {
     en: ['Meta (Facebook)', 'Measures our advertising. Receives a pseudonymous identifier, not your name.', 'United States / global'],
     ar: ['Meta (Facebook)', 'يقيس أداء إعلاناتنا. يستقبل معرّفاً مستعاراً لا اسمك.', 'الولايات المتحدة / عالمي'],
+  },
+  {
+    en: ['Convex', 'The database for Layla business accounts: WhatsApp conversations, contacts, lead details, consent records and broadcasts.', 'European Union (Ireland)'],
+    ar: ['Convex', 'قاعدة بيانات حسابات ليلى للأنشطة: محادثات واتساب وجهات الاتصال وتفاصيل العملاء المحتملين وسجلات الموافقة والرسائل الجماعية.', 'الاتحاد الأوروبي (أيرلندا)'],
+  },
+  {
+    en: ['Meta (WhatsApp Business Platform)', 'Carries WhatsApp messages between a business using Layla and its customers, including message text, phone numbers and WhatsApp profile names.', 'United States / global'],
+    ar: ['Meta (منصة واتساب للأعمال)', 'تنقل رسائل واتساب بين النشاط الذي يستخدم ليلى وعملائه، بما فيها نص الرسائل وأرقام الهواتف وأسماء ملفات واتساب.', 'الولايات المتحدة / عالمي'],
+  },
+  {
+    en: ['Resend', 'Sends the sign-in code for the Layla business dashboard.', 'United States'],
+    ar: ['Resend', 'يرسل رمز الدخول إلى لوحة ليلى للأنشطة.', 'الولايات المتحدة'],
   },
   {
     en: ['Google Fonts', 'Serves the typefaces. Your browser requests them directly, which exposes your IP address to Google.', 'United States / global'],
@@ -78,7 +90,7 @@ const COOKIES = [
 
 const en = {
   title: 'Privacy Policy',
-  updated: 'Last updated 10 September 2026',
+  updated: 'Last updated 14 September 2026',
   lead: 'This explains what BznsFlow collects when you use this website, why, who else sees it, and what you can ask us to do about it. It is written to be read, not to be survived.',
   processorsHead: ['Who', 'What they do', 'Where'],
   cookiesHead: ['Name', 'Type', 'Lasts', 'What it does'],
@@ -129,6 +141,38 @@ const en = {
         'We do not store your one-time sign-in codes. Only a one-way hash is kept, so a copy of our database could not be used to log in as you.',
         'We do not store your session token either — only a hash of it.',
         'We do not buy personal data from third parties.',
+      ],
+    },
+    {
+      h: 'Layla for businesses: WhatsApp chats, contacts and broadcasts',
+      p: [
+        'A business that connects its WhatsApp number to Layla decides why its customers\' data is processed. For that data the business is responsible, and BznsFlow processes it on the business\'s behalf. If you messaged a business that uses Layla, contact that business first; we will help them answer you.',
+      ],
+      sub: [
+        {
+          h: 'What Layla stores for a business',
+          list: [
+            'Contacts: each customer\'s WhatsApp number, their WhatsApp profile name, a name they give in the chat, and a name the business enters. A contact is created when a customer messages the business, or when the business adds or imports it.',
+            'Lead details: answers a customer gives to Layla\'s short questions, such as the service wanted, a preferred date or area, a budget or a timeline, with where each detail came from. For medical, legal and finance businesses Layla only asks for booking details, never symptoms, case details or finances.',
+            'Qualification: whether the required details are complete. Layla marks this with fixed rules, and the business can change it. No automated decision with legal or similarly significant effect is made.',
+            'Consent evidence: for contacts a business adds or imports for marketing, the source, date and purpose of the customer\'s permission, as confirmed by the business, and when it was recorded.',
+            'Opt-outs: a customer who replies stop or taps "Stop promotions" is excluded from all marketing and cannot be messaged from the dashboard.',
+            'Broadcasts: which approved WhatsApp template was sent to which contact, the values filled into it, and its delivery status.',
+          ],
+        },
+        {
+          h: 'How long it is kept',
+          list: [
+            'Readable message text: 30 days, then deleted. It cannot be restored.',
+            'Message delivery records and broadcast send records: 30 days.',
+            'Contacts, lead details and consent evidence: until the business deletes the contact or its account.',
+            'When a contact is deleted, its name, number, lead details and chat text are removed. If the customer had opted out, we keep only a one-way keyed code of the number and the opt-out, so they are never messaged again.',
+          ],
+        },
+        {
+          h: 'Exports',
+          p: ['A business can export its own chats (CSV or PDF), its contacts (CSV) and a full copy of its account (ZIP). Exports contain only that business\'s retained data and never include credentials or our internal identifiers.'],
+        },
       ],
     },
     {
@@ -218,7 +262,7 @@ const en = {
 
 const ar = {
   title: 'سياسة الخصوصية',
-  updated: 'آخر تحديث ١٠ سبتمبر ٢٠٢٦',
+  updated: 'آخر تحديث ١٤ سبتمبر ٢٠٢٦',
   lead: 'توضّح هذه الصفحة ما تجمعه BznsFlow عند استخدامك لهذا الموقع، ولماذا، ومن يطّلع عليه غيرنا، وما الذي يمكنك أن تطلبه منّا بشأنه. كُتبت لتُقرأ، لا لتُحتمل.',
   processorsHead: ['الجهة', 'ما تقوم به', 'أين'],
   cookiesHead: ['الاسم', 'النوع', 'المدة', 'وظيفته'],
@@ -269,6 +313,38 @@ const ar = {
         'لا نحفظ رموز الدخول لمرة واحدة، بل بصمة أحادية الاتجاه فقط، فلا تكفي نسخة من قاعدة بياناتنا لتسجيل الدخول باسمك.',
         'ولا نحفظ رمز جلستك أيضاً، بل بصمته فقط.',
         'لا نشتري بيانات شخصية من أطراف أخرى.',
+      ],
+    },
+    {
+      h: 'ليلى للأنشطة: محادثات واتساب وجهات الاتصال والرسائل الجماعية',
+      p: [
+        'النشاط الذي يربط رقم واتساب الخاص به بليلى هو من يحدد سبب معالجة بيانات عملائه، وهو المسؤول عنها، وتعالجها BznsFlow نيابةً عنه. إذا راسلت نشاطاً يستخدم ليلى فتواصل مع ذلك النشاط أولاً، وسنساعده على الرد عليك.',
+      ],
+      sub: [
+        {
+          h: 'ما تحفظه ليلى للنشاط',
+          list: [
+            'جهات الاتصال: رقم واتساب لكل عميل، واسم ملفه على واتساب، والاسم الذي يذكره في المحادثة، والاسم الذي يدخله النشاط. تُنشأ جهة الاتصال عندما يراسل العميل النشاط، أو عندما يضيفها النشاط أو يستوردها.',
+            'تفاصيل العميل المحتمل: إجابات العميل عن أسئلة ليلى القصيرة، مثل الخدمة المطلوبة أو الموعد أو المنطقة المفضلة أو الميزانية أو الوقت المتوقع، مع مصدر كل تفصيل. وفي الأنشطة الطبية والقانونية والمالية لا تسأل ليلى إلا عن تفاصيل الحجز، ولا تسأل عن الأعراض أو تفاصيل القضايا أو الأوضاع المالية.',
+            'التأهيل: هل اكتملت التفاصيل المطلوبة. تحدده ليلى بقواعد ثابتة، ويمكن للنشاط تغييره. ولا يُتخذ أي قرار آلي له أثر قانوني أو أثر مماثل.',
+            'دليل الموافقة: لجهات الاتصال التي يضيفها النشاط أو يستوردها للتسويق، مصدر إذن العميل وتاريخه والغرض منه كما يؤكده النشاط، ووقت تسجيله.',
+            'إلغاء الاشتراك: العميل الذي يرد بطلب الإيقاف أو يضغط "إيقاف العروض" يُستبعد من كل التسويق ولا يمكن مراسلته من اللوحة.',
+            'الرسائل الجماعية: أي قالب واتساب معتمد أُرسل إلى أي جهة اتصال، والقيم التي مُلئ بها، وحالة تسليمه.',
+          ],
+        },
+        {
+          h: 'مدة الاحتفاظ',
+          list: [
+            'نص الرسائل المقروء: ٣٠ يوماً ثم يُحذف، ولا يمكن استعادته.',
+            'سجلات تسليم الرسائل وسجلات إرسال الرسائل الجماعية: ٣٠ يوماً.',
+            'جهات الاتصال وتفاصيل العملاء المحتملين ودليل الموافقة: حتى يحذف النشاط جهة الاتصال أو حسابه.',
+            'عند حذف جهة اتصال تُحذف بياناتها ورقمها وتفاصيلها ونص محادثتها. وإذا كان العميل قد ألغى الاشتراك نحتفظ فقط برمز مشفّر أحادي الاتجاه للرقم مع إلغاء الاشتراك، حتى لا يُراسَل مجدداً.',
+          ],
+        },
+        {
+          h: 'التصدير',
+          p: ['يمكن للنشاط تصدير محادثاته (CSV أو PDF) وجهات اتصاله (CSV) ونسخة كاملة من حسابه (ZIP). لا يحتوي التصدير إلا على بيانات ذلك النشاط المحفوظة، ولا يتضمن بيانات الدخول أو معرّفاتنا الداخلية.'],
+        },
       ],
     },
     {

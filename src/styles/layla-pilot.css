@@ -1,0 +1,15 @@
+.layla-pilot { max-width: 850px; margin: 7rem auto 3rem; padding: 1.5rem; color: #171717; }
+.layla-pilot h2 { margin-top: 2rem; }
+.layla-pilot p { margin: 1rem 0; overflow-wrap: anywhere; }
+.layla-pilot label { display: block; margin: 1rem 0; }
+.layla-pilot textarea { display: block; width: 100%; min-height: 5rem; padding: .7rem; color: #171717; background: #fff; border-radius: .4rem; }
+.layla-pilot button { padding: .65rem 1rem; margin: .35rem; background: #ecd68d; color: #171717; border: 1px solid #9c8640; border-radius: .4rem; cursor: pointer; }
+.layla-pilot button:disabled { opacity: .5; cursor: wait; }
+.layla-pilot pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.layla-pilot [role=alert] { border: 1px solid #ec9999; padding: 1rem; }
+.layla-preview { padding: 1rem; border: 1px solid #777; }
+.layla-steps { display: flex; flex-wrap: wrap; gap: 1.4rem; padding: 1rem 1.4rem; }
+.layla-steps li { color: #aab5c7; padding-right: .6rem; }
+.layla-steps li[aria-current="step"] { color: #fff; font-weight: 700; }
+.layla-onboarding details { margin: 1.2rem 0; }
+.layla-onboarding summary { cursor: pointer; padding: .8rem 0; }

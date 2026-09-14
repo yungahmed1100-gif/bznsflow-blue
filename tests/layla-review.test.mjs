@@ -1,0 +1,195 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { executeReview } from '../convex/reviewState.js';
+import { createReviewHandler, inspectReviewConnection } from '../api/_lib/layla/review-api.js';
+import { BLUE_CLOUD, reviewStore } from '../api/_lib/convex.js';
+import { PilotError } from '../api/_lib/layla/config.js';
+import { createSignupAttempt, signupInit, signupOptions } from '../src/lib/layla-signup.js';
+
+const env = {CONVEX_CLOUD_URL:BLUE_CLOUD,BLUE_REVIEW_SERVICE_SECRET:'a'.repeat(64),LAYLA_CREDENTIAL_ENCRYPTION_KEY:'b'.repeat(64),BLUE_CUSTOMER_SETUP_ENABLED:'true',BLUE_REVIEW_ROUTING_APPROVED:'true',LAYLA_META_APP_ID:'1388038082832745',LAYLA_CUSTOMER_CONFIG_ID:'2144711899802123',LAYLA_META_APP_SECRET:'test-only-secret',BLUE_REVIEW_VERIFY_TOKEN:'test-verification'};
+const profile = {businessName:'Blue Review Studio',sector:'Studio',services:'Portraits',prices:'20 OMR',hours:'9–5',location:'Muscat',humanContact:'team@example.com',reviewed:true};
+function memory() {
+  const rows = new Map(); let clock = 1000, queue = Promise.resolve();
+  const db = {
+    query(table) { let field, value; return {withIndex(index, select) {select({eq(f,v){field=f;value=v;}});return this;},async unique(){return structuredClone([...rows.values()].find(r=>r.__table===table && r[field]===value));},async first(){return this.unique();}};},
+    async insert(table,value){const id=randomUUID();rows.set(id,{_id:id,__table:table,...structuredClone(value)});return id;},
+    async get(id){return structuredClone(rows.get(id));},
+    async patch(id,value){const row=rows.get(id); for(const [k,v] of Object.entries(value)) {if(v===undefined) delete row[k];else row[k]=structuredClone(v);}},
+  };
+  const store = (operation,args) => {
+    const run = queue.then(async()=>{const r=await executeReview({db},{operation,...args},clock); if(!r.ok) throw new PilotError(r.reason,409);return r.value;});
+    queue=run.catch(()=>{});return run;
+  };
+  return {store,rows,now:()=>clock,advance:n=>{clock+=n;}};
+}
+const response = () => ({headers:{},setHeader(k,v){this.headers[k]=v;},status(n){this.statusCode=n;},end(v){this.body=JSON.parse(v);}});
+async function client(handler) {
+  let cookie='',csrf='';
+  const call=async(body,headers={})=>{const res=response();await handler({method:body?'POST':'GET',headers:{host:'bznsflow-blue.vercel.app',origin:'https://bznsflow-blue.vercel.app','content-type':'application/json',cookie,'x-csrf-token':csrf,...headers},body:body?structuredClone(body):undefined},res);if(res.headers['Set-Cookie']) cookie=res.headers['Set-Cookie'].split(';')[0];if(res.body.csrfToken)csrf=res.body.csrfToken;return res;};
+  const initial=await call();return {call,initial};
+}
+function harness(overrides={}) {
+  const db=memory();const effects=[];
+  const fetcher=async(url,options)=>{effects.push({path:new URL(url).pathname,body:options.body});return {ok:true,text:async()=>JSON.stringify({success:true})};};
+  const handler=createReviewHandler({env,store:db.store,now:db.now,fetcher,exchange:async()=>({token:'synthetic-token-'.repeat(4),sender:'96890000000'}),inspect:async()=>({isolated:true,connected:true}),...overrides});
+  return {db,handler,effects};
+}
+async function begin(c,path='coexistence') {assert.equal((await c.call({action:'profile',businessName:profile.businessName,profile})).statusCode,200);const r=await c.call({action:'begin',path});assert.equal(r.statusCode,200);return {action:'finish',attempt:r.body.attempt,state:r.body.state,code:'secret-code',waba:'1712714900182074',phone:'1234'};}
+
+test('anonymous sessions persist facts, isolate visitors, bind CSRF and expose no credentials',async()=>{
+  const h=harness(),a=await client(h.handler),b=await client(h.handler);
+  assert.match(a.initial.headers['Set-Cookie'],/Secure; HttpOnly; SameSite=Lax/);
+  assert.equal((await a.call({action:'profile',businessName:profile.businessName,profile})).body.profile.businessName,profile.businessName);
+  assert.equal((await b.call()).body.profile,null);
+  assert.equal((await a.call()).body.profile.services,'Portraits');
+  assert.equal((await a.call({action:'pause'},{origin:'https://evil.invalid'})).statusCode,403);
+  assert.equal((await a.call({action:'pause'},{'x-csrf-token':'bad'})).statusCode,403);
+  const preview=await a.call({action:'preview',text:'Who are you?'});assert.match(preview.body.preview,/Blue Review Studio/);assert.equal(preview.body.synthetic,true);
+  h.db.advance(86400001);assert.equal((await a.call()).body.reason,'session_expired');
+});
+test('both callback orders finish once; other popups, stale attempts and expiry cannot finish',async()=>{
+  for(const order of ['code','event']) {
+    const done=[],fail=[],popup={}; const prepared={attempt:'a',state:'s',path:'coexistence',expiresAt:100};
+    const a=createSignupAttempt({prepared,complete:async b=>done.push({...b}),failed:r=>fail.push(r),now:()=>1});a.capture(popup);
+    const e={origin:'https://www.facebook.com',source:popup,data:{type:'WA_EMBEDDED_SIGNUP',event:'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING',data:{waba_id:'1',phone_number_id:'2'}}};
+    a.message({...e,source:{}});a.callback({authResponse:{code:'code'}});if(order==='event') {a.dispose(); const b=createSignupAttempt({prepared,complete:async v=>done.push({...v}),failed:r=>fail.push(r),now:()=>1});b.capture(popup);b.message(e);b.callback({authResponse:{code:'code'}});b.message(e);}else {a.message(e);a.message(e);}
+    await new Promise(r=>setImmediate(r));assert.equal(done.length,1);assert.equal(fail.length,0);
+  }
+  let expired;const a=createSignupAttempt({prepared:{expiresAt:1},complete:()=>assert.fail(),failed:r=>expired=r,now:()=>2});a.callback({authResponse:{code:'x'}});assert.equal(expired,'attempt_expired');
+});
+test('single-use competing finish claims and stored path prevent duplicate exchange and coexistence registration',async()=>{
+  let exchanges=0;const h=harness({exchange:async()=>{exchanges++;return {token:'t'.repeat(30),sender:'96890000000'};}});const c=await client(h.handler),body=await begin(c);
+  const results=await Promise.all([c.call({...body,path:'new_number'}),c.call(body)]);
+  assert.equal(exchanges,1);assert.equal(results.filter(r=>r.statusCode===200).length,1);
+  const state=(await c.call()).body;assert.equal(state.integration.path,'coexistence');assert.equal(state.status,'connected');
+  assert.equal((await c.call({action:'register_number',pin:'123456',confirm:true})).statusCode,409);
+  assert.equal(h.effects.filter(e=>e.path.endsWith('/register')).length,0);
+  assert(!JSON.stringify(state).includes('credential'));assert(!JSON.stringify(state).includes('stateHash'));assert(!JSON.stringify(state).includes('tttt'));
+});
+test('exchange failure, missing persistence and unverified routing never become connected',async()=>{
+  for(const overrides of [{exchange:async()=>{throw Error('RAW_TOKEN-secret');}},{inspect:async()=>({isolated:false,connected:false})}]) {
+    const h=harness(overrides),c=await client(h.handler),body=await begin(c);const r=await c.call(body);assert.notEqual(r.statusCode,200);assert(!JSON.stringify(r.body).includes('RAW_TOKEN'));assert.equal(h.effects.length,0);assert.notEqual((await c.call()).body.status,'connected');
+  }
+  const h=harness(),c=await client(h.handler);await begin(c);
+  const broken=createReviewHandler({env,store:async()=>null});const res=response();await broken({method:'GET',headers:{}},res);assert.equal(res.statusCode,401);
+});
+test('ambiguous subscribe is never repeated; read-only refresh can establish provider readiness',async()=>{
+  const h=harness({fetcher:async()=>{throw Error('uncertain');}}),c=await client(h.handler),body=await begin(c);
+  assert.equal((await c.call(body)).body.status,'reconciliation_required');
+  assert.equal((await c.call(body)).statusCode,409);
+  assert.equal((await c.call({action:'refresh'})).body.status,'connected');
+});
+test('new number requires explicit PIN confirmation and registration cannot be retried after ambiguity',async()=>{
+  const h=harness({inspect:async()=>({isolated:true,connected:false})}),c=await client(h.handler),body=await begin(c,'new_number');
+  assert.equal((await c.call(body)).body.status,'registration_required');
+  assert.equal((await c.call({action:'register_number',pin:'123456'})).statusCode,409);
+  assert.equal((await c.call({action:'register_number',pin:'123456',confirm:true})).body.status,'reconciliation_required');
+  assert.equal((await c.call({action:'register_number',pin:'123456',confirm:true})).statusCode,409);
+  assert.equal(h.effects.filter(e=>e.path.endsWith('/register')).length,1);
+  assert(!JSON.stringify([...h.db.rows.values()]).includes('123456'));
+});
+test('crashed operation allows read-only recovery after deadline and fences late results',async()=>{
+  const h=harness(),c=await client(h.handler);await c.call(await begin(c));
+  h.db.advance(5001); const row=[...h.db.rows.values()][0],old=randomUUID(),fresh=randomUUID();
+  await h.db.store('claim_operation',{sessionHash:row.sessionHash,operationId:old,effect:'refresh'});
+  await assert.rejects(h.db.store('claim_operation',{sessionHash:row.sessionHash,operationId:fresh,effect:'refresh'}));h.db.advance(60001);
+  await h.db.store('claim_operation',{sessionHash:row.sessionHash,operationId:fresh,effect:'refresh'});
+  await assert.rejects(h.db.store('result',{sessionHash:row.sessionHash,operationId:old,status:'connected'}));
+  await h.db.store('result',{sessionHash:row.sessionHash,operationId:fresh,status:'reconciliation_required'});
+});
+test('backend rejects missing secret, wrong target, provider failure and null results',async()=>{
+  for(const e of [{},{...env,CONVEX_CLOUD_URL:'https://wrong.convex.cloud'},{...env,BLUE_REVIEW_SERVICE_SECRET:''}]) await assert.rejects(reviewStore({env:e,fetcher:()=>assert.fail()})('get'));
+  await assert.rejects(reviewStore({env,fetcher:async()=>({ok:false})})('get'));
+});
+test('routing inspection requires provider-confirmed WABA and phone override with correct app and path',async()=>{
+  const callback='https://bznsflow-blue.vercel.app/api/layla-meta-webhook';
+  const inspect=async(phoneOverride)=>inspectReviewConnection({c:{app:env.LAYLA_META_APP_ID,version:'v25.0'},integration:{waba:'1',phone:'2',path:'coexistence'},token:'synthetic',fetcher:async url=>({ok:true,text:async()=>JSON.stringify(String(url).includes('subscribed_apps')?{data:[{whatsapp_business_api_data:{id:env.LAYLA_META_APP_ID},override_callback_uri:callback}]}:{id:'2',status:'CONNECTED',is_on_biz_app:true,webhook_configuration:{whatsapp_business_account:callback,phone_number:phoneOverride}})})});
+  assert.equal((await inspect(callback)).connected,true);assert.equal((await inspect('https://www.bznsflowai.com/api/layla-meta-webhook')).connected,false);
+});
+
+test('reload resumes the same prepared attempt and another session cannot use it',async()=>{
+  const h=harness(),a=await client(h.handler),b=await client(h.handler),body=await begin(a);
+  const resumed=(await a.call()).body.prepared;assert.equal(resumed.attempt,body.attempt);assert.equal(resumed.state,body.state);
+  assert.equal((await b.call(body)).statusCode,409);
+  assert.equal((await a.call({...body,action:'cancel'})).body.status,'cancelled');
+  assert.equal((await a.call(body)).statusCode,409);
+});
+test('expired attempts and occupied assets cannot trigger additional subscriptions',async()=>{
+  const h=harness(),a=await client(h.handler),body=await begin(a);h.db.advance(600001);assert.equal((await a.call(body)).body.reason,'attempt_expired');
+  const second=await begin(a);assert.equal((await a.call(second)).body.status,'connected');
+  const b=await client(h.handler),other=await begin(b);assert.equal((await b.call(other)).body.reason,'asset_in_use');assert.equal(h.effects.length,1);
+});
+test('Blue review webhook checks challenge/signature and never creates message jobs',async()=>{
+  const {blueReviewWebhook}=await import('../api/layla-meta-webhook.js');
+  const {createHmac}=await import('node:crypto');const {Readable}=await import('node:stream');
+  const r=response();await blueReviewWebhook({method:'GET',url:'/api/layla-meta-webhook?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=123'},r,env);assert.equal(r.statusCode,403);
+  const raw=JSON.stringify({object:'whatsapp_business_account',entry:[{id:'1712714900182074',changes:[]}]});
+  for(const valid of [false,true]) {
+    const req=Readable.from([Buffer.from(raw)]);req.method='POST';req.headers={'x-hub-signature-256':valid?'sha256='+createHmac('sha256',env.LAYLA_META_APP_SECRET).update(raw).digest('hex'):'wrong'};
+    const r=response();await blueReviewWebhook(req,r,env);assert.equal(r.statusCode,valid?200:403);if(valid){assert.equal(r.body.ignored,true);assert.equal(r.body.messagingEnabled,false);}
+  }
+});
+
+test('Embedded Signup explicitly opts out of SDK FedCM defaults and retains config/code parameters',()=>{
+  const prepared={appId:'1388038082832745',configId:'2144711899802123',version:'v25.0',path:'coexistence'};
+  assert.equal(signupInit(prepared).fedCM,false);
+  const options=signupOptions(prepared);assert.equal(options.config_id,prepared.configId);assert.equal(options.response_type,'code');assert.equal(options.override_default_response_type,true);assert.equal(options.scope,undefined);
+});
+
+test('preview-first accepts missing contact, persists answer and step, and does not connect or send', async () => {
+  const h = harness(), c = await client(h.handler);
+  assert.equal((await c.call({action:'preview',text:'What services do you offer?'})).statusCode,409);
+  const saved = await c.call({action:'profile',businessName:profile.businessName,profile:{...profile,humanContact:''}});
+  assert.equal(saved.body.journeyStep,2); assert.equal(saved.body.capabilities.preview,true); assert.equal(saved.body.capabilities.connect,false);
+  assert.equal((await c.call({action:'begin',path:'new_number'})).statusCode,409);
+  const preview = await c.call({action:'preview',text:'What services do you offer?'});
+  assert.equal(preview.body.preview,'Portraits'); assert.deepEqual(preview.body.sourceFields,['services']);
+  assert.equal((await c.call()).body.lastPreview.text,'Portraits');
+  assert.equal((await c.call({action:'review_preview',profileVersion:preview.body.profileVersion})).body.journeyStep,3);
+  assert.equal((await c.call()).body.journeyStep,3); assert.equal(h.effects.length,0);
+});
+test('editing facts during reconciliation preserves integration and invalidates preview approval', async () => {
+  const h = harness({inspect:async()=>({isolated:true,connected:false})}), c = await client(h.handler);
+  await c.call(await begin(c,'new_number'));
+  await c.call({action:'register_number',pin:'654321',confirm:true});
+  const before=(await c.call()).body;
+  await c.call({action:'preview',text:'What are your prices?'});
+  await c.call({action:'review_preview',profileVersion:before.profileVersion});
+  const edited=await c.call({action:'profile',businessName:profile.businessName,profile:{...profile,prices:'30 OMR'}});
+  assert.equal(edited.body.status,'reconciliation_required'); assert.equal(edited.body.integration.id,before.integration.id);
+  assert.equal(edited.body.lastPreview,null); assert.equal(edited.body.previewReviewedVersion,null);
+  assert.equal((await c.call({action:'review_preview',profileVersion:before.profileVersion})).statusCode,409);
+  assert.equal((await c.call({action:'save_progress',journeyStep:3})).statusCode,409);
+  assert.equal((await c.call({action:'preview',text:'What are your prices?'})).body.preview,'30 OMR');
+  assert.equal(h.effects.filter(e=>e.path.endsWith('/register')).length,1);
+});
+test('unknown answers explain missing facts without inventing a source', async () => {
+  const h=harness(), c=await client(h.handler);
+  await c.call({action:'profile',businessName:profile.businessName,profile:{...profile,prices:'',humanContact:''}});
+  const r=await c.call({action:'preview',text:'How much does it cost?'});
+  assert.equal(r.body.needsHuman,true); assert.deepEqual(r.body.sourceFields,[]);
+  assert.match(r.body.preview,/Add your team/); assert.equal(h.effects.length,0);
+});
+
+test('Coexistence WABA-only completion resolves on the server and requires selection for multiple phones',async()=>{
+  let result; const popup={};
+  const a=createSignupAttempt({prepared:{attempt:'a',state:'s',path:'coexistence',expiresAt:100},complete:async v=>{result=v;},failed:()=>assert.fail(),now:()=>1});a.capture(popup);
+  a.message({origin:'https://www.facebook.com',source:popup,data:{type:'WA_EMBEDDED_SIGNUP',event:'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING',data:{waba_id:'1'}}});a.callback({authResponse:{code:'x'}});
+  await new Promise(r=>setImmediate(r));assert.equal(result.waba,'1');assert.equal(result.phone,undefined);
+  let exchanges=0;
+  const h=harness({exchange:async({phone,token})=>{if(!token){exchanges++;return {token:'t'.repeat(30),candidates:[{id:'12',sender:'96890000001'},{id:'13',sender:'96890000002'}]};}return {token,phone,sender:'96890000002'};}});
+  const c=await client(h.handler),body=await begin(c);delete body.phone;
+  const pending=await c.call(body);assert.equal(pending.body.status,'selection_required');assert.equal(pending.body.selection.candidates.length,2);
+  assert.equal(h.effects.length,0);assert(!JSON.stringify(pending.body).includes('credential'));
+  assert.equal((await c.call({action:'select_phone',phone:'99'})).statusCode,400);
+  assert.equal((await c.call({action:'select_phone',phone:'13'})).body.status,'connected');assert.equal(exchanges,1);assert.equal(h.effects.length,1);
+  assert.equal((await c.call({action:'select_phone',phone:'12'})).statusCode,409);
+});
+test('existing Cloud API setup cannot register the number, and diagnostics retain only safe provider code',async()=>{
+  const h=harness({fetcher:async()=>({ok:false,text:async()=>JSON.stringify({error:{code:2655122,message:'SECRET_PROVIDER_PAYLOAD'}})})});
+  const c=await client(h.handler);const r=await c.call(await begin(c,'existing_cloud'));
+  assert.equal(r.body.status,'reconciliation_required');assert.equal(r.body.diagnostic.providerCode,2655122);
+  assert(!JSON.stringify(r.body).includes('SECRET_PROVIDER_PAYLOAD'));
+  assert.equal((await c.call({action:'register_number',pin:'123456',confirm:true})).statusCode,409);
+});

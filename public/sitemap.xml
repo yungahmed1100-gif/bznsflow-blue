@@ -37,4 +37,22 @@
       <xhtml:link rel="alternate" hreflang="en" href="https://www.bznsflowai.com/en/privacy" />
       <xhtml:link rel="alternate" hreflang="x-default" href="https://www.bznsflowai.com/en/privacy" />
   </url>
+  <url>
+    <loc>https://www.bznsflowai.com/playbook</loc>
+    <lastmod>2026-09-11T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+      <xhtml:link rel="alternate" hreflang="ar" href="https://www.bznsflowai.com/playbook" />
+      <xhtml:link rel="alternate" hreflang="en" href="https://www.bznsflowai.com/en/playbook" />
+      <xhtml:link rel="alternate" hreflang="x-default" href="https://www.bznsflowai.com/en/playbook" />
+  </url>
+  <url>
+    <loc>https://www.bznsflowai.com/en/playbook</loc>
+    <lastmod>2026-09-11T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+      <xhtml:link rel="alternate" hreflang="ar" href="https://www.bznsflowai.com/playbook" />
+      <xhtml:link rel="alternate" hreflang="en" href="https://www.bznsflowai.com/en/playbook" />
+      <xhtml:link rel="alternate" hreflang="x-default" href="https://www.bznsflowai.com/en/playbook" />
+  </url>
 </urlset>

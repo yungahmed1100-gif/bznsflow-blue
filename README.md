@@ -97,3 +97,21 @@ went stale and pointed at a dead calendar.
 ## 📄 License
 
 All rights reserved © BznsFlow
+
+## Layla official Meta Cloud API pilot
+
+Owner-only mock pilot: `/owner/layla`. The dedicated BznsFlow number is configured directly in Meta Cloud API; customer Coexistence through Embedded Signup remains a separate post-App-Review phase. Read [engineering pack](docs/layla-meta-engineering.md) before changing it. Setup, tests and release blockers are saved at `Desktop/Layla-Meta-Handoff`. Live sending remains source-locked. Existing login and registration remain the identity authority.
+## Layla owner dashboard (Blue)
+
+`/layla/dashboard` (Chats, Contacts, Broadcast) opens after activation. Read the
+[dashboard engineering pack](docs/blue-dashboard.md) before changing it; it is
+gated by `BLUE_DASHBOARD_ENABLED` and `BLUE_BROADCAST_ENABLED`. Browser checks:
+`npm run dev -- --port 5199` then `npm run test:dashboard-browser -- http://127.0.0.1:5199`.
+
+## Blue Convex backend
+
+Blue now contains a Convex-ready, isolated backend under [`convex/`](convex/).
+Run `npm run convex:setup` for a local deployment. The existing Supabase auth
+adapter remains active until a separate Blue Convex cloud deployment is
+provisioned and the reviewed export is imported; this keeps the review build
+available while the migration is verified.

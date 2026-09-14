@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "business", "languages", "thresholds", "intents", "escalation", "feature_flags"],
+  "properties": {
+    "version": {"type":"string"},
+    "business": {"type":"object", "additionalProperties":false, "required":["name","sector","timezone"], "properties":{"name":{"type":"string","minLength":1},"sector":{"type":"string"},"timezone":{"type":"string"}}},
+    "languages": {"type":"object", "additionalProperties":false, "required":["supported","default","arabic_register"], "properties":{"supported":{"type":"array","items":{"enum":["en","ar"]},"minItems":1},"default":{"enum":["en","ar"]},"arabic_register":{"enum":["khaleeji","msa"]}}},
+    "thresholds": {"type":"object", "additionalProperties":false, "required":["execute","fallback","similarity_floor","max_clarification_turns"], "properties":{"execute":{"type":"number","minimum":0,"maximum":1},"fallback":{"type":"number","minimum":0,"maximum":1},"similarity_floor":{"type":"number","minimum":0,"maximum":1},"max_clarification_turns":{"const":1}}},
+    "intents": {"type":"array","minItems":6,"maxItems":10,"items":{"type":"object","additionalProperties":false,"required":["name","answer_strategy"],"properties":{"name":{"type":"string"},"answer_strategy":{"enum":["faq","template","extractive","qualification","handoff"]},"required_slots":{"type":"array","items":{"type":"string"}},"retrieval_filter":{"type":"object"}}}},
+    "escalation": {"type":"object","additionalProperties":false,"required":["channel","after_hours_copy"],"properties":{"channel":{"const":"owner_whatsapp"},"after_hours_copy":{"type":"string"}}},
+    "feature_flags": {"type":"object","additionalProperties":false,"required":["live","shadow_mode","log_probability_vector"],"properties":{"live":{"type":"boolean"},"shadow_mode":{"type":"boolean"},"log_probability_vector":{"const":true}}}
+  }
+}

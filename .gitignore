@@ -45,3 +45,4 @@ work/
 # Impeccable ships a ~14MB platform-specific binary. The skill is reinstalled
 # with `npx impeccable install`, so the download does not belong in git.
 .claude/skills/impeccable/scripts/bin/
+.vercel

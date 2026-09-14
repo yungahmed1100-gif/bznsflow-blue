@@ -63,41 +63,10 @@
       }
     </script>
 
-    <!-- ═══ META PIXEL ═════════════════════════════════════════════════════ -->
-    <script>
-      !function(f,b,e,v,n,t,s)
-      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];t=b.createElement(e);t.async=!0;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)}(window, document,'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
-      // First-party id, stable per browser. It is the only advanced-matching
-      // key available on a site that captures no PII outside the playbook form,
-      // and it lifts Event Match Quality on every event including this PageView.
-      // Wrapped because storage access itself throws in some privacy modes.
-      var bfExternalId;
-      try {
-        bfExternalId = localStorage.getItem('bf_uid');
-        if (!bfExternalId) {
-          bfExternalId = (window.crypto && crypto.randomUUID)
-            ? crypto.randomUUID()
-            : Date.now() + '-' + Math.random().toString(36).slice(2);
-          localStorage.setItem('bf_uid', bfExternalId);
-        }
-      } catch (e) { bfExternalId = null; }
-      fbq('init', '4379647862316554', bfExternalId ? { external_id: bfExternalId } : {});
-      fbq('track', 'PageView');
-    </script>
-    <!-- ═══ END META PIXEL ═════════════════════════════════════════════════ -->
+    <!-- Marketing instrumentation is disabled in Blue. -->
   </head>
   <body>
-    <!-- Meta Pixel <noscript> fallback (must live in <body>, not <head>) -->
-    <noscript><img height="1" width="1" style="display:none"
-      src="https://www.facebook.com/tr?id=4379647862316554&ev=PageView&noscript=1"
-      alt=""
-    /></noscript>
+
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

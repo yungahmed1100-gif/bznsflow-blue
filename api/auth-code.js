@@ -1,3 +1,5 @@
+import { createBlueAuthHandler } from './_lib/blue-auth.js';
+import { BLUE_CLOUD } from './_lib/convex.js';
 // POST /api/auth-code — send a one-time sign-in code.
 //
 // Same-origin with the site, so there is no CORS layer here, matching api/chat.js.
@@ -28,6 +30,7 @@ export const RATE_IP_PER_MIN = 5;
 export const RATE_GLOBAL_PER_DAY = 300;
 
 export default async function handler(req, res) {
+  if (process.env.CONVEX_CLOUD_URL === BLUE_CLOUD) return createBlueAuthHandler()(req,res,'code');
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return send(res, 405, { ok: false, reason: 'method' });

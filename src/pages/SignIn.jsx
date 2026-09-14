@@ -57,7 +57,11 @@ export default function SignIn({ lang = 'ar' }) {
   const t = getStrings(lang);
   const ar = lang === 'ar';
 
+
   const [step, setStep] = useState('email'); // email | code | profile | done
+  useEffect(() => {
+    if (step === 'done' && new URLSearchParams(window.location.search).get('next') === 'layla') window.location.assign(ar ? '/layla/setup' : '/en/layla/setup');
+  }, [step, ar]);
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [profile, setProfile] = useState({

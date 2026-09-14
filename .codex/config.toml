@@ -1,2 +1,13 @@
 [mcp_servers.supabase]
 url = "https://mcp.supabase.com/mcp?project_ref=svmrfzahbgmvesclbqke"
+
+[mcp_servers.convex-blue]
+command = "/Users/ramsis21/Desktop/bznsflow-blue/node_modules/.bin/convex"
+args = ["mcp", "start", "--project-dir", "/Users/ramsis21/Desktop/bznsflow-blue", "--deployment", "quaint-nightingale-675", "--disable-tools", "envGet,logs"]
+startup_timeout_sec = 30
+
+[mcp_servers.meta-dev]
+url = "https://mcp.facebook.com/devtools"
+
+[mcp_servers.vercel]
+url = "https://mcp.vercel.com"

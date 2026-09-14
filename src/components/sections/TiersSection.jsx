@@ -145,14 +145,14 @@ export function TiersSection({ t, tiers = [], lang = 'ar', trackEvent }) {
               <p className="tier-pull">{tier.pull}</p>
 
               <a
-                href={waLink(planMsg(tier.name))}
-                target="_blank"
+                href={tier.key === 'catalyst' ? (lang === 'ar' ? '/layla/setup' : '/en/layla/setup') : waLink(planMsg(tier.name))}
+                target={tier.key === 'catalyst' ? undefined : '_blank'}
                 rel="noopener noreferrer"
                 className={`btn ${tier.popular ? 'btn-primary' : 'btn-ghost'} pricing-btn`}
-                onClick={() => trackEvent?.('WhatsAppClick', { source: 'plan', plan: tier.name })}
+                onClick={() => trackEvent?.(tier.key === 'catalyst' ? 'LaylaSetupClick' : 'WhatsAppClick', { source: 'plan', plan: tier.name })}
               >
-                <Icon name="whatsapp" size={18} />
-                <span>{tier.cta}</span>
+                <Icon name={tier.key === 'catalyst' ? 'arrow-up' : 'whatsapp'} size={18} />
+                <span>{tier.key === 'catalyst' ? (lang === 'ar' ? 'إعداد ليلى' : 'Set up Layla') : tier.cta}</span>
               </a>
 
               {tier.nextStep && (

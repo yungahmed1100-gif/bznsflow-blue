@@ -117,6 +117,7 @@ export default {
   "playbook_name_ph": "First and last name",
   "playbook_email_label": "Your email",
   "playbook_email_ph": "you@company.com",
+  "playbook_phone_ph": "+968 9123 4567",
   "playbook_cta": "Send me the playbook",
   "playbook_sending": "Sending\u2026",
   "playbook_privacy": "One email. No sequence, no calls. Unsubscribe in a click.",

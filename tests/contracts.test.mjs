@@ -16,7 +16,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { PLAYBOOK_PDF, PLAYBOOK_TEASER } from '../src/lib/constants.js';
+import { PLAYBOOK_PDF } from '../src/lib/constants.js';
+import { PAGES } from '../src/routes-manifest.js';
 import { MAX_CHARS } from '../api/_lib/guard.js';
 import { CHAT_MAX_CHARS } from '../src/lib/chat.js';
 import * as replies from '../api/_lib/replies.js';
@@ -40,13 +41,6 @@ t('the PDF the page offers actually exists in public/', () => {
     `public${PLAYBOOK_PDF} is missing — the download link is dead`,
   );
 });
-t('the teaser the email uses as its body exists in public/', () => {
-  // Referenced extensionless because Vercel's cleanUrls redirects .html.
-  assert.ok(
-    existsSync(join(root, 'public', `${PLAYBOOK_TEASER}.html`)),
-    `public${PLAYBOOK_TEASER}.html is missing — the playbook email has no body`,
-  );
-});
 t('api/lead.js emails the same PDF the page offers', () => {
   // api/lead.js cannot import from src/lib at the top of a bundled function
   // without dragging the module graph in, so it holds its own copy. This is what
@@ -56,10 +50,31 @@ t('api/lead.js emails the same PDF the page offers', () => {
     lead.includes(`'${PLAYBOOK_PDF}'`),
     `api/lead.js does not reference ${PLAYBOOK_PDF} — the email would attach a different file`,
   );
+});
+t('nothing fetches the retired email teaser', () => {
+  // The email body used to be a public HTML file the Apps Script downloaded at
+  // send time. It is gone, and the body is built in Code.gs instead. A single
+  // surviving reference would put a 404 back in the send path — and a failed
+  // teaser fetch throws, which means the lead saves and the email silently
+  // never goes. That is the 2026 incident this whole file exists for.
+  const sources = [
+    'api/lead.js', 'api/_lib/mailer.js', 'apps-script/Code.gs', 'src/lib/constants.js',
+  ].map(read).join('\n');
   assert.ok(
-    lead.includes(`'${PLAYBOOK_TEASER}'`),
-    `api/lead.js does not reference ${PLAYBOOK_TEASER}`,
+    !/bznsflow-email-teaser|teaserUrl|TEASER_URL/.test(sources),
+    'a reference to the retired teaser survives — the playbook email would 404 again',
   );
+  assert.ok(
+    !existsSync(join(root, 'public', 'bznsflow-email-teaser.html')),
+    'public/bznsflow-email-teaser.html is back — it was a public URL nobody was meant to open',
+  );
+});
+t('the Apps Script fetches the PDF and nothing else', () => {
+  // One fetch left in the send path. Anything more is a new way for the email
+  // to fail on something other than its own attachment.
+  const gs = read('apps-script/Code.gs');
+  const fetches = [...gs.matchAll(/UrlFetchApp\.fetch\(\s*(\w+)/g)].map((m) => m[1]);
+  assert.deepEqual(fetches, ['playbook'], `unexpected UrlFetchApp calls: ${fetches.join(', ')}`);
 });
 t('the Apps Script fallback URL points at a file that exists', () => {
   // Code.gs takes the URLs from /api/lead now, but keeps constants as a
@@ -69,6 +84,18 @@ t('the Apps Script fallback URL points at a file that exists', () => {
   assert.ok(m, 'PLAYBOOK_URL not found in Code.gs');
   const path = m[1].replace(/^https?:\/\/[^/]+/, '');
   assert.equal(path, PLAYBOOK_PDF, 'Code.gs fallback disagrees with src/lib/constants.js');
+});
+t('/playbook is a prerendered route AND is in the sitemap', () => {
+  // The page paid traffic lands on. A route that exists but is missing from
+  // PAGES gets no sitemap entry and no hreflang pair — invisible in a way that
+  // costs money rather than breaking a build.
+  const routes = read('src/routes.jsx');
+  assert.ok(/path: 'playbook'/.test(routes), "src/routes.jsx has no 'playbook' route");
+  assert.ok(/path: 'en\/playbook'/.test(routes), "src/routes.jsx has no 'en/playbook' route");
+  assert.ok(
+    PAGES.some((p) => p.path === '/playbook'),
+    '/playbook is missing from PAGES — the campaign landing page would not be in the sitemap',
+  );
 });
 
 console.log('\ncanned chat replies');

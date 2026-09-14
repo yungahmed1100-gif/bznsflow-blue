@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+node_modules
+dist
+.vite-react-ssg-temp
+work
+
+.codex
+.agents

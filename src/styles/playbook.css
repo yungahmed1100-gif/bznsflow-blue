@@ -176,14 +176,40 @@
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 
-.playbook-field input::placeholder { color: var(--text-muted); }
-.playbook-field input:hover { border-color: var(--border-hover); }
+/* The sector select matches the inputs beside it rather than inheriting the
+   browser's control, which on macOS arrives rounded, grey and a size smaller. */
+.playbook-field select {
+  width: 100%;
+  padding: 10px var(--space-4);
+  font: inherit;
+  font-size: 1rem;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
 
-.playbook-field input:focus-visible {
+.playbook-field input::placeholder { color: var(--text-muted); }
+.playbook-field input:hover,
+.playbook-field select:hover { border-color: var(--border-hover); }
+
+.playbook-field input:focus-visible,
+.playbook-field select:focus-visible {
   outline: none;
   border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px rgba(92, 149, 198, 0.22);
 }
+
+/* The phone number is Latin digits and a dial code. Isolated so the leading "+"
+   is not reordered to the far end of the field under dir="rtl". */
+.playbook-field input[type="tel"] {
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: start;
+}
+
+[dir="rtl"] .playbook-field input[type="tel"] { text-align: end; }
 
 /* The CTA sticks to the bottom of the scrolling card. Copy length varies by
    language (English runs ~30px longer than Arabic here) and viewport height
@@ -227,4 +253,174 @@
 @media (max-width: 600px) {
   .playbook-overlay { padding: var(--space-3); }
   .playbook-card { padding: var(--space-8) var(--space-5); }
+}
+
+/* ============================================================
+   /playbook — the standalone page
+   The same form, set on paper instead of inside a dialog. Flush
+   to the start edge, ruled rather than boxed, flat except for
+   the one button the visitor is meant to press. See DESIGN.md.
+ ============================================================ */
+
+.pb-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: var(--space-6) var(--space-6) var(--space-12);
+  background: var(--bg-primary);
+}
+
+.pb-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  max-width: 760px;
+  margin: 0 auto var(--space-10);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.pb-brand,
+.pb-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.pb-lang {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.pb-lang:hover { color: var(--text-primary); }
+
+/* A reading column, set flush to the start edge rather than centred text.
+   65ch on the lede, per the type scale in DESIGN.md. */
+.pb-doc {
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: start;
+}
+
+.pb-title {
+  margin: var(--space-3) 0 var(--space-4);
+  font-size: clamp(2rem, 1.3rem + 2.6vw, 3rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+  text-wrap: balance;
+}
+
+.pb-lede {
+  max-width: 65ch;
+  margin-bottom: var(--space-8);
+  font-size: 1.1rem;
+  line-height: 1.75;
+  color: var(--text-secondary);
+}
+
+/* Flat and bounded by a hairline. A form is not one of the three things the
+   system lets leave the paper — the button inside it is. */
+.pb-card {
+  padding: var(--space-8);
+  background: var(--bg-card);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-sm);
+  scroll-margin-top: var(--space-6);
+}
+
+/* Inside the page the CTA is an ordinary button. The sticky treatment exists
+   to keep it on screen inside a scrolling dialog, and there is no dialog here. */
+.pb-card .playbook-submit {
+  position: static;
+}
+
+.pb-next {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: center;
+  margin-top: var(--space-4);
+}
+
+/* Three ruled entries, numbered, so the count the headline promises is visible
+   in the structure and not only in the sentence. */
+.pb-problems {
+  counter-reset: pb-problem;
+  margin: var(--space-12) 0 var(--space-8);
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border-hover);
+}
+
+.pb-problems li {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: var(--space-4);
+  padding: var(--space-6) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.pb-problems li::before {
+  counter-increment: pb-problem;
+  content: counter(pb-problem, decimal-leading-zero);
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+/* The closing statement of the argument, marked rather than boxed. */
+.pb-cost {
+  margin-bottom: var(--space-5);
+  padding-inline-start: var(--space-5);
+  border-inline-start: 2px solid var(--orange);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+.pb-solution {
+  max-width: 70ch;
+  margin-bottom: var(--space-8);
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.pb-again a {
+  font-weight: 700;
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-decoration-color: var(--orange);
+  text-decoration-thickness: 0.1em;
+  text-underline-offset: 0.14em;
+}
+
+.pb-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  max-width: 760px;
+  margin: var(--space-12) auto 0;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.pb-foot a { color: var(--text-secondary); }
+.pb-foot a:hover { color: var(--text-primary); }
+
+@media (max-width: 640px) {
+  .pb-page { padding: var(--space-5) var(--space-4) var(--space-10); }
+  .pb-nav { margin-bottom: var(--space-8); }
+  .pb-card { padding: var(--space-5); }
+  .pb-problems li { grid-template-columns: 2.2rem minmax(0, 1fr); gap: var(--space-3); }
 }

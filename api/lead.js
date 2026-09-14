@@ -18,21 +18,45 @@
 // Server-side none of that applies: no CORS, fetch follows the redirect, and the
 // real JSON comes back. Same reasoning as api/_lib/mailer.js, which this reuses.
 //
-// Request   { name?, email, sourceCta?, language?, pageUrl?, playbook?: boolean }
+// Request   { name?, email, phone?, industry?, sourceCta?, language?, pageUrl?,
+//             playbook?: boolean }
 // Response  { ok: true, emailed?: boolean } | { ok: false, reason: string }
 
 import { isAllowedOrigin, clientIp } from './_lib/guard.js';
-import { isValidEmail, normalizeEmail, authBuckets, LIMITS } from './_lib/auth.js';
+import { isValidEmail, normalizeEmail, authBuckets, LIMITS, MIN_PHONE_DIGITS } from './_lib/auth.js';
+import { INDUSTRY_IDS } from '../src/lib/industries.js';
 import { checkRate } from './_lib/db.js';
 import { pushLead } from './_lib/mailer.js';
 import { send, readBody } from './_lib/http.js';
 
 const SITE = 'https://www.bznsflowai.com';
 
-// Kept in step with src/lib/constants.js by tests/lead.test.mjs — the drift these
-// paths already suffered once is the whole reason /api/lead passes them at all.
+// Kept in step with src/lib/constants.js by tests/contracts.test.mjs — the drift
+// this path already suffered once is the whole reason /api/lead passes it at all.
 const PLAYBOOK_PDF = '/bznsflow-sme-operating-playbook.pdf';
-const PLAYBOOK_TEASER = '/bznsflow-email-teaser';
+
+/**
+ * Keep a usable phone number, or nothing.
+ *
+ * Deliberately lenient, and deliberately never fatal. The form asks for a dial
+ * code because it offers no country selector, so what arrives is whatever the
+ * visitor typed. This file already lets a lead through when the rate-limit
+ * check itself fails, on the grounds that a lead is revenue; losing one over a
+ * mistyped digit would be the same mistake with a smaller excuse.
+ */
+export function cleanPhone(raw) {
+  const digits = String(raw ?? '').replace(/\D/g, '').replace(/^0+/, '');
+  if (digits.length < MIN_PHONE_DIGITS || digits.length > LIMITS.phoneDigits) return undefined;
+  // Preserved as typed, minus the noise. Unlike the sign-in profile there is no
+  // country here to derive a dial code from, so none is invented.
+  return `+${digits}`;
+}
+
+/** Keep the sector only if it is one we actually defined. Same rule, no 400. */
+export function cleanIndustry(raw) {
+  const id = String(raw ?? '').trim();
+  return INDUSTRY_IDS.has(id) ? id : undefined;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -74,12 +98,13 @@ export default async function handler(req, res) {
     const result = await pushLead({
       name,
       email: normalizeEmail(body.email),
+      phone: cleanPhone(body.phone),
+      industry: cleanIndustry(body.industry),
       sourceCta: String(body.sourceCta ?? 'Playbook Popup').slice(0, 80),
       lang: body.language === 'ar' ? 'ar' : 'en',
       pageUrl: typeof body.pageUrl === 'string' ? body.pageUrl.slice(0, 500) : '',
       playbook: wantsPlaybook,
-      // Absolute, because Apps Script fetches them from the open internet.
-      teaserUrl: wantsPlaybook ? `${SITE}${PLAYBOOK_TEASER}` : undefined,
+      // Absolute, because Apps Script fetches it from the open internet.
       playbookUrl: wantsPlaybook ? `${SITE}${PLAYBOOK_PDF}` : undefined,
     });
 

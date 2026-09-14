@@ -104,16 +104,20 @@ export function sendOtpEmail({ email, code, lang }) {
  * No `action`, so Code.gs takes its normal append path.
  *
  * `playbook: true` additionally emails the lead magnet. A sign-in must never set
- * it — the sign-in flow calls this with the flag absent. `teaserUrl` and
- * `playbookUrl` are passed so the asset filenames have one source of truth on
- * this side rather than a second hardcoded copy inside Apps Script; that copy is
- * exactly what drifted and silently stopped the emails.
+ * it — the sign-in flow calls this with the flag absent. `playbookUrl` is passed
+ * so the attachment's filename has one source of truth on this side rather than
+ * a second hardcoded copy inside Apps Script; that copy is exactly what drifted
+ * and silently stopped the emails.
+ *
+ * The email's body is no longer passed with it. It used to be fetched from a
+ * public URL on this site; Apps Script now builds it, so there is nothing left
+ * to fetch and nothing left to 404.
  *
  * @returns {Promise<{ ok: true, emailed?: boolean, emailError?: string }>}
  */
 export function pushLead({
   name, email, phone, country, industry, lang, pageUrl,
-  sourceCta, playbook, teaserUrl, playbookUrl,
+  sourceCta, playbook, playbookUrl,
 }) {
   return post({
     name,
@@ -124,6 +128,6 @@ export function pushLead({
     pageUrl: pageUrl || '',
     marketRegion: country,
     segment: industry,
-    ...(playbook ? { playbook: true, teaserUrl, playbookUrl } : {}),
+    ...(playbook ? { playbook: true, playbookUrl } : {}),
   }, LEAD_TIMEOUT_MS);
 }

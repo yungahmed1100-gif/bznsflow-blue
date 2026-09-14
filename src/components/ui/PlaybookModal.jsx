@@ -1,32 +1,21 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Icon } from './Icon';
-import { PLAYBOOK_PDF } from '../../lib/constants';
+import { PlaybookForm, PlaybookSuccess } from './PlaybookForm';
 
-// The playbook prompt — the site's only email capture, and therefore the only
-// thing that fires the `Lead` event both ad sets bid against. It appears when a
-// visitor is about to leave rather than sitting in the page flow; see
-// hooks/useExitIntent.js for how that moment is detected.
+// The playbook prompt, shown when a visitor is about to leave the home page;
+// see hooks/useExitIntent.js for how that moment is detected.
 //
-// Submits to /api/lead, which talks to Apps Script server-side. It used to post
-// straight to the /exec URL with `mode: 'no-cors'`, which meant an opaque
-// response the page could not read, no timeout, and a `Lead` event that fired
-// whether or not capture actually worked. Because `doPost` downloads the teaser
-// and the PDF before replying, a slow script left this button disabled with the
-// page's scroll locked — the "tab freezes" report. See api/lead.js.
-
-// Sits just under /api/lead's 30s function ceiling, so a slow-but-working
-// request is never killed client-side and reported as a failure the server did
-// not have. Apps Script is usually 2-3s; this is the cold-container worst case.
-// The close button stays enabled throughout, so the visitor is never trapped.
-const SUBMIT_TIMEOUT_MS = 28000;
+// This file owns only what is genuinely modal — the overlay, the dialog role,
+// the focus trap and the scroll lock. The fields, the submit and the success
+// screen live in PlaybookForm, which /playbook renders too. Before that split
+// the popup was the site's only email capture; now it is one of two, and they
+// have to stay identical, because both fire the same `Lead` event.
 
 const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function PlaybookModal({ t, lang = 'ar', open, onClose, trackEvent }) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [status, setStatus] = useState('idle'); // idle | sending | sent | error
+  const [done, setDone] = useState(false);
   const panelRef = useRef(null);
   const previouslyFocused = useRef(null);
 
@@ -71,62 +60,7 @@ export function PlaybookModal({ t, lang = 'ar', open, onClose, trackEvent }) {
     };
   }, [open, onClose]);
 
-  const handleSubmit = useCallback(
-    async (e) => {
-      e.preventDefault();
-      if (status === 'sending') return;
-      setStatus('sending');
-
-      try {
-        const res = await fetch('/api/lead', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          // A bounded wait. Apps Script fetches the teaser and the PDF before it
-          // replies, so this is genuinely slow — but an unbounded await leaves
-          // the visitor staring at a disabled button on a page that cannot
-          // scroll, which reads as a crash.
-          signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS),
-          body: JSON.stringify({
-            playbook: true,
-            name: name.trim(),
-            email: email.trim(),
-            sourceCta: 'Playbook Popup',
-            language: lang,
-            pageUrl: typeof window !== 'undefined' ? window.location.href : '',
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok || !data?.ok) {
-          setStatus('error');
-          return;
-        }
-
-        setStatus('sent');
-        // Only now, and only on a response we could actually read. The old
-        // no-cors call fired this on an opaque promise that resolved even when
-        // nothing had been captured, which quietly poisoned the ad optimisation
-        // signal both ad sets bid against.
-        trackEvent?.('PlaybookSubmit');
-
-        // The row saved but the email did not. The success screen still hands
-        // over the PDF, so the visitor is fine — this is for us.
-        if (data.emailed === false) {
-          console.error('[playbook] lead captured but the email failed to send');
-        }
-      } catch {
-        // Timeout, offline, or a server error. Never a dead end: the failure
-        // state still hands over the PDF.
-        setStatus('error');
-      }
-    },
-    [status, name, email, lang, trackEvent],
-  );
-
   if (!open) return null;
-
-  const isDone = status === 'sent';
 
   return (
     <div className="playbook-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -141,16 +75,8 @@ export function PlaybookModal({ t, lang = 'ar', open, onClose, trackEvent }) {
           <Icon name="close" size={18} />
         </button>
 
-        {isDone ? (
-          <div className="playbook-success">
-            <Icon name="check" size={28} />
-            <h2 id="playbook-title" className="playbook-success-title">{t.playbook_success_title}</h2>
-            <p className="playbook-sub">{t.playbook_success_sub}</p>
-            <a href={PLAYBOOK_PDF} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-large">
-              <Icon name="feather" size={18} />
-              <span>{t.playbook_download}</span>
-            </a>
-          </div>
+        {done ? (
+          <PlaybookSuccess t={t} titleId="playbook-title" />
         ) : (
           <>
             <div className="section-label">{t.playbook_eyebrow}</div>
@@ -170,41 +96,13 @@ export function PlaybookModal({ t, lang = 'ar', open, onClose, trackEvent }) {
             <p className="playbook-cost">{t.playbook_cost}</p>
             <p className="playbook-solution">{t.playbook_solution}</p>
 
-            <form className="playbook-form" onSubmit={handleSubmit}>
-              <div className="playbook-field">
-                <label htmlFor="playbook-name">{t.playbook_name_label}</label>
-                <input
-                  id="playbook-name" name="name" type="text" autoComplete="name" required
-                  placeholder={t.playbook_name_ph}
-                  value={name} onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-
-              <div className="playbook-field">
-                <label htmlFor="playbook-email">{t.playbook_email_label}</label>
-                <input
-                  id="playbook-email" name="email" type="email" autoComplete="email" required
-                  placeholder={t.playbook_email_ph}
-                  value={email} onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-
-              <button type="submit" className="btn btn-primary btn-large playbook-submit" disabled={status === 'sending'}>
-                <Icon name="mail" size={18} />
-                <span>{status === 'sending' ? t.playbook_sending : t.playbook_cta}</span>
-              </button>
-            </form>
-
-            {status === 'error' && (
-              <p className="playbook-error" role="alert">
-                {t.chat_error}{' '}
-                <a href={PLAYBOOK_PDF} target="_blank" rel="noopener noreferrer">
-                  {t.playbook_download}
-                </a>
-              </p>
-            )}
-
-            <p className="playbook-privacy">{t.playbook_privacy}</p>
+            <PlaybookForm
+              t={t}
+              lang={lang}
+              sourceCta="Playbook Popup"
+              trackEvent={trackEvent}
+              onSuccess={() => setDone(true)}
+            />
           </>
         )}
       </div>

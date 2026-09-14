@@ -23,15 +23,32 @@
     },
     "api/lead.js": {
       "maxDuration": 30
+    },
+    "api/layla-meta.js": {
+      "maxDuration": 60
+    },
+    "api/layla-meta-webhook.js": {
+      "maxDuration": 30
+    },
+    "api/layla-meta-worker.js": {
+      "maxDuration": 60
+    },
+    "api/layla-meta-readiness.js": {
+      "maxDuration": 30
     }
   },
   "regions": [
     "sin1"
   ],
-  "crons": [
+  "crons": [],
+  "rewrites": [
     {
-      "path": "/api/keepalive",
-      "schedule": "0 6 * * *"
+      "source": "/api/layla-meta-activation",
+      "destination": "/api/layla-meta?surface=activation"
+    },
+    {
+      "source": "/api/layla-meta-test",
+      "destination": "/api/layla-meta?surface=test"
     }
   ],
   "redirects": [
@@ -73,6 +90,14 @@
         {
           "key": "Content-Security-Policy-Report-Only",
           "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://www.facebook.com https://connect.facebook.net; connect-src 'self' https://connect.facebook.net; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive"
+        },
+        {
+          "key": "X-Bznsflow-Environment",
+          "value": "blue"
         }
       ]
     },
@@ -85,5 +110,11 @@
         }
       ]
     }
-  ]
+  ],
+  "env": {
+    "LAYLA_META_MODE": "mock",
+    "LAYLA_META_KILL_SWITCH": "true",
+    "LAYLA_OPEN_TEST_ENABLED": "false",
+    "LAYLA_CUSTOMER_ONBOARDING_ENABLED": "false"
+  }
 }

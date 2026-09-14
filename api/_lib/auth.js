@@ -16,7 +16,10 @@ import { COUNTRY_CODES, dialFor } from '../../src/lib/countries.js';
 // Field caps. Generous enough not to reject a real person, tight enough that a
 // row cannot be used as storage.
 export const LIMITS = { name: 100, email: 254, phoneDigits: 15 };
-const MIN_PHONE_DIGITS = 4;
+// Exported because /api/lead applies the same floor to the playbook form's
+// phone field. Two different numbers for "too short to be a phone number" is
+// how the same visitor passes one form and fails the other.
+export const MIN_PHONE_DIGITS = 4;
 
 export const CODE_TTL_MINUTES = 10;
 export const SESSION_DAYS = 30;

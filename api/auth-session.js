@@ -1,3 +1,5 @@
+import { createBlueAuthHandler } from './_lib/blue-auth.js';
+import { BLUE_CLOUD } from './_lib/convex.js';
 // /api/auth-session — the session half of sign-in.
 //
 // Method-multiplexed rather than split across four files: they share the cookie
@@ -46,6 +48,7 @@ function sessionToken(req) {
 }
 
 export default async function handler(req, res) {
+  if (process.env.CONVEX_CLOUD_URL === BLUE_CLOUD) return createBlueAuthHandler()(req,res,'session');
   const method = String(req.method || '').toUpperCase();
 
   if (!['GET', 'POST', 'PATCH', 'DELETE'].includes(method)) {
