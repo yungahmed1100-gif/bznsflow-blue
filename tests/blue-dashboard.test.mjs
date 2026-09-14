@@ -176,4 +176,8 @@ test('dashboard API requires sign-in, a saved setup, its gate and CSRF, and deri
   assert.equal((await run(signedIn, request('POST', { action: 'sync_templates' }))).body.reason, 'broadcast_unavailable');
   const overview = await run(signedIn, request('GET'));
   assert.equal(overview.body.broadcastEnabled, false);
+  // Vercel gate on, durable Convex gate off: templates may sync, campaigns stay off.
+  const apiOn = response();
+  await createDashboardApi({ env: { ...apiEnv, BLUE_BROADCAST_ENABLED: 'true', BLUE_LIVE_MESSAGING_ENABLED: 'true' }, store: async op => op === 'overview' ? { messaging: { broadcastAvailable: false } } : { templates: [] }, ...signedIn })(request('GET'), apiOn);
+  assert.deepEqual([apiOn.body.broadcastApiEnabled, apiOn.body.broadcastEnabled], [true, false]);
 });

@@ -57,7 +57,9 @@ export function createDashboardApi({ env = process.env, fetcher = fetch, now = D
 
       if (req.method === 'GET') {
         const overview = await store('overview', { sessionHash });
-        return reply({ ...overview, account: { email: account.email }, dashboardAvailable: true, broadcastEnabled: broadcastAvailable(env) && overview.messaging.broadcastAvailable });
+        // Template sync needs only the Vercel gate, so an approved template can be confirmed
+        // before the durable Convex gate allows any campaign to be created.
+        return reply({ ...overview, account: { email: account.email }, dashboardAvailable: true, broadcastApiEnabled: broadcastAvailable(env), broadcastEnabled: broadcastAvailable(env) && overview.messaging.broadcastAvailable });
       }
       if (!verifyCsrf(req)) throw new PilotError('csrf', 403);
       const body = readBody(req);

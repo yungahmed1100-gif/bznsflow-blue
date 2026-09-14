@@ -8,7 +8,8 @@ import { Dialog } from './Dialog';
 const MANAGER_URL = 'https://business.facebook.com/wa/manage/message-templates/';
 
 export function BroadcastView({ s, overview, onTimezone }) {
-  const enabled = overview.broadcastEnabled;
+  const enabled = overview.broadcastApiEnabled ?? overview.broadcastEnabled;
+  const sending = overview.broadcastEnabled;
   const templates = usePolling(() => dashboard('templates'), [], { interval: 0, enabled });
   const campaigns = usePolling(() => dashboard('campaigns'), [], { interval: 10000, enabled });
   const [busy, setBusy] = useState(''), [error, setError] = useState(''), [wizard, setWizard] = useState(false), [openId, setOpenId] = useState(null);
@@ -24,8 +25,9 @@ export function BroadcastView({ s, overview, onTimezone }) {
     <div className="ld-broadcast">
       <div className="ld-page-head">
         <div><h1>{s.t('broadcast')}</h1><p className="ld-lede">{s.t('broadcastIntro')}</p></div>
-        <button type="button" className="ld-button ld-primary" onClick={() => setWizard(true)} disabled={!list.some(t => t.sendable)}>{s.t('newBroadcast')}</button>
+        <button type="button" className="ld-button ld-primary" onClick={() => setWizard(true)} disabled={!sending || !list.some(t => t.sendable)}>{s.t('newBroadcast')}</button>
       </div>
+      {!sending && <p className="ld-help" role="status">{s.t('broadcastSendingOff')}</p>}
       {error && <p className="ld-inline-error" role="alert">{error}</p>}
 
       <section className="ld-section" aria-labelledby="ld-campaigns">
