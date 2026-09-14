@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { executeReview } from '../convex/reviewState.js';
+import { detachIntegration, executeReview } from '../convex/reviewState.js';
 import { createReviewHandler, inspectReviewConnection } from '../api/_lib/layla/review-api.js';
 import { BLUE_CLOUD, reviewStore } from '../api/_lib/convex.js';
 import { PilotError } from '../api/_lib/layla/config.js';
@@ -12,7 +12,11 @@ const profile = {businessName:'Blue Review Studio',sector:'Studio',services:'Por
 function memory() {
   const rows = new Map(); let clock = 1000, queue = Promise.resolve();
   const db = {
-    query(table) { let field, value; return {withIndex(index, select) {select({eq(f,v){field=f;value=v;}});return this;},async unique(){return structuredClone([...rows.values()].find(r=>r.__table===table && r[field]===value));},async first(){return this.unique();}};},
+    query(table) {
+      const conditions=[];const matches=()=>[...rows.values()].filter(r=>r.__table===table && conditions.every(([f,v])=>String(r[f])===String(v)));
+      return {withIndex(index, select) {const q={eq(f,v){conditions.push([f,v]);return q;}};select(q);return this;},async unique(){return structuredClone(matches()[0]);},async first(){return this.unique();},async take(n){return structuredClone(matches().slice(0,n));}};
+    },
+    async delete(id){rows.delete(id);},
     async insert(table,value){const id=randomUUID();rows.set(id,{_id:id,__table:table,...structuredClone(value)});return id;},
     async get(id){return structuredClone(rows.get(id));},
     async patch(id,value){const row=rows.get(id); for(const [k,v] of Object.entries(value)) {if(v===undefined) delete row[k];else row[k]=structuredClone(v);}},
@@ -21,7 +25,7 @@ function memory() {
     const run = queue.then(async()=>{const r=await executeReview({db},{operation,...args},clock); if(!r.ok) throw new PilotError(r.reason,409);return r.value;});
     queue=run.catch(()=>{});return run;
   };
-  return {store,rows,now:()=>clock,advance:n=>{clock+=n;}};
+  return {store,rows,db,now:()=>clock,advance:n=>{clock+=n;}};
 }
 const response = () => ({headers:{},setHeader(k,v){this.headers[k]=v;},status(n){this.statusCode=n;},end(v){this.body=JSON.parse(v);}});
 async function client(handler) {
@@ -119,6 +123,39 @@ test('expired attempts and occupied assets cannot trigger additional subscriptio
   const h=harness(),a=await client(h.handler),body=await begin(a);h.db.advance(600001);assert.equal((await a.call(body)).body.reason,'attempt_expired');
   const second=await begin(a);assert.equal((await a.call(second)).body.status,'connected');
   const b=await client(h.handler),other=await begin(b);assert.equal((await b.call(other)).body.reason,'asset_in_use');assert.equal(h.effects.length,1);
+});
+async function savedConnection(h) {
+  const a=await client(h.handler),body=await begin(a);assert.equal((await a.call(body)).body.status,'connected');
+  const row=[...h.db.rows.values()].find(r=>r.__table==='blueReviewSessions' && r.integration);
+  h.db.rows.set('acct-1',{_id:'acct-1',__table:'accounts',email:'owner@example.com',draftHash:row.sessionHash});
+  row.accountId='acct-1';return {a,row};
+}
+const detach=(h,args={email:'Owner@Example.com ',confirm:true})=>detachIntegration({db:h.db.db},args,h.db.now());
+test('operator detach clears an idle connection so the same setup can connect another number',async()=>{
+  const h=harness(),{a,row}=await savedConnection(h);
+  assert.equal((await a.call({action:'begin',path:'coexistence'})).body.reason,'operation_conflict');
+  assert.equal((await detach(h,{email:'owner@example.com'})).reason,'confirmation_required');
+  assert.deepEqual(await detach(h),{ok:true,value:{detached:true}});
+  const after=h.db.rows.get(row._id);
+  assert.equal(after.status,'business_saved');assert.equal(after.integration,undefined);assert.equal(after.phone,undefined);assert.equal(after.connectionChecks,undefined);
+  assert.equal(after.profile.businessName,profile.businessName);assert.equal(after.accountId,'acct-1');
+  assert.equal([...h.db.rows.values()].filter(r=>r.__table==='blueAssetClaims').length,0);
+  assert.equal((await a.call({action:'begin',path:'coexistence'})).statusCode,200);
+  assert.equal((await detach(h)).reason,'not_connected');
+});
+test('operator detach refuses while Layla is active or a send is still open',async()=>{
+  const h=harness(),{row}=await savedConnection(h);
+  h.db.rows.set('control',{_id:'control',__table:'blueMessagingControls',integrationId:row.integration.id,active:true});
+  assert.equal((await detach(h)).reason,'messaging_active');
+  h.db.rows.get('control').active=false;
+  h.db.rows.set('msg',{_id:'msg',__table:'blueMessages',integrationId:row.integration.id,status:'ambiguous'});
+  assert.equal((await detach(h)).reason,'sends_pending');
+  h.db.rows.delete('msg');
+  h.db.rows.set('camp',{_id:'camp',__table:'blueCampaigns',integrationId:row.integration.id,status:'scheduled'});
+  assert.equal((await detach(h)).reason,'campaign_open');
+  h.db.rows.delete('camp');
+  assert.equal((await detach(h)).ok,true);assert.equal(h.db.rows.has('control'),false);
+  assert.equal((await executeReview({db:h.db.db},{operation:'detach',sessionHash:row.sessionHash},h.db.now())).reason,'operation_conflict');
 });
 test('a failed signup keeps its diagnostic until the next attempt is prepared',async()=>{
   const h=harness(),a=await client(h.handler);assert.equal((await a.call(await begin(a))).body.status,'connected');

@@ -86,3 +86,43 @@ export async function executeReview(ctx, a, now = Date.now()) {
   } else if (!['create','get'].includes(a.operation)) return fail('operation_conflict');
   return { ok: true, value: row };
 }
+
+const OPEN_MESSAGES = ['pending','queued','attempting','ambiguous'];
+const OPEN_CAMPAIGNS = ['scheduled','starting','processing'];
+const CONNECTION_FIELDS = ['integration','phone','waba','attempt','operation','operationAt','operationEffect','pendingSelection','connectionChecks','checkedAt','diagnostic','subscriptionAttempted','registrationAttempted'];
+/**
+ * Operator-only: detach an idle connection from a saved setup so the owner can
+ * connect a different number. Facts, metrics and the account link are kept.
+ * Nothing is changed at Meta. Refuses while anything could still send.
+ */
+export async function detachIntegration(ctx, a, now = Date.now()) {
+  const fail = reason => ({ ok: false, reason });
+  const email = typeof a.email === 'string' ? a.email.trim().toLowerCase() : '';
+  if (!email || a.confirm !== true) return fail('confirmation_required');
+  const account = await ctx.db.query('accounts').withIndex('by_email', q => q.eq('email', email)).unique();
+  if (!account?.draftHash) return fail('setup_not_found');
+  const row = await ctx.db.query('blueReviewSessions').withIndex('by_hash', q => q.eq('sessionHash', account.draftHash)).unique();
+  if (!row || String(row.accountId) !== String(account._id)) return fail('setup_not_found');
+  const i = row.integration;
+  if (!i) return fail('not_connected');
+  if (row.operation || row.status === 'verifying' || row.pendingSelection) return fail('operation_in_progress');
+  const control = await ctx.db.query('blueMessagingControls').withIndex('by_integration', q => q.eq('integrationId', i.id)).unique();
+  if (control?.active) return fail('messaging_active');
+  const open = async (table, statuses) => {
+    for (const status of statuses) {
+      if ((await ctx.db.query(table).withIndex('by_integration_status', q => q.eq('integrationId', i.id).eq('status', status)).take(1)).length) return true;
+    }
+    return false;
+  };
+  if (await open('blueMessages', OPEN_MESSAGES) || await open('blueCampaignRecipients', OPEN_MESSAGES)) return fail('sends_pending');
+  if (await open('blueCampaigns', OPEN_CAMPAIGNS)) return fail('campaign_open');
+  for (const field of ['phone','waba']) {
+    const claim = await ctx.db.query('blueAssetClaims').withIndex(`by_${field}`, q => q.eq(field, i[field])).unique();
+    if (claim && claim.sessionHash === row.sessionHash) await ctx.db.delete(claim._id);
+  }
+  if (control) await ctx.db.delete(control._id);
+  const templates = await ctx.db.query('blueTemplates').withIndex('by_account_template', q => q.eq('accountId', account._id)).take(500);
+  for (const template of templates) if (template.integrationId === i.id) await ctx.db.delete(template._id);
+  await ctx.db.patch(row._id, { ...Object.fromEntries(CONNECTION_FIELDS.map(k => [k, undefined])), status: 'business_saved', updatedAt: now });
+  return { ok: true, value: { detached: true } };
+}
