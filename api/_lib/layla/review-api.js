@@ -102,7 +102,7 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
         reviewMode, websiteImportAvailable: env.BLUE_WEBSITE_IMPORT_ENABLED === 'true', accountSaveAvailable: accountsAvailable, savedToAccount: !!row.accountId,
         account: account ? { email:account.email } : null,
         ...(row.attempt && !row.attempt.claimed && ['prepared','awaiting_meta'].includes(row.status) && row.attempt.expiresAt > now() ? {
-          prepared: {attempt:row.attempt.id,state:attemptState(row.attempt.id),path:row.attempt.path,expiresAt:row.attempt.expiresAt,appId:APP,configId:CONFIG,version:'v25.0'},
+          prepared: {attempt:row.attempt.id,state:attemptState(row.attempt.id),path:row.attempt.path,expiresAt:row.attempt.expiresAt,appId:APP,configId:CONFIG,version:'v25.0',...(row.attempt.preselect ? {preselect:row.attempt.preselect} : {})},
         } : {}),
       });
       if (req.method === 'GET') return send(res,200,result(),{vary:'Cookie'});
@@ -196,9 +196,13 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
         configuration(env);
         if (!reviewMode && (!account || !row.accountId)) throw new PilotError('sign_in_required',401);
         if (!['coexistence','new_number','existing_cloud'].includes(body.path)) throw new PilotError('invalid_path');
+        const named = ['business','waba'].filter(k => body[k] !== undefined && body[k] !== '');
+        if (named.length && body.path === 'coexistence') throw new PilotError('invalid_path');
+        if (named.some(k => !assetId(body[k]))) throw new PilotError('invalid_signup_result');
+        const preselect = named.length ? Object.fromEntries(named.map(k => [k, body[k]])) : undefined;
         const attempt = randomUUID(), state = attemptState(attempt);
-        await write('begin',{attempt,stateHash:digest(state),path:body.path});
-        return send(res,200,{...result(),attempt,state,path:row.attempt.path,expiresAt:row.attempt.expiresAt,appId:APP,configId:CONFIG,version:'v25.0'},{vary:'Cookie'});
+        await write('begin',{attempt,stateHash:digest(state),path:body.path,...(preselect ? {preselect} : {})});
+        return send(res,200,{...result(),attempt,state,path:row.attempt.path,expiresAt:row.attempt.expiresAt,appId:APP,configId:CONFIG,version:'v25.0',...(preselect ? {preselect} : {})},{vary:'Cookie'});
       } else if (['cancel','finish'].includes(body.action)) {
         if (typeof body.state !== 'string' || !/^[a-f0-9]{64}$/.test(body.state) || typeof body.attempt !== 'string') throw new PilotError('invalid_state',409);
         if (body.action === 'cancel') await write('cancel',{attempt:body.attempt,stateHash:digest(body.state)});
@@ -206,6 +210,8 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
           const c = configuration(env);
           if (!assetId(body.waba) || (body.phone !== undefined && !assetId(body.phone))) throw new PilotError('invalid_signup_result');
           if (typeof body.code !== 'string' || !body.code || body.code.length > 4096) throw new PilotError('invalid_signup_result');
+          // The owner named this WABA before launch; a different one is a wrong selection, not a connection.
+          if (row.attempt?.preselect?.waba && row.attempt.preselect.waba !== body.waba) throw new PilotError('invalid_signup_result');
           await write('claim',{attempt:body.attempt,stateHash:digest(body.state)});
           let token;
           try {

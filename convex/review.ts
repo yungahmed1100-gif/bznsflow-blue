@@ -12,6 +12,7 @@ export const execute = internalMutation({ args: {
   journeyStep: v.optional(v.number()), profileVersion: v.optional(v.number()),
   preview: v.optional(v.object({ question: v.string(), text: v.string(), sourceFields: v.array(v.string()), needsHuman: v.boolean(), intent: v.string() })),
   sessionHash: v.string(), profile: v.optional(profile), attempt: v.optional(v.string()), stateHash: v.optional(v.string()), path: v.optional(path),
+  preselect: v.optional(v.object({ business: v.optional(v.string()), waba: v.optional(v.string()) })),
   integration: v.optional(integration), operationId: v.optional(v.string()), effect: v.optional(v.union(v.literal('register'),v.literal('subscribe'),v.literal('refresh'))),
   status: v.optional(v.union(v.literal('connected'),v.literal('registration_required'),v.literal('reconciliation_required'),v.literal('failed'))),
 }, handler: (ctx, args) => executeReview(ctx, args) });

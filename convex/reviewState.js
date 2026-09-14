@@ -7,6 +7,7 @@ export async function executeReview(ctx, a, now = Date.now()) {
   if (!hash(a.sessionHash)) return fail('invalid_state');
   if (['begin','await','claim','cancel'].includes(a.operation) && (!id(a.attempt) || !hash(a.stateHash))) return fail('invalid_state');
   if (a.operation === 'begin' && !paths.includes(a.path)) return fail('invalid_state');
+  if (a.operation === 'begin' && a.preselect && (a.path === 'coexistence' || !Object.keys(a.preselect).length || Object.entries(a.preselect).some(([k, value]) => !['business','waba'].includes(k) || !/^\d{1,30}$/.test(value)))) return fail('invalid_state');
   if (a.operation === 'profile') {
     const p = a.profile;
     if (p?.faqs && (!Array.isArray(p.faqs) || p.faqs.length>12 || p.faqs.some(f=>typeof f.question !== 'string' || !f.question.trim() || f.question.length>200 || typeof f.answer !== 'string' || !f.answer.trim() || f.answer.length>700))) return fail('invalid_profile');
@@ -41,7 +42,7 @@ export async function executeReview(ctx, a, now = Date.now()) {
     if (row.attempts >= 10) return fail('attempt_limit');
     if (row.attempt && row.attempt.expiresAt > now && !['cancelled','failed','expired'].includes(row.status)) return fail('operation_conflict');
     // A new attempt starts clean: the previous attempt's diagnostic no longer describes it.
-    await patch({ status: 'prepared', metrics:{...row.metrics,metaStartedAt:row.metrics?.metaStartedAt || now}, pendingSelection: undefined, diagnostic: undefined, attempts: row.attempts + 1, attempt: { id: a.attempt, stateHash: a.stateHash, path: a.path, expiresAt: now + 600000, claimed: false } });
+    await patch({ status: 'prepared', metrics:{...row.metrics,metaStartedAt:row.metrics?.metaStartedAt || now}, pendingSelection: undefined, diagnostic: undefined, attempts: row.attempts + 1, attempt: { id: a.attempt, stateHash: a.stateHash, path: a.path, expiresAt: now + 600000, claimed: false, ...(a.preselect ? { preselect: a.preselect } : {}) } });
   } else if (['await','claim','cancel'].includes(a.operation)) {
     if (row.attempt?.id !== a.attempt || row.attempt?.stateHash !== a.stateHash) return fail('invalid_state');
     if (row.attempt.expiresAt <= now) return fail('attempt_expired');

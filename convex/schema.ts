@@ -64,7 +64,7 @@ export default defineSchema({
     previewIntents: v.optional(v.array(v.string())),
     lastPreview: v.optional(v.object({ question: v.string(), text: v.string(), sourceFields: v.array(v.string()), needsHuman: v.boolean(), intent: v.string() })),
     profile: v.optional(v.object({ businessName: v.string(), sector: v.string(), services: v.string(), prices: v.string(), hours: v.string(), location: v.string(), humanContact: v.string(), faqs:v.optional(v.array(v.object({question:v.string(),answer:v.string()}))), reviewed: v.boolean() })),
-    attempt: v.optional(v.object({ id: v.string(), stateHash: v.string(), path, expiresAt: v.number(), claimed: v.boolean() })),
+    attempt: v.optional(v.object({ id: v.string(), stateHash: v.string(), path, expiresAt: v.number(), claimed: v.boolean(), preselect: v.optional(v.object({ business: v.optional(v.string()), waba: v.optional(v.string()) })) })),
     integration: v.optional(v.object({ id: v.string(), app: v.string(), waba: v.string(), phone: v.string(), sender: v.string(), path,
       credential: v.object({ v: v.number(), iv: v.string(), data: v.string(), tag: v.string() }) })),
     phone: v.optional(v.string()), waba: v.optional(v.string()), operation: v.optional(v.string()), operationAt: v.optional(v.number()), operationEffect: v.optional(v.string()),

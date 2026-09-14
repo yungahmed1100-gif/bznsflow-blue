@@ -28,7 +28,7 @@ const explanations = {
   attempt_limit: 'This setup has reached its connection attempt limit. Contact ahmed@bznsflowai.com with the reference below.',
   attempt_expired: 'The Meta connection expired. Please prepare a new connection.', attempt_used: 'This Meta connection attempt was already used. Please prepare a new connection.',
   operation_conflict: 'Another connection step is still running. Reload to check your setup before retrying.', session_expired: 'Your setup session expired. Reload the page to continue.',
-  invalid_signup_result: 'Meta did not return a WhatsApp business account and number. Please retry and select both.',
+  invalid_signup_result: 'Meta did not return the WhatsApp business account and number you chose. Check any IDs you entered, then retry and select both.',
   token_permissions_incomplete: 'Meta did not grant every permission Layla needs. Retry and keep all requested permissions selected.',
   waba_not_granted: 'The selected WhatsApp business account was not shared with BznsFlow. Retry and select it in the Meta window.',
   phone_not_in_customer_waba: 'The selected number does not belong to the shared WhatsApp business account. Retry and choose a number from that account.',
@@ -50,7 +50,7 @@ const arabicExplanations = {
   asset_in_use:'رقم واتساب هذا أو حساب الأعمال مرتبط بحساب آخر في BznsFlow. سجّل الدخول بذلك الحساب، أو اختر رقماً مختلفاً.',
   attempt_limit:'بلغ هذا الإعداد الحد الأقصى لمحاولات الربط. تواصل مع ahmed@bznsflowai.com برقم المرجع أدناه.',
   attempt_used:'استُخدمت محاولة ربط Meta هذه من قبل. جهّز محاولة جديدة.', operation_conflict:'خطوة ربط أخرى ما زالت قيد التنفيذ. أعد تحميل الصفحة للتحقق قبل المحاولة.',
-  session_expired:'انتهت جلسة الإعداد. أعد تحميل الصفحة للمتابعة.', invalid_signup_result:'لم ترسل Meta حساب أعمال واتساب ورقماً. أعد المحاولة واختر كليهما.',
+  session_expired:'انتهت جلسة الإعداد. أعد تحميل الصفحة للمتابعة.', invalid_signup_result:'لم ترسل Meta حساب واتساب للأعمال والرقم اللذين اخترتهما. تحقّق من المعرّفات التي أدخلتها ثم أعد المحاولة واختر كليهما.',
   token_permissions_incomplete:'لم تمنح Meta كل الأذونات التي تحتاجها ليلى. أعد المحاولة وأبقِ جميع الأذونات المطلوبة محددة.',
   waba_not_granted:'لم يُشارَك حساب أعمال واتساب المحدد مع BznsFlow. أعد المحاولة واختره في نافذة Meta.',
   phone_not_in_customer_waba:'الرقم المحدد لا يتبع حساب الأعمال المشارَك. أعد المحاولة واختر رقماً من ذلك الحساب.',
@@ -89,6 +89,7 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
   const [prepared, setPrepared] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [question, setQuestion] = useState(''), [reply, setReply] = useState(null);
   const [pin, setPin] = useState('');
+  const [preBusiness, setPreBusiness] = useState(''), [preWaba, setPreWaba] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState(''), [imported, setImported] = useState(null);
   const [importingFile,setImportingFile]=useState(false);
   const [catalogTab,setCatalogTab]=useState('services'),[catalog,setCatalog]=useState([]),[catalogLoaded,setCatalogLoaded]=useState(false),[catalogCursor,setCatalogCursor]=useState(null),[selectedCatalogKey,setSelectedCatalogKey]=useState('');
@@ -342,10 +343,15 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
             <label className="layla-choice"><input type="radio" name="number-path" checked={path === 'existing_cloud'} onChange={() => setPath('existing_cloud')} /><span><strong>{tr('My number already uses an API or another provider', 'رقمي مرتبط بواجهة API أو مزوّد آخر')}</strong><small>{tr('Select your existing account and registered number in Meta. A connection with conflicting routing needs assisted setup.', 'اختر الحساب والرقم المسجّل في Meta. إذا كان الربط الحالي يتعارض مع هذا الإعداد فسنساعدك على إكماله.')}</small></span></label>
             <label className="layla-choice"><input type="radio" name="number-path" checked={path === 'new_number'} onChange={() => setPath('new_number')} /><span><strong>{tr('Use another number I own', 'استخدام رقم آخر أملكه')}</strong><small>{tr('You need access to SMS or calls. BznsFlow does not supply a number.', 'تحتاج إلى استقبال رسائل SMS أو المكالمات. لا توفر BznsFlow رقماً جديداً.')}</small></span></label>
           </fieldset>
+          {path !== 'coexistence' && <fieldset className="layla-preselect" disabled={busy || !!prepared}><legend>{tr('Open Meta on the right business (optional)', 'فتح Meta على النشاط الصحيح (اختياري)')}</legend>
+            <p className="layla-help">{tr('If your number belongs to a different business portfolio than the one Meta shows, enter its IDs from Meta Business Suite → Settings.', 'إذا كان رقمك يتبع محفظة أعمال غير التي تعرضها Meta، أدخل معرّفاتها من Meta Business Suite ← الإعدادات.')}</p>
+            <label>{tr('Meta business portfolio ID', 'معرّف محفظة الأعمال في Meta')}<small>{tr('Settings → Business info', 'الإعدادات ← معلومات النشاط')}</small><input inputMode="numeric" autoComplete="off" dir="ltr" maxLength={30} value={preBusiness} onChange={e => setPreBusiness(e.target.value.replace(/\D/g, '').slice(0, 30))} /></label>
+            <label>{tr('WhatsApp Business account ID', 'معرّف حساب واتساب للأعمال')}<small>{tr('Settings → Accounts → WhatsApp accounts', 'الإعدادات ← الحسابات ← حسابات واتساب')}</small><input inputMode="numeric" autoComplete="off" dir="ltr" maxLength={30} value={preWaba} onChange={e => setPreWaba(e.target.value.replace(/\D/g, '').slice(0, 30))} /></label>
+          </fieldset>}
           <p>{tr('Use the Facebook account that manages your business. Passwords and verification codes belong only in Meta’s window.', 'استخدم حساب فيسبوك الذي يدير نشاطك. أدخل كلمات المرور ورموز التحقق في نافذة Meta فقط.')}</p>
           {!reviewMode && !data?.savedToAccount && <button className="layla-primary" disabled={busy} onClick={saveAccount}>{tr('Save your setup first','احفظ إعدادك أولاً')}</button>}
           {!data?.profile?.humanContact && <p className="layla-notice">{tr('Add a team contact in your business details before connecting WhatsApp. You can keep trying the preview.', 'أضف جهة اتصال للفريق في معلومات نشاطك قبل ربط واتساب. يمكنك متابعة المعاينة الآن.')}</p>}
-          {!prepared ? <button className="layla-primary" disabled={busy || !available || !data?.profile?.humanContact || !!data?.integration || !!data?.selection || (!reviewMode && !data?.savedToAccount)} onClick={() => act(async () => { const r = await request({ action: 'begin', path }); await prepareFacebook(r); setPrepared(r); })}>{busy ? tr('Preparing…','جارٍ التجهيز…') : tr('Prepare secure connection','تجهيز الربط الآمن')}</button> : <button className="layla-primary" disabled={busy} onClick={connect}>{busy ? tr('Complete the Meta window…','أكمل الخطوات في نافذة Meta…') : tr('Connect with Facebook','الربط عبر فيسبوك')}</button>}
+          {!prepared ? <button className="layla-primary" disabled={busy || !available || !data?.profile?.humanContact || !!data?.integration || !!data?.selection || (!reviewMode && !data?.savedToAccount)} onClick={() => act(async () => { const r = await request({ action: 'begin', path, ...(path !== 'coexistence' && preBusiness ? { business: preBusiness } : {}), ...(path !== 'coexistence' && preWaba ? { waba: preWaba } : {}) }); await prepareFacebook(r); setPrepared(r); })}>{busy ? tr('Preparing…','جارٍ التجهيز…') : tr('Prepare secure connection','تجهيز الربط الآمن')}</button> : <button className="layla-primary" disabled={busy} onClick={connect}>{busy ? tr('Complete the Meta window…','أكمل الخطوات في نافذة Meta…') : tr('Connect with Facebook','الربط عبر فيسبوك')}</button>}
           </>}
           <button className="layla-secondary" disabled={busy || !!prepared} onClick={() => goTo(0)}>{tr('Back to business details','العودة إلى معلومات النشاط')}</button>
         </section>}

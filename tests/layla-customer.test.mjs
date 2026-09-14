@@ -17,6 +17,11 @@ test('v4 signup separates coexistence, validates origins and ignores incomplete 
   assert.equal(extras.version, 'v4'); assert.equal(extras.featureType, 'whatsapp_business_app_onboarding');
   assert.equal(signupOptions({ configId: '456', path: 'new_number' }).extras.featureType, undefined);
   assert.deepEqual(options.extras.setup, {});
+  const preselect = { business: '4360221360973294', waba: '2213485365896306' };
+  assert.deepEqual(signupOptions({ configId: '456', path: 'existing_cloud', preselect }).extras.setup, { business: { id: '4360221360973294' }, whatsAppBusinessAccount: { ids: ['2213485365896306'] } });
+  assert.deepEqual(signupOptions({ configId: '456', path: 'new_number', preselect: { business: '4360221360973294' } }).extras.setup, { business: { id: '4360221360973294' } });
+  const coexistence = signupOptions({ configId: '456', path: 'coexistence', preselect }).extras;
+  assert.deepEqual(coexistence.setup, {}); assert.equal(coexistence.featureType, 'whatsapp_business_app_onboarding');
   const event = { origin: 'https://www.facebook.com', data: { type: 'WA_EMBEDDED_SIGNUP', event: 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING', data: { waba_id: '456', phone_number_id: '789' } } };
   assert.deepEqual(signupEvent(event, 'coexistence'), { assets: { waba: '456', phone: '789' } });
   assert.equal(signupEvent(event, 'new_number'), null);

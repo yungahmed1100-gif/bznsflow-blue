@@ -8,7 +8,15 @@ export function signupInit(prepared) {
 export function signupOptions(prepared) {
   // Keep extras object-shaped, as in the supplied Meta sample.
   return { config_id: prepared.configId, auth_type: 'rerequest', response_type: 'code', override_default_response_type: true,
-    extras: { setup: {}, version: 'v4', sessionInfoVersion: '3', ...(prepared.path === 'coexistence' ? { featureType: 'whatsapp_business_app_onboarding' } : {}) } };
+    extras: { setup: signupSetup(prepared), version: 'v4', sessionInfoVersion: '3', ...(prepared.path === 'coexistence' ? { featureType: 'whatsapp_business_app_onboarding' } : {}) } };
+}
+
+// Meta's phone-number-first flow scopes its number list to one business portfolio.
+// Pre-filling the owner's portfolio and WABA opens the flow on the right assets.
+// Coexistence keeps Meta's own WhatsApp Business app screens.
+function signupSetup({ path, preselect }) {
+  if (path === 'coexistence' || !preselect) return {};
+  return { ...(preselect.business ? { business: { id: preselect.business } } : {}), ...(preselect.waba ? { whatsAppBusinessAccount: { ids: [preselect.waba] } } : {}) };
 }
 
 export function signupEvent(event, path) {

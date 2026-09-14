@@ -135,6 +135,25 @@ test('an owner-approved WABA and phone pair moves existing routing to Blue, incl
   assert.equal(phoneOverride.override_callback_uri,'https://bznsflow-blue.vercel.app/api/layla-meta-webhook');
   assert.equal((await c.call()).body.connectionChecks.routing,true);
 });
+test('a preselected portfolio and WABA survive reload, are validated, and must match what Meta returns',async()=>{
+  const preselect={business:'4360221360973294',waba:'1712714900182074'};
+  const h=harness(),c=await client(h.handler);
+  assert.equal((await c.call({action:'profile',businessName:profile.businessName,profile})).statusCode,200);
+  assert.equal((await c.call({action:'begin',path:'coexistence',...preselect})).body.reason,'invalid_path');
+  assert.equal((await c.call({action:'begin',path:'existing_cloud',business:'12ab'})).body.reason,'invalid_signup_result');
+  const r=await c.call({action:'begin',path:'existing_cloud',...preselect});assert.equal(r.statusCode,200);
+  assert.deepEqual(r.body.prepared.preselect,preselect);assert.deepEqual((await c.call()).body.prepared.preselect,preselect);
+  const body={action:'finish',attempt:r.body.attempt,state:r.body.state,code:'secret-code',waba:'9999',phone:'1234'};
+  assert.equal((await c.call(body)).body.reason,'invalid_signup_result');assert.equal(h.effects.length,0);
+});
+test('the approved takeover still connects when the launch preselected its WABA',async()=>{
+  let calls=0;
+  const h=harness({env:{...env,BLUE_ROUTING_TAKEOVER:'1712714900182074:1234'},inspect:async()=>calls++===0?routedElsewhere:{isolated:true,connected:true,pathVerified:true,registered:true}});
+  const c=await client(h.handler);
+  assert.equal((await c.call({action:'profile',businessName:profile.businessName,profile})).statusCode,200);
+  const r=await c.call({action:'begin',path:'existing_cloud',waba:'1712714900182074'});
+  assert.equal((await c.call({action:'finish',attempt:r.body.attempt,state:r.body.state,code:'secret-code',waba:'1712714900182074',phone:'1234'})).body.status,'connected');
+});
 test('existing routing stays refused without the exact approved pair and path',async()=>{
   for(const [takeover,path] of [[undefined,'existing_cloud'],['1712714900182074:9999','existing_cloud'],['1712714900182074:1234','coexistence'],['1712714900182074:1234:1','existing_cloud']]) {
     const h=harness({env:{...env,...(takeover?{BLUE_ROUTING_TAKEOVER:takeover}:{})},inspect:async()=>routedElsewhere});
