@@ -32,6 +32,7 @@ Authority for the rules below: Meta's Tech Provider App Review page
 | Meta review status (read 2026-09-15) | `UNSUBMITTED`; `can_submit: false` (prior submitted information still under review) |
 | Requested permissions | business_management, whatsapp_business_management, whatsapp_business_messaging; all four steps incomplete on each |
 | App settings | Privacy URL = Green; Terms and Data Deletion = `https://www.facebook.com/` placeholders; contact email unverified; dev mode |
+| Blue connection (read 2026-09-15) | owner number ending 4025, WABA `2213485365896306`, phone ID `1250149564857596`, `existing_cloud`, connected; Layla **active**; 7 inbound / 6 outbound read; 0 templates synced. The API Setup test number (+1 555 195 7837, WABA `2478518916308747`) is **not** connected to Blue and is not used for the videos |
 
 Rotate the link with `node scripts/issue-blue-review-access.mjs --rotate`. The old link and its sessions are revoked, and the new link is never printed.
 
@@ -44,8 +45,8 @@ Rotate the link with `node scripts/issue-blue-review-access.mjs --rotate`. The o
    - Data Deletion Instructions `https://bznsflow-blue.vercel.app/en/data-deletion`
    - Verify the contact email.
 3. **Embedded Signup config `2144711899802123`:** confirm it holds all three permissions and the Blue domain.
-4. **Template:** in WhatsApp Manager for the connected WABA, create a template and get it approved (this is recorded as video A).
-5. **Test recipient:** add a non-US recipient under WhatsApp → API Setup → "To" (the sender is a Meta 555 test number).
+4. **Template:** in WhatsApp Manager for WABA `2213485365896306` (number …4025), create a template and get it approved (this is recorded as video A).
+5. **Test phone:** any second WhatsApp phone that is not the business number. No API Setup allowlist is needed because the connected sender (…4025) is a real number, and the customer messages first.
 6. **Live rehearsal:** follow the runbook below. It makes the recent successful API calls every permission needs for **api_precheck**:
    - business_management: portfolio read, triggered by Check connection
    - whatsapp_business_management: templates sync, `subscribed_apps`
@@ -91,7 +92,7 @@ Opt-outs are honoured immediately. Delivery and read statuses are shown to the o
 >
 > **Testing:**
 > 1. **Business setup.** Enter a business name, sector, services and a human contact. Click "Try an answer" and approve the answer.
-> 2. **Connect WhatsApp (Facebook Login for Business / Embedded Signup).** Choose a number option, click "Prepare secure connection", then "Connect with Facebook". Meta's Embedded Signup window opens, where the business selects its business portfolio, WhatsApp Business Account and phone number and grants access. BznsFlow then shows the connected business portfolio name and verification status, the number, and passing connection checks. While the app is in development mode, Meta only lets people with a role on our app finish this window. The attached videos show the full flow with our own Meta test number; we do not share our production number.
+> 2. **Connect WhatsApp (Facebook Login for Business / Embedded Signup).** Choose a number option, click "Prepare secure connection", then "Connect with Facebook". Meta's Embedded Signup window opens, where the business selects its business portfolio, WhatsApp Business Account and phone number and grants access. BznsFlow then shows the connected business portfolio name and verification status, the number, and passing connection checks. While the app is in development mode, Meta only lets people with a role on our app finish this window. The attached videos show the full flow with our own business number; we do not share it with reviewers.
 > 3. **After connecting.** Click "Activate Layla". In Dashboard → Chats, customer messages and Layla's replies appear with delivery and read status; the owner can take a chat over and reply manually within the 24-hour window. Contacts shows qualified leads and opt-outs. Broadcast → "Sync approved templates" lists the templates created in WhatsApp Manager. "Check connection" re-reads the number and business portfolio.
 >
 > **Meta APIs and Facebook Login:** We use Facebook Login for Business only to run WhatsApp Embedded Signup (configuration 2144711899802123, response_type=code). The code is exchanged on our server.
@@ -119,7 +120,7 @@ Opt-outs are honoured immediately. Delivery and read statuses are shown to the o
 
 | # | Owner action | Engineering action / check |
 | --- | --- | --- |
-| 1 | Sign in at `/en/layla/setup` with the account that owns the 6936 connection | — |
+| 1 | Sign in at `/en/layla/setup` with the account that owns the …4025 connection | — |
 | 2 | Dashboard → Check connection; confirm the portfolio line appears | Portfolio stored in `connectionChecks.portfolio` |
 | 3 | Activate Layla; confirm the dialog opens the dashboard | Confirm `blueMessagingControls` active |
 | 4 | Create/confirm an approved template in WhatsApp Manager; Dashboard → Broadcast → Sync | Confirm a sendable template in `blueTemplates` |
