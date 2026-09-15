@@ -8,7 +8,7 @@ import { readBody, send } from '../http.js';
 import { PilotError } from './config.js';
 import { credentialContext, openToken } from './customer-meta.js';
 import { dashboardStore } from './dashboard-store.js';
-import { fetchApprovedMarketingTemplates, fetchMessagingAllowance } from './templates.js';
+import { fetchApprovedTemplates, fetchMessagingAllowance } from './templates.js';
 import { validTimezone, zonedLocalToUtc } from './timezone.js';
 import { normalizePhone } from '../../../src/lib/dashboard/phone.js';
 
@@ -36,7 +36,7 @@ function importRows(rows) {
 }
 
 export function createDashboardApi({ env = process.env, fetcher = fetch, now = Date.now, accounts = blueAuthStore({ env, fetcher }), store = dashboardStore({ env, fetcher }), reviews = reviewStore({ env, fetcher }),
-  templates = fetchApprovedMarketingTemplates, allowance = fetchMessagingAllowance } = {}) {
+  templates = fetchApprovedTemplates, allowance = fetchMessagingAllowance } = {}) {
   async function graphContext(sessionHash) {
     const row = await reviews('get', { sessionHash });
     if (!row?.integration || !['connected', 'paused'].includes(row.status)) throw new PilotError('connection_not_ready', 409);

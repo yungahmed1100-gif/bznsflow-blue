@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { sanitizeTemplate, renderTemplate, templateComponents, resolveParameters, cleanParameter, templateSendResult, messagingAllowance, validMapping } from '../config/layla-templates.js';
 import { zonedLocalToUtc, validTimezone } from '../api/_lib/layla/timezone.js';
 import { runCampaignSend, runCampaignStart } from '../api/_lib/layla/campaign-worker.js';
+import { fetchApprovedTemplates } from '../api/_lib/layla/templates.js';
 import { sealToken, credentialContext } from '../api/_lib/layla/customer-meta.js';
 import { MAX_RECIPIENTS, MAX_ATTEMPTS, RETRY_BACKOFF_MS } from '../convex/blueCampaignState.js';
 import { blueHarness, seedTenant } from './helpers/blue-tenant.mjs';
@@ -253,4 +254,11 @@ test('worker revalidates before start, sends one template POST, and records a ti
   assert.equal(outcome.status, 'ambiguous');
   assert.deepEqual(calls.at(-1)[1].status, 'ambiguous');
   await assert.rejects(runCampaignSend({ jobId: 'j1', env: { ...env, BLUE_BROADCAST_ENABLED: 'false' }, store }), /broadcast_unavailable/);
+});
+
+test('sync lists every approved template but only marketing ones are sendable', async () => {
+  const data = [approved, { ...approved, id: '222', name: 'appointment_reminder', category: 'UTILITY' }, { ...approved, id: '333', name: 'draft_offer', status: 'PENDING' }];
+  const fetcher = async () => ({ ok: true, text: async () => JSON.stringify({ data }) });
+  const list = await fetchApprovedTemplates({ c: { app: '1', version: 'v25.0' }, integration: { waba: '9' }, token: 'synthetic', fetcher });
+  assert.deepEqual(list.map(t => [t.name, t.sendable, t.unsupportedReason || null]), [['autumn_offer', true, null], ['appointment_reminder', false, 'not_marketing']]);
 });

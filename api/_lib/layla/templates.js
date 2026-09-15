@@ -1,5 +1,5 @@
-// Graph API reads for Broadcast: approved marketing templates and the
-// portfolio messaging limit. Templates are managed in WhatsApp Manager.
+// Graph API reads for Broadcast: approved templates and the portfolio messaging
+// limit. Templates are managed in WhatsApp Manager.
 import { metaRequest } from './customer-meta.js';
 import { PilotError } from './config.js';
 import { messagingAllowance, sanitizeTemplate } from '../../../config/layla-templates.js';
@@ -7,7 +7,10 @@ import { messagingAllowance, sanitizeTemplate } from '../../../config/layla-temp
 const FIELDS = 'id,name,language,status,category,parameter_format,components';
 const PAGE_LIMIT = 25, MAX_PAGES = 10;
 
-export async function fetchApprovedMarketingTemplates({ c, integration, token, fetcher }) {
+// Every approved template is listed so the owner sees what WhatsApp Manager holds.
+// Only MARKETING ones are sendable: sanitizeTemplate marks the rest not_marketing,
+// and campaign creation and the send worker re-check the category.
+export async function fetchApprovedTemplates({ c, integration, token, fetcher }) {
   const templates = [];
   let after = '';
   for (let page = 0; page < MAX_PAGES; page++) {
@@ -15,7 +18,7 @@ export async function fetchApprovedMarketingTemplates({ c, integration, token, f
     const result = await metaRequest(c, `${integration.waba}/message_templates?${query}`, token, fetcher);
     if (!Array.isArray(result.data)) throw new PilotError('meta_connection_unavailable', 502);
     for (const raw of result.data) {
-      if (String(raw?.status).toUpperCase() !== 'APPROVED' || String(raw?.category).toUpperCase() !== 'MARKETING') continue;
+      if (String(raw?.status).toUpperCase() !== 'APPROVED') continue;
       const t = sanitizeTemplate(raw);
       if (/^\d{1,30}$/.test(t.templateId) && /^[a-z0-9_]{1,512}$/.test(t.name) && /^[a-zA-Z_]{2,15}$/.test(t.language)) templates.push(t);
     }
