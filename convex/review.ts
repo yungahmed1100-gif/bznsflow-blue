@@ -8,7 +8,7 @@ export const execute = internalMutation({ args: {
   operation: v.union(...['create','get','profile','begin','await','claim','cancel','credential','claim_operation','result','pause','save_progress','review_preview','preview_result','pending_selection','cancel_selection'].map(s => v.literal(s))),
   selection: v.optional(v.object({ waba: v.string(), path, candidates: v.array(v.object({ id: v.string(), sender: v.string() })), credential: v.object({ v: v.number(), iv: v.string(), data: v.string(), tag: v.string() }) })),
   diagnostic: v.optional(v.object({ reason: v.string(), stage: v.string(), at: v.number(), providerCode: v.optional(v.number()) })),
-  connectionChecks: v.optional(v.object({ routing: v.boolean(), registered: v.boolean(), path: v.boolean(), nameStatus:v.optional(v.string()) })),
+  connectionChecks: v.optional(v.object({ routing: v.boolean(), registered: v.boolean(), path: v.boolean(), nameStatus:v.optional(v.string()), portfolio:v.optional(v.object({ id:v.string(), name:v.string(), verificationStatus:v.string() })) })),
   journeyStep: v.optional(v.number()), profileVersion: v.optional(v.number()),
   preview: v.optional(v.object({ question: v.string(), text: v.string(), sourceFields: v.array(v.string()), needsHuman: v.boolean(), intent: v.string() })),
   sessionHash: v.string(), profile: v.optional(profile), attempt: v.optional(v.string()), stateHash: v.optional(v.string()), path: v.optional(path),

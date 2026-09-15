@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { detachIntegration, executeReview, resetAttempts } from '../convex/reviewState.js';
-import { createReviewHandler, inspectReviewConnection } from '../api/_lib/layla/review-api.js';
+import { createReviewHandler, inspectPortfolio, inspectReviewConnection } from '../api/_lib/layla/review-api.js';
 import { BLUE_CLOUD, reviewStore } from '../api/_lib/convex.js';
 import { PilotError } from '../api/_lib/layla/config.js';
 import { createSignupAttempt, signupInit, signupOptions } from '../src/lib/layla-signup.js';
@@ -36,7 +36,7 @@ async function client(handler, extraCookie='') {
 function harness(overrides={}) {
   const db=memory();const effects=[];
   const fetcher=async(url,options)=>{effects.push({path:new URL(url).pathname,body:options.body});return {ok:true,text:async()=>JSON.stringify({success:true})};};
-  const handler=createReviewHandler({env,store:db.store,now:db.now,fetcher,exchange:async()=>({token:'synthetic-token-'.repeat(4),sender:'96890000000'}),inspect:async()=>({isolated:true,connected:true}),...overrides});
+  const handler=createReviewHandler({env,store:db.store,now:db.now,fetcher,exchange:async()=>({token:'synthetic-token-'.repeat(4),sender:'96890000000'}),inspect:async()=>({isolated:true,connected:true}),portfolio:async()=>null,...overrides});
   return {db,handler,effects};
 }
 async function begin(c,path='coexistence') {assert.equal((await c.call({action:'profile',businessName:profile.businessName,profile})).statusCode,200);const r=await c.call({action:'begin',path});assert.equal(r.statusCode,200);return {action:'finish',attempt:r.body.attempt,state:r.body.state,code:'secret-code',waba:'1712714900182074',phone:'1234'};}
@@ -329,4 +329,34 @@ test('existing Cloud API setup cannot register the number, and diagnostics retai
   assert.equal(r.body.status,'reconciliation_required');assert.equal(r.body.diagnostic.providerCode,2655122);
   assert(!JSON.stringify(r.body).includes('SECRET_PROVIDER_PAYLOAD'));
   assert.equal((await c.call({action:'register_number',pin:'123456',confirm:true})).statusCode,409);
+});
+
+test('portfolio read uses the WABA owner and returns only a sanitised name and known status',async()=>{
+  const c={app:env.LAYLA_META_APP_ID,version:'v25.0'},integration={waba:'111',phone:'2',path:'new_number'};
+  const reads=[];
+  const meta=(responses)=>async url=>{const u=new URL(url);reads.push(u.pathname+u.search);const body=responses[u.pathname.split('/').pop()];return body instanceof Error?Promise.reject(body):{ok:true,text:async()=>JSON.stringify(body)};};
+  const owner={'111':{owner_business_info:{id:'4360221360973294',name:'ignored'}}};
+  const found=await inspectPortfolio({c,integration,token:'synthetic',fetcher:meta({...owner,'4360221360973294':{id:'4360221360973294',name:' Bznsflow\u0000 ',verification_status:'VERIFIED',access_token:'must-not-leak'}})});
+  assert.deepEqual(found,{id:'4360221360973294',name:'Bznsflow',verificationStatus:'verified'});
+  assert.ok(reads.some(r=>r.includes('/111?fields=owner_business_info')));
+  assert.ok(reads.some(r=>r.includes('/4360221360973294?fields=id%2Cname%2Cverification_status')||r.includes('/4360221360973294?fields=id,name,verification_status')));
+  assert.equal((await inspectPortfolio({c,integration,token:'t',fetcher:meta({...owner,'4360221360973294':{id:'999',name:'Other'}})})),null);
+  assert.equal((await inspectPortfolio({c,integration,token:'t',fetcher:meta({'111':{}})})),null);
+  assert.equal((await inspectPortfolio({c,integration,token:'t',fetcher:meta({...owner,'4360221360973294':new Error('network')})})),null);
+  assert.equal((await inspectPortfolio({c,integration,token:'t',fetcher:meta({...owner,'4360221360973294':{id:'4360221360973294',name:'X',verification_status:'SOMETHING_NEW'}})})).verificationStatus,'unknown');
+});
+test('connecting stores the business portfolio with the connection checks and refresh keeps it current',async()=>{
+  let status='not_verified';
+  const h=harness({portfolio:async({integration})=>({id:'4360221360973294',name:`Owner of ${integration.waba}`,verificationStatus:status})}),c=await client(h.handler);
+  const done=await c.call(await begin(c));
+  assert.equal(done.statusCode,200);
+  assert.deepEqual(done.body.connectionChecks.portfolio,{id:'4360221360973294',name:'Owner of 1712714900182074',verificationStatus:'not_verified'});
+  assert(!JSON.stringify(done.body).includes('synthetic-token'));
+  status='verified';h.db.advance(60001);
+  assert.equal((await c.call({action:'refresh'})).body.connectionChecks.portfolio.verificationStatus,'verified');
+});
+test('a missing portfolio never blocks the connection',async()=>{
+  const h=harness({portfolio:async()=>null}),c=await client(h.handler);
+  const done=await c.call(await begin(c));
+  assert.equal(done.body.status,'connected');assert.equal(done.body.connectionChecks.portfolio,undefined);
 });

@@ -15,6 +15,8 @@ const SignIn = lazy(() => import('./pages/SignIn'));
 // Same reasoning: its own stylesheet plus several thousand words of bilingual
 // content have no business in the chunk a home-page visitor downloads.
 const Privacy = lazy(() => import('./pages/Privacy'));
+const Terms = lazy(() => import('./pages/Terms'));
+const DataDeletion = lazy(() => import('./pages/DataDeletion'));
 
 // The playbook landing page. Lazy for the same reason, and harmless for paid
 // traffic: it is prerendered, so an ad click gets the full HTML immediately and
@@ -56,6 +58,12 @@ export const routes = [
       // evasive. Listed in PAGES so the sitemap carries it.
       { path: 'privacy', element: deferred(<Privacy lang="ar" />) },
       { path: 'en/privacy', element: deferred(<Privacy lang="en" />) },
+      // Registered with Meta as the app's Terms and Data Deletion URLs, so they
+      // are public and indexable like the privacy policy.
+      { path: 'terms', element: deferred(<Terms lang="ar" />) },
+      { path: 'en/terms', element: deferred(<Terms lang="en" />) },
+      { path: 'data-deletion', element: deferred(<DataDeletion lang="ar" />) },
+      { path: 'en/data-deletion', element: deferred(<DataDeletion lang="en" />) },
       // Also indexable and also in PAGES: this is the destination for paid
       // traffic, and a campaign landing page missing from the sitemap is a
       // silent, expensive mistake.

@@ -8,6 +8,7 @@ import { signupOptions, signupInit, createSignupAttempt } from '../lib/layla-sig
 import { INDUSTRIES } from '../lib/industries.js';
 import { suggestionsFor } from '../lib/layla-suggestions.js';
 import { readCatalogFile } from '../lib/catalog-import.js';
+import { portfolioStatus } from '../lib/portfolio.js';
 
 const blank = { sector: '', services: '', prices: '', hours: '', location: '', humanContact: '', reviewed: false };
 const COUNTRY_CODES = [['968','Oman / عُمان'],['20','Egypt / مصر'],['971','UAE / الإمارات'],['966','Saudi Arabia / السعودية'],['973','Bahrain / البحرين'],['974','Qatar / قطر'],['965','Kuwait / الكويت'],['962','Jordan / الأردن'],['44','United Kingdom / المملكة المتحدة'],['1','United States / الولايات المتحدة']];
@@ -332,6 +333,7 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
             <button className="layla-secondary" disabled={busy} onClick={()=>act(async()=>applyState(await request({action:'cancel_selection'})))}>{tr('Cancel this selection', 'إلغاء الاختيار')}</button>
           </section>}
           {data?.connectionChecks && <ul className="layla-checklist">{[['path',tr('Number type verified','التحقق من نوع الرقم')],['registered',tr('Number registered','تسجيل الرقم')],['routing',tr('Blue connection verified','التحقق من ربط Blue')]].map(([key,label])=><li key={key}>{data.connectionChecks[key] ? '✓' : '○'} {label}</li>)}</ul>}
+          {data?.connectionChecks?.portfolio?.name && <p className="layla-notice">{tr('Connected business portfolio:', 'محفظة الأعمال المربوطة:')} <bdi>{data.connectionChecks.portfolio.name}</bdi>{{verified:tr(' · Verified',' · موثّقة'),pending:tr(' · Verification pending',' · التوثيق قيد المراجعة'),not_verified:tr(' · Not verified',' · غير موثّقة')}[portfolioStatus(data.connectionChecks.portfolio.verificationStatus)] || ''}</p>}
           {data?.connectionChecks?.nameStatus && <p className="layla-help">{tr('Meta display-name status:', 'حالة اسم العرض لدى Meta:')} {data.connectionChecks.nameStatus}</p>}
           {data?.diagnostic && <p className="layla-notice">{explain(data.diagnostic.reason)}<br/>{tr('Support reference:', 'مرجع الدعم:')} {data.diagnostic.stage}-{data.diagnostic.at}{data.diagnostic.providerCode ? ` · Meta ${data.diagnostic.providerCode}` : ''}</p>}
           {data?.integration?.sender?.startsWith('1555') && <p className="layla-help">{tr('This resembles a Meta-provided 555 number. Check the selected number and display-name approval in WhatsApp Manager before using it for customers.', 'يبدو أن هذا رقم 555 مقدّم من Meta. تحقّق من الرقم وموافقة اسم العرض في مدير واتساب قبل استخدامه للعملاء.')}</p>}

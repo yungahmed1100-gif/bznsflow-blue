@@ -85,3 +85,13 @@ test('reviewer access is scoped to its own account and expires',async()=>{
   assert.equal((await m.call('review_access',{accessHash:'a'.repeat(64),tokenHash:'c'.repeat(64)})).reason,'session_expired');
   assert.equal((await m.call('session',{tokenHash:'b'.repeat(64)})).value,null);
 });
+
+test('reviewer links last one year and can be revoked with their sessions',async()=>{
+  // The Convex mutations are thin; pin the two properties Meta review depends on.
+  const {readFileSync}=await import('node:fs');
+  const source=readFileSync(new URL('../convex/blueAuth.ts',import.meta.url),'utf8');
+  assert.match(source,/REVIEW_ACCESS_TTL_MS=365\*86400000/);
+  assert.match(source,/expiresAt=now\+REVIEW_ACCESS_TTL_MS/);
+  assert.match(source,/export const revokeReviewAccess=internalMutation/);
+  assert.match(source,/withIndex\('by_account'/);
+});

@@ -13,12 +13,25 @@ export const cleanup = internalMutation({args:{},handler:async ctx=>{
     for(const row of rows) await ctx.db.delete(row._id);
   }
 }});
+// Meta asks that reviewer credentials stay valid for one year after submission.
+const REVIEW_ACCESS_TTL_MS=365*86400000;
 export const issueReviewAccess=internalMutation({args:{accessHash:v.string()},handler:async(ctx,args)=>{
   if(!/^[a-f0-9]{64}$/.test(args.accessHash)) throw Error('invalid_access_hash');
   const old=await ctx.db.query('blueReviewerAccess').withIndex('by_hash',q=>q.eq('tokenHash',args.accessHash)).unique();
   if(old) return {expiresAt:old.expiresAt};
-  const now=Date.now(),expiresAt=now+7*86400000;
+  const now=Date.now(),expiresAt=now+REVIEW_ACCESS_TTL_MS;
   const accountId=await ctx.db.insert('accounts',{email:`meta-review-${args.accessHash.slice(0,16)}@bznsflow.invalid`,name:'Meta Reviewer',role:'customer',createdAt:now});
   await ctx.db.insert('blueReviewerAccess',{tokenHash:args.accessHash,accountId,expiresAt});
   return {expiresAt};
+}});
+// Ends a reviewer link and every session it opened. The reviewer account and its
+// business records stay, so nothing a reviewer connected is silently detached.
+export const revokeReviewAccess=internalMutation({args:{accessHash:v.string()},handler:async(ctx,args)=>{
+  if(!/^[a-f0-9]{64}$/.test(args.accessHash)) throw Error('invalid_access_hash');
+  const access=await ctx.db.query('blueReviewerAccess').withIndex('by_hash',q=>q.eq('tokenHash',args.accessHash)).unique();
+  if(!access) return {revoked:false,sessions:0};
+  const sessions=await ctx.db.query('sessions').withIndex('by_account',q=>q.eq('accountId',access.accountId)).collect();
+  for(const session of sessions) await ctx.db.delete(session._id);
+  await ctx.db.delete(access._id);
+  return {revoked:true,sessions:sessions.length};
 }});

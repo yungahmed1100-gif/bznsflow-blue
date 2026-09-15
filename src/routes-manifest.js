@@ -16,6 +16,9 @@ export const PAGES = [
   // purpose: it is linked from Google's and LinkedIn's consent screens, and a
   // privacy policy that hides from search looks like it has something to hide.
   { path: '/privacy', changefreq: 'yearly', priority: 0.3, lastmod: '2026-09-10' },
+  // Linked from Meta's consent and app settings, like the privacy policy.
+  { path: '/terms', changefreq: 'yearly', priority: 0.3, lastmod: '2026-09-15' },
+  { path: '/data-deletion', changefreq: 'yearly', priority: 0.3, lastmod: '2026-09-15' },
   // The lead magnet's own page — where the ad campaign lands, and the only
   // URL that offers the playbook. Ranks second only to the home page because
   // it is the page most likely to be linked to from outside.

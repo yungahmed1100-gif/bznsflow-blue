@@ -3,7 +3,7 @@
 const en = {
   title: 'Layla dashboard', loadEarlier: 'Load earlier messages', nav: 'Dashboard sections', broadcast: 'Broadcast', chats: 'Chats', contacts: 'Contacts',
   active: 'Layla is replying', paused: 'Layla is paused', pause: 'Pause Layla', activate: 'Activate Layla', checkConnection: 'Check connection',
-  connectionOk: 'Connection healthy', connectionAttention: 'Connection needs attention', checkedAt: 'Checked {time}', repliesToday: '{used} of {limit} replies today',
+  connectionOk: 'Connection healthy', connectionAttention: 'Connection needs attention', portfolio: 'Business portfolio: {name}', portfolio_verified: 'Verified', portfolio_pending: 'Verification pending', portfolio_not_verified: 'Not verified', checkedAt: 'Checked {time}', repliesToday: '{used} of {limit} replies today',
   signOut: 'Sign out', setup: 'Business setup', language: 'العربية', loading: 'Loading…', retry: 'Try again', loadMore: 'Load more', close: 'Close', back: 'Back', cancel: 'Cancel',
   save: 'Save', saved: 'Saved', delete: 'Delete', export: 'Export', exportCsv: 'CSV', exportPdf: 'PDF (print)', exportAll: 'Export all (ZIP)', exporting: 'Preparing export…',
   searchChats: 'Search name or number', noChats: 'No conversations yet. When a customer messages your WhatsApp number, the chat appears here.', noResults: 'Nothing matches that search.',
@@ -47,7 +47,7 @@ const en = {
 const ar = {
   title: 'لوحة ليلى', loadEarlier: 'عرض الرسائل الأقدم', nav: 'أقسام اللوحة', broadcast: 'الرسائل الجماعية', chats: 'المحادثات', contacts: 'جهات الاتصال',
   active: 'ليلى ترد الآن', paused: 'ليلى متوقفة', pause: 'إيقاف ليلى', activate: 'تفعيل ليلى', checkConnection: 'فحص الاتصال',
-  connectionOk: 'الاتصال سليم', connectionAttention: 'الاتصال يحتاج مراجعة', checkedAt: 'آخر فحص {time}', repliesToday: '{used} من {limit} رد اليوم',
+  connectionOk: 'الاتصال سليم', connectionAttention: 'الاتصال يحتاج مراجعة', portfolio: 'محفظة الأعمال: {name}', portfolio_verified: 'موثّقة', portfolio_pending: 'التوثيق قيد المراجعة', portfolio_not_verified: 'غير موثّقة', checkedAt: 'آخر فحص {time}', repliesToday: '{used} من {limit} رد اليوم',
   signOut: 'تسجيل الخروج', setup: 'إعداد النشاط', language: 'English', loading: 'جارٍ التحميل…', retry: 'حاول مجدداً', loadMore: 'عرض المزيد', close: 'إغلاق', back: 'رجوع', cancel: 'إلغاء',
   save: 'حفظ', saved: 'تم الحفظ', delete: 'حذف', export: 'تصدير', exportCsv: 'CSV', exportPdf: 'PDF (طباعة)', exportAll: 'تصدير الكل (ZIP)', exporting: 'جارٍ تجهيز الملف…',
   searchChats: 'ابحث بالاسم أو الرقم', noChats: 'لا توجد محادثات بعد. عندما يراسل عميل رقم واتساب نشاطك ستظهر المحادثة هنا.', noResults: 'لا توجد نتائج مطابقة.',

@@ -59,7 +59,7 @@ export default defineSchema({
     sessionHash: v.string(), status: v.string(), expiresAt: v.number(), createdAt: v.number(), updatedAt: v.number(), attempts: v.number(),
     pendingSelection: v.optional(v.object({ waba: v.string(), path, candidates: v.array(v.object({ id: v.string(), sender: v.string() })), credential: v.object({ v: v.number(), iv: v.string(), data: v.string(), tag: v.string() }) })),
     checkedAt: v.optional(v.number()), diagnostic: v.optional(v.object({ reason: v.string(), stage: v.string(), at: v.number(), providerCode: v.optional(v.number()) })),
-    connectionChecks: v.optional(v.object({ routing: v.boolean(), registered: v.boolean(), path: v.boolean(), nameStatus:v.optional(v.string()) })),
+    connectionChecks: v.optional(v.object({ routing: v.boolean(), registered: v.boolean(), path: v.boolean(), nameStatus:v.optional(v.string()), portfolio:v.optional(v.object({ id:v.string(), name:v.string(), verificationStatus:v.string() })) })),
     journeyStep: v.optional(v.number()), profileVersion: v.optional(v.number()), previewReviewedVersion: v.optional(v.number()),
     previewIntents: v.optional(v.array(v.string())),
     lastPreview: v.optional(v.object({ question: v.string(), text: v.string(), sourceFields: v.array(v.string()), needsHuman: v.boolean(), intent: v.string() })),
@@ -83,7 +83,7 @@ export default defineSchema({
     tokenHash: v.string(),
     expiresAt: v.number(),
     createdAt: v.number(),
-  }).index("by_token_hash", ["tokenHash"]).index('by_expiry',['expiresAt']),
+  }).index("by_token_hash", ["tokenHash"]).index('by_expiry',['expiresAt']).index('by_account',['accountId']),
   businesses: defineTable({
     accountId: v.id("accounts"),
     businessName: v.string(),

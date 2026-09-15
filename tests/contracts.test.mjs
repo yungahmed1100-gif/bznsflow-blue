@@ -85,6 +85,16 @@ t('the Apps Script fallback URL points at a file that exists', () => {
   const path = m[1].replace(/^https?:\/\/[^/]+/, '');
   assert.equal(path, PLAYBOOK_PDF, 'Code.gs fallback disagrees with src/lib/constants.js');
 });
+t('Meta legal URLs (/terms, /data-deletion) are prerendered routes in the sitemap', () => {
+  // Registered in the Meta app as its Terms of Service and Data Deletion URLs.
+  // A missing route turns into a 404 on Meta's review checks.
+  const routes = read('src/routes.jsx');
+  for (const page of ['terms', 'data-deletion']) {
+    assert.ok(routes.includes(`path: '${page}'`), `src/routes.jsx has no '${page}' route`);
+    assert.ok(routes.includes(`path: 'en/${page}'`), `src/routes.jsx has no 'en/${page}' route`);
+    assert.ok(PAGES.some((p) => p.path === `/${page}`), `/${page} is missing from PAGES`);
+  }
+});
 t('/playbook is a prerendered route AND is in the sitemap', () => {
   // The page paid traffic lands on. A route that exists but is missing from
   // PAGES gets no sitemap entry and no hreflang pair — invisible in a way that

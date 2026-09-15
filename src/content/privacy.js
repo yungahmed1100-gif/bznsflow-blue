@@ -12,7 +12,7 @@
 //   - retention comes from the prune intervals in the migrations
 // If any of those change, this file is wrong and must change with them.
 
-export const PRIVACY_UPDATED_ISO = '2026-09-14';
+export const PRIVACY_UPDATED_ISO = '2026-09-15';
 
 /** Shared across both languages — a table of who else touches the data. */
 const PROCESSORS = [
@@ -90,7 +90,7 @@ const COOKIES = [
 
 const en = {
   title: 'Privacy Policy',
-  updated: 'Last updated 14 September 2026',
+  updated: 'Last updated 15 September 2026',
   lead: 'This explains what BznsFlow collects when you use this website, why, who else sees it, and what you can ask us to do about it. It is written to be read, not to be survived.',
   processorsHead: ['Who', 'What they do', 'Where'],
   cookiesHead: ['Name', 'Type', 'Lasts', 'What it does'],
@@ -149,6 +149,19 @@ const en = {
         'A business that connects its WhatsApp number to Layla decides why its customers\' data is processed. For that data the business is responsible, and BznsFlow processes it on the business\'s behalf. If you messaged a business that uses Layla, contact that business first; we will help them answer you.',
       ],
       sub: [
+        {
+          h: 'Connecting WhatsApp through Meta',
+          p: [
+            'A business connects its WhatsApp number through Meta\'s own sign-up window (Facebook Login for Business, WhatsApp Embedded Signup). The business owner chooses which business portfolio, WhatsApp Business Account and phone number to share.',
+          ],
+          list: [
+            'We receive an access token limited to the assets the owner shared. It is stored encrypted, used only by our server, and never sent to a browser or included in exports.',
+            'We read the shared business portfolio\'s ID, name and verification status, to confirm it owns the WhatsApp Business Account and to show the owner what is connected.',
+            'We read the WhatsApp Business Account and phone number: their IDs, the number, its registration and display-name status and messaging limit, and the business\'s approved message templates.',
+            'We do not receive the owner\'s Facebook password, profile, friends, email address or any other Facebook account data, and Facebook Login is not used to sign in to BznsFlow.',
+            'The owner can remove our access at any time from the apps connected to their Meta business portfolio, or by emailing us. See our data deletion page at /en/data-deletion.',
+          ],
+        },
         {
           h: 'What Layla stores for a business',
           list: [
@@ -262,7 +275,7 @@ const en = {
 
 const ar = {
   title: 'سياسة الخصوصية',
-  updated: 'آخر تحديث ١٤ سبتمبر ٢٠٢٦',
+  updated: 'آخر تحديث ١٥ سبتمبر ٢٠٢٦',
   lead: 'توضّح هذه الصفحة ما تجمعه BznsFlow عند استخدامك لهذا الموقع، ولماذا، ومن يطّلع عليه غيرنا، وما الذي يمكنك أن تطلبه منّا بشأنه. كُتبت لتُقرأ، لا لتُحتمل.',
   processorsHead: ['الجهة', 'ما تقوم به', 'أين'],
   cookiesHead: ['الاسم', 'النوع', 'المدة', 'وظيفته'],
@@ -321,6 +334,19 @@ const ar = {
         'النشاط الذي يربط رقم واتساب الخاص به بليلى هو من يحدد سبب معالجة بيانات عملائه، وهو المسؤول عنها، وتعالجها BznsFlow نيابةً عنه. إذا راسلت نشاطاً يستخدم ليلى فتواصل مع ذلك النشاط أولاً، وسنساعده على الرد عليك.',
       ],
       sub: [
+        {
+          h: 'ربط واتساب عبر Meta',
+          p: [
+            'يربط النشاط رقم واتساب الخاص به عبر نافذة التسجيل التابعة لـ Meta نفسها (تسجيل الدخول عبر فيسبوك للأعمال، التسجيل المضمّن لواتساب). ويختار صاحب النشاط أي محفظة أعمال وأي حساب واتساب للأعمال وأي رقم هاتف يشاركه.',
+          ],
+          list: [
+            'نستلم رمز وصول مقصوراً على الأصول التي شاركها صاحب النشاط. يُحفظ مشفّراً، ولا يستخدمه إلا خادمنا، ولا يُرسل إلى المتصفح ولا يُضمَّن في التصدير.',
+            'نقرأ معرّف محفظة الأعمال المشاركة واسمها وحالة توثيقها، للتأكد من أنها تملك حساب واتساب للأعمال ولنُري صاحب النشاط ما هو مربوط.',
+            'نقرأ حساب واتساب للأعمال ورقم الهاتف: معرّفاتهما، والرقم، وحالة تسجيله وحالة اسم العرض وحد المراسلة، وقوالب الرسائل المعتمدة للنشاط.',
+            'لا نستلم كلمة مرور فيسبوك لصاحب النشاط ولا ملفه الشخصي ولا أصدقاءه ولا بريده الإلكتروني ولا أي بيانات أخرى من حسابه على فيسبوك، ولا يُستخدم تسجيل الدخول عبر فيسبوك للدخول إلى BznsFlow.',
+            'يمكن لصاحب النشاط إلغاء وصولنا في أي وقت من التطبيقات المرتبطة بمحفظة أعماله في Meta، أو بمراسلتنا. راجع صفحة حذف البيانات على /data-deletion.',
+          ],
+        },
         {
           h: 'ما تحفظه ليلى للنشاط',
           list: [
