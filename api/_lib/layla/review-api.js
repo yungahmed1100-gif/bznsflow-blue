@@ -74,6 +74,16 @@ export function routingTakeoverApproved(env, i) {
   const parts = String(env.BLUE_ROUTING_TAKEOVER || '').split(':');
   return parts.length === 2 && parts.every(assetId) && i?.path === 'existing_cloud' && i.waba === parts[0] && i.phone === parts[1];
 }
+// BznsFlow's own number sits in a WABA created directly in Meta, which Embedded Signup
+// cannot select. The owner connects it with a Blue-only system-user token kept in the
+// server environment: BLUE_OWNER_CONNECT="<email>:<waba id>:<phone id>".
+export function ownerConnection(env, account) {
+  const parts = String(env.BLUE_OWNER_CONNECT || '').split(':');
+  const token = env.BLUE_OWNER_CONNECT_TOKEN;
+  if (parts.length !== 3 || !assetId(parts[1]) || !assetId(parts[2]) || typeof token !== 'string' || token.length < 20 || token.length > 8192) return null;
+  if (!account?.email || String(account.email).toLowerCase() !== parts[0].toLowerCase()) return null;
+  return { waba: parts[1], phone: parts[2] };
+}
 export function createReviewHandler({ env = process.env, fetcher = fetch, now = Date.now, store = reviewStore({ env, fetcher }), catalog = catalogStore({env,fetcher}), exchange = exchangeAndVerify, inspect = inspectReviewConnection, reviewMode = true, accountStore = blueAuthStore({env,fetcher}), websiteImport = importWebsite } = {}) {
   return async (req, res) => {
     let body;
@@ -107,6 +117,7 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
       const result = () => ({ ...publicState(row, reviewAvailable(env), reviewMode || !!account && !!row.accountId), csrfToken: csrf,
         reviewMode, websiteImportAvailable: env.BLUE_WEBSITE_IMPORT_ENABLED === 'true', accountSaveAvailable: accountsAvailable, savedToAccount: !!row.accountId,
         account: account ? { email:account.email } : null,
+        ownerConnectAvailable: !reviewMode && !!row.accountId && !row.integration && !row.pendingSelection && !!ownerConnection(env,account),
         ...(row.attempt && !row.attempt.claimed && ['prepared','awaiting_meta'].includes(row.status) && row.attempt.expiresAt > now() ? {
           prepared: {attempt:row.attempt.id,state:attemptState(row.attempt.id),path:row.attempt.path,expiresAt:row.attempt.expiresAt,appId:APP,configId:CONFIG,version:'v25.0',esVersion:signupVersion(env,row.attempt.path),...(row.attempt.preselect ? {preselect:row.attempt.preselect} : {})},
         } : {}),
@@ -143,6 +154,22 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
           const status = after.connected ? 'connected' : after.isolated && i.path === 'new_number' ? 'registration_required' : 'reconciliation_required';
           await write('result',{operationId,status,connectionChecks:checks(after)});
         } catch (error) { await write('result',{operationId,status:'reconciliation_required',diagnostic:diagnostic(error,'subscription')}); }
+      };
+      // Exchange (or token check), then connection persistence. A failure before any provider
+      // operation is recorded against the attempt; a claimed operation keeps its own record.
+      const verifyAndPersist = async ({ attemptId, waba, phone, exchangeArgs, stage }) => {
+        let token;
+        try {
+          const verified = await exchange({ c:configuration(env), ...exchangeArgs, waba, phone, path:row.attempt.path, allowPhoneSelection:!exchangeArgs.token, fetcher, now });
+          token = verified.token;
+          if (verified.candidates) {
+            const credential = sealToken(token,`review-selection:${sessionHash}:${row.attempt.id}:${waba}`,env);
+            await write('pending_selection',{selection:{waba,path:row.attempt.path,candidates:verified.candidates,credential}});
+          } else await persistConnection(verified,waba,phone);
+        } catch (error) {
+          if (!row.operation) await write('result',{attempt:attemptId,status:row.integration ? 'reconciliation_required' : 'failed',diagnostic:diagnostic(error,stage)});
+          throw error;
+        } finally { token = undefined; }
       };
       const checks = proof => ({ routing:!!proof.isolated, registered:!!(proof.registered ?? proof.connected), path:!!(proof.pathVerified ?? proof.isolated), nameStatus:proof.nameStatus || 'UNKNOWN' });
       const diagnostic = (error, stage) => ({reason:error instanceof PilotError ? error.code : 'review_backend_unavailable',stage,at:now(),...(Number.isSafeInteger(error.providerCode) ? {providerCode:error.providerCode} : {})});
@@ -213,27 +240,28 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
         if (typeof body.state !== 'string' || !/^[a-f0-9]{64}$/.test(body.state) || typeof body.attempt !== 'string') throw new PilotError('invalid_state',409);
         if (body.action === 'cancel') await write('cancel',{attempt:body.attempt,stateHash:digest(body.state)});
         else {
-          const c = configuration(env);
+          configuration(env);
           if (!assetId(body.waba) || (body.phone !== undefined && !assetId(body.phone))) throw new PilotError('invalid_signup_result');
           if (typeof body.code !== 'string' || !body.code || body.code.length > 4096) throw new PilotError('invalid_signup_result');
           // The owner named this WABA before launch; a different one is a wrong selection, not a connection.
           if (row.attempt?.preselect?.waba && row.attempt.preselect.waba !== body.waba) throw new PilotError('invalid_signup_result');
           await write('claim',{attempt:body.attempt,stateHash:digest(body.state)});
-          let token;
-          try {
-            const verified = await exchange({ c, code:body.code,waba:body.waba,phone:body.phone,path:row.attempt.path,allowPhoneSelection:true,fetcher,now });
-            token = verified.token;
-            if (verified.candidates) {
-              const credential = sealToken(token,`review-selection:${sessionHash}:${row.attempt.id}:${body.waba}`,env);
-              await write('pending_selection',{selection:{waba:body.waba,path:row.attempt.path,candidates:verified.candidates,credential}});
-            } else await persistConnection(verified,body.waba,body.phone);
-          } catch (error) {
-            // If a provider operation was claimed, its record survives even if
-            // persistence fails. A refresh can reconcile it after 60 seconds.
-            if (!row.operation) await write('result',{attempt:body.attempt,status:row.integration ? 'reconciliation_required' : 'failed',diagnostic:diagnostic(error,'verification')});
-            throw error;
-          } finally { token = undefined; delete body.code; }
+          // If a provider operation was claimed, its record survives even if
+          // persistence fails. A refresh can reconcile it after 60 seconds.
+          try { await verifyAndPersist({ attemptId:body.attempt, waba:body.waba, phone:body.phone, exchangeArgs:{ code:body.code }, stage:'verification' }); }
+          finally { delete body.code; }
         }
+      } else if (body.action === 'connect_owner_number') {
+        const owner = !reviewMode && account && row.accountId ? ownerConnection(env,account) : null;
+        if (!owner) throw new PilotError('owner_connection_unavailable',403);
+        configuration(env);
+        if (row.integration || row.pendingSelection) throw new PilotError('operation_conflict',409);
+        // Retire an unused prepared Embedded Signup attempt; the owner path replaces it.
+        if (row.attempt && !row.attempt.claimed && ['prepared','awaiting_meta'].includes(row.status) && row.attempt.expiresAt > now()) await write('cancel',{attempt:row.attempt.id,stateHash:row.attempt.stateHash});
+        const attempt = randomUUID(), state = attemptState(attempt);
+        await write('begin',{attempt,stateHash:digest(state),path:'existing_cloud'});
+        await write('claim',{attempt,stateHash:digest(state)});
+        await verifyAndPersist({ attemptId:attempt, waba:owner.waba, phone:owner.phone, exchangeArgs:{ token:env.BLUE_OWNER_CONNECT_TOKEN }, stage:'owner_connection' });
       } else if (body.action === 'cancel_selection') {
         await write('cancel_selection');
       } else if (body.action === 'select_phone') {

@@ -23,6 +23,7 @@ const explanations = {
   website_url_invalid: 'Use a public HTTPS website address.', website_unavailable: 'This page could not be read. Paste your business facts instead.', website_empty: 'No readable text was found. Paste your facts instead.', website_too_large: 'This page is too large to import. Paste a short excerpt instead.', website_redirect_limit: 'This website redirects too many times. Use its final page address.',
   catalog_file_too_large:'Use a file smaller than 15 MB.',catalog_file_type:'Use PDF, CSV, XLSX, DOCX, TXT, JPG, PNG or WebP.',catalog_file_empty:'No readable catalog information was found.',
   catalog_limit:'A catalog can contain up to 1,000 active services or products.',invalid_catalog_entry:'Review the extracted item name and price, then try again.',catalog_unavailable:'The catalog could not be saved. Please try again.',
+  owner_connection_unavailable: 'Direct connection is only available to the BznsFlow owner account while its server credential is configured.',
   customer_live_release_pending_review: 'Automatic customer replies will become available after Meta approval and our connection checks.',
   asset_in_use: 'This WhatsApp number or business account is already connected to another BznsFlow account. Sign in with that account, or choose a different number.',
   attempt_limit: 'This setup has reached its connection attempt limit. Contact ahmed@bznsflowai.com with the reference below.',
@@ -47,6 +48,7 @@ const arabicExplanations = {
   coexistence_not_verified:'لم تؤكد Meta أهلية الرقم للاستخدام المتزامن. لم نفصل تطبيقك.',
   attempt_expired:'انتهت مهلة ربط Meta. جهّز محاولة جديدة.', popup_blocked:'اسمح بنافذة فيسبوك المنبثقة ثم حاول مجدداً.',
   meta_cancelled:'أُلغيت محاولة ربط Meta. يمكنك المحاولة مجدداً.', permission_rejected:'رُفضت أذونات Meta. راجعها وأعد المحاولة.', missing_code:'لم ترسل Meta رمز الربط. أعد المحاولة.',
+  owner_connection_unavailable:'الربط المباشر متاح فقط لحساب مالك BznsFlow عند إعداد بيانات اعتماد الخادم.',
   asset_in_use:'رقم واتساب هذا أو حساب الأعمال مرتبط بحساب آخر في BznsFlow. سجّل الدخول بذلك الحساب، أو اختر رقماً مختلفاً.',
   attempt_limit:'بلغ هذا الإعداد الحد الأقصى لمحاولات الربط. تواصل مع ahmed@bznsflowai.com برقم المرجع أدناه.',
   attempt_used:'استُخدمت محاولة ربط Meta هذه من قبل. جهّز محاولة جديدة.', operation_conflict:'خطوة ربط أخرى ما زالت قيد التنفيذ. أعد تحميل الصفحة للتحقق قبل المحاولة.',
@@ -336,6 +338,11 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
           {data?.integration && <p role="status">{['connected','paused'].includes(data.integration.status)
             ? tr('This number is already connected. Manage replies and conversations below.', 'هذا الرقم مرتبط بالفعل. يمكنك إدارة الردود والمحادثات أدناه.')
             : tr('This number is already saved. Complete the registration step if shown, or check your connection below to continue.', 'هذا الرقم محفوظ بالفعل. أكمل خطوة التسجيل إن ظهرت، أو تحقّق من الاتصال أدناه للمتابعة.')}</p>}
+          {data?.ownerConnectAvailable && !prepared && <section className="layla-answer" aria-labelledby="layla-owner-number">
+            <h3 id="layla-owner-number">{tr('BznsFlow’s own number', 'رقم BznsFlow الخاص')}</h3>
+            <p>{tr('This number was added directly in Meta, so Meta’s signup window cannot list it. Connect it with BznsFlow’s approved server credential instead.', 'أُضيف هذا الرقم مباشرة في Meta، لذلك لا تعرضه نافذة التسجيل. اربطه باستخدام بيانات الاعتماد المعتمدة لدى BznsFlow.')}</p>
+            <button className="layla-primary" disabled={busy} onClick={() => act(async () => applyState(await request({ action: 'connect_owner_number' })))}>{busy ? tr('Connecting…', 'جارٍ الربط…') : tr('Connect +968 7113 4025 directly', 'ربط ‎+968 7113 4025 مباشرة')}</button>
+          </section>}
           {!data?.integration && !data?.selection && <>
           <p>{tr('Choose the number you want Layla to help with.', 'اختر الرقم الذي تريد أن تعمل ليلى عليه.')}</p>
           <fieldset disabled={busy || !!prepared}><legend>{tr('Your WhatsApp number', 'رقم واتساب الخاص بك')}</legend>

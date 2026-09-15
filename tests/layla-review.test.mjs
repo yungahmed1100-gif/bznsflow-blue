@@ -28,9 +28,9 @@ function memory() {
   return {store,rows,db,now:()=>clock,advance:n=>{clock+=n;}};
 }
 const response = () => ({headers:{},setHeader(k,v){this.headers[k]=v;},status(n){this.statusCode=n;},end(v){this.body=JSON.parse(v);}});
-async function client(handler) {
+async function client(handler, extraCookie='') {
   let cookie='',csrf='';
-  const call=async(body,headers={})=>{const res=response();await handler({method:body?'POST':'GET',headers:{host:'bznsflow-blue.vercel.app',origin:'https://bznsflow-blue.vercel.app','content-type':'application/json',cookie,'x-csrf-token':csrf,...headers},body:body?structuredClone(body):undefined},res);if(res.headers['Set-Cookie']) cookie=res.headers['Set-Cookie'].split(';')[0];if(res.body.csrfToken)csrf=res.body.csrfToken;return res;};
+  const call=async(body,headers={})=>{const res=response();await handler({method:body?'POST':'GET',headers:{host:'bznsflow-blue.vercel.app',origin:'https://bznsflow-blue.vercel.app','content-type':'application/json',cookie:[cookie,extraCookie].filter(Boolean).join('; '),'x-csrf-token':csrf,...headers},body:body?structuredClone(body):undefined},res);if(res.headers['Set-Cookie']) cookie=res.headers['Set-Cookie'].split(';')[0];if(res.body.csrfToken)csrf=res.body.csrfToken;return res;};
   const initial=await call();return {call,initial};
 }
 function harness(overrides={}) {
@@ -170,6 +170,46 @@ test('operator attempt reset restores the connection budget only while nothing i
   row.operation='op';assert.equal((await resetAttempts({db:h.db.db},{email:'owner@example.com',confirm:true},h.db.now())).reason,'operation_in_progress');delete row.operation;
   assert.deepEqual(await resetAttempts({db:h.db.db},{email:'owner@example.com',confirm:true},h.db.now()),{ok:true,value:{reset:true}});
   assert.equal(h.db.rows.get(row._id).attempts,0);
+});
+const OWNER={email:'ahmed@bznsflowai.com',waba:'2213485365896306',phone:'1250149564857596'};
+const OWNER_TOKEN='owner-system-user-token-'.repeat(3);
+const ownerEnv=(extra={})=>({...env,BLUE_ACCOUNT_SAVE_ENABLED:'true',BLUE_RESEND_API_KEY:'re_test_key_123456',BLUE_AUTH_FROM:'Blue <auth@example.com>',
+  BLUE_ROUTING_TAKEOVER:`${OWNER.waba}:${OWNER.phone}`,BLUE_OWNER_CONNECT:`${OWNER.email}:${OWNER.waba}:${OWNER.phone}`,BLUE_OWNER_CONNECT_TOKEN:OWNER_TOKEN,...extra});
+async function ownerClient({envExtra={},email=OWNER.email,exchange,inspect}={}) {
+  const draftHash='d'.repeat(64);const exchanges=[];let inspections=0;
+  const h=harness({reviewMode:false,env:ownerEnv(envExtra),accountStore:async op=>op==='session'?{id:'acct-owner',email,draftHash}:null,
+    exchange:exchange||(async args=>{exchanges.push(args);return {token:args.token,phone:OWNER.phone,sender:'96871134025'};}),
+    inspect:inspect||(async()=>inspections++===0?routedElsewhere:{isolated:true,connected:true,pathVerified:true,registered:true})});
+  const c=await client(h.handler,`__Host-blue_account=${'a'.repeat(64)}`);
+  const row=[...h.db.rows.values()].find(r=>r.__table==='blueReviewSessions'&&r.sessionHash===draftHash);row.accountId='acct-owner';
+  assert.equal((await c.call({action:'profile',businessName:profile.businessName,profile})).statusCode,200);
+  return {h,c,exchanges,row};
+}
+test('the owner connects their own directly created number with the Blue-only token, never through the browser',async()=>{
+  const {h,c,exchanges}=await ownerClient();
+  const before=(await c.call()).body;assert.equal(before.ownerConnectAvailable,true);
+  await c.call({action:'begin',path:'existing_cloud'});
+  const r=await c.call({action:'connect_owner_number'});
+  assert.equal(r.statusCode,200);assert.equal(r.body.status,'connected');assert.equal(r.body.integration.path,'existing_cloud');
+  assert.equal(exchanges.length,1);assert.equal(exchanges[0].token,OWNER_TOKEN);assert.equal(exchanges[0].code,undefined);
+  assert.deepEqual([exchanges[0].waba,exchanges[0].phone,exchanges[0].path],[OWNER.waba,OWNER.phone,'existing_cloud']);
+  assert.deepEqual(h.effects.map(e=>e.path),[`/v25.0/${OWNER.waba}/subscribed_apps`,`/v25.0/${OWNER.phone}`]);
+  assert.equal(r.body.ownerConnectAvailable,false);
+  for(const body of [before,r.body]) assert(!JSON.stringify(body).includes('owner-system-user-token'));
+});
+test('owner connection is refused for other accounts, a malformed binding or a missing token',async()=>{
+  for(const setup of [{email:'someone@example.com'},{envExtra:{BLUE_OWNER_CONNECT:`${OWNER.email}:${OWNER.waba}`}},{envExtra:{BLUE_OWNER_CONNECT_TOKEN:''}},{envExtra:{BLUE_OWNER_CONNECT:`${OWNER.email}:${OWNER.waba}:12ab`}}]) {
+    const {h,c,exchanges}=await ownerClient(setup);
+    assert.equal((await c.call()).body.ownerConnectAvailable,false);
+    const r=await c.call({action:'connect_owner_number'});assert.equal(r.statusCode,403);assert.equal(r.body.reason,'owner_connection_unavailable');
+    assert.equal(exchanges.length,0);assert.equal(h.effects.length,0);
+  }
+});
+test('a failed owner token check records a safe diagnostic and makes no provider writes',async()=>{
+  const {h,c}=await ownerClient({exchange:async()=>{throw new PilotError('waba_not_granted',403);}});
+  const r=await c.call({action:'connect_owner_number'});assert.equal(r.body.reason,'waba_not_granted');
+  const state=(await c.call()).body;assert.equal(state.status,'failed');assert.deepEqual([state.diagnostic.reason,state.diagnostic.stage],['waba_not_granted','owner_connection']);
+  assert.equal(h.effects.length,0);assert.equal(state.ownerConnectAvailable,true);
 });
 test('existing routing stays refused without the exact approved pair and path',async()=>{
   for(const [takeover,path] of [[undefined,'existing_cloud'],['1712714900182074:9999','existing_cloud'],['1712714900182074:1234','coexistence'],['1712714900182074:1234:1','existing_cloud']]) {
