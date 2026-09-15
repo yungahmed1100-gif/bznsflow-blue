@@ -127,3 +127,17 @@ export async function detachIntegration(ctx, a, now = Date.now()) {
   await ctx.db.patch(row._id, { ...Object.fromEntries(CONNECTION_FIELDS.map(k => [k, undefined])), status: 'business_saved', updatedAt: now });
   return { ok: true, value: { detached: true } };
 }
+
+/** Operator-only: restore a saved setup's connection-attempt budget. Nothing else changes. */
+export async function resetAttempts(ctx, a, now = Date.now()) {
+  const fail = reason => ({ ok: false, reason });
+  const email = typeof a.email === 'string' ? a.email.trim().toLowerCase() : '';
+  if (!email || a.confirm !== true) return fail('confirmation_required');
+  const account = await ctx.db.query('accounts').withIndex('by_email', q => q.eq('email', email)).unique();
+  if (!account?.draftHash) return fail('setup_not_found');
+  const row = await ctx.db.query('blueReviewSessions').withIndex('by_hash', q => q.eq('sessionHash', account.draftHash)).unique();
+  if (!row || String(row.accountId) !== String(account._id)) return fail('setup_not_found');
+  if (row.operation || row.status === 'verifying') return fail('operation_in_progress');
+  await ctx.db.patch(row._id, { attempts: 0, updatedAt: now });
+  return { ok: true, value: { reset: true } };
+}

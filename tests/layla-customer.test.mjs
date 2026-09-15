@@ -29,6 +29,16 @@ test('v4 signup separates coexistence, validates origins and ignores incomplete 
   assert.equal(signupEvent({ ...event, data: '{' }, 'coexistence'), null);
   assert.deepEqual(signupEvent({ ...event, data: { type: 'WA_EMBEDDED_SIGNUP', event: 'CANCEL' } }, 'coexistence'), { cancelled: true });
 });
+test('existing API numbers launch the business-first flow and may finish with only a WABA', () => {
+  assert.equal(signupOptions({ configId: '456', path: 'existing_cloud', esVersion: 'v3' }).extras.version, 'v3');
+  assert.equal(signupOptions({ configId: '456', path: 'existing_cloud', esVersion: 'v9' }).extras.version, 'v4');
+  assert.equal(signupOptions({ configId: '456', path: 'coexistence', esVersion: 'v3' }).extras.version, 'v4');
+  const finish = (event, data) => ({ origin: 'https://www.facebook.com', data: { type: 'WA_EMBEDDED_SIGNUP', event, data } });
+  assert.deepEqual(signupEvent(finish('FINISH_ONLY_WABA', { waba_id: '2213485365896306' }), 'existing_cloud'), { assets: { waba: '2213485365896306' } });
+  assert.deepEqual(signupEvent(finish('FINISH', { waba_id: '2213485365896306', phone_number_id: '1250149564857596' }), 'existing_cloud'), { assets: { waba: '2213485365896306', phone: '1250149564857596' } });
+  assert.equal(signupEvent(finish('FINISH_ONLY_WABA', { waba_id: '2213485365896306' }), 'new_number'), null);
+  assert.equal(signupEvent(finish('FINISH', { waba_id: '2213485365896306' }), 'new_number'), null);
+});
 test('signup configuration requires app identity and membership; provider errors are redacted', async () => {
   const configEnv = { LAYLA_EMBEDDED_SIGNUP_CONFIG_ID: '456' };
   const reply = value => async (_url, options) => { assert.equal(options.method, 'GET'); return { ok: true, text: async () => JSON.stringify(value) }; };

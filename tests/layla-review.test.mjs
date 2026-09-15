@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { detachIntegration, executeReview } from '../convex/reviewState.js';
+import { detachIntegration, executeReview, resetAttempts } from '../convex/reviewState.js';
 import { createReviewHandler, inspectReviewConnection } from '../api/_lib/layla/review-api.js';
 import { BLUE_CLOUD, reviewStore } from '../api/_lib/convex.js';
 import { PilotError } from '../api/_lib/layla/config.js';
@@ -153,6 +153,23 @@ test('the approved takeover still connects when the launch preselected its WABA'
   assert.equal((await c.call({action:'profile',businessName:profile.businessName,profile})).statusCode,200);
   const r=await c.call({action:'begin',path:'existing_cloud',waba:'1712714900182074'});
   assert.equal((await c.call({action:'finish',attempt:r.body.attempt,state:r.body.state,code:'secret-code',waba:'1712714900182074',phone:'1234'})).body.status,'connected');
+});
+test('the server chooses the signup flow version per path',async()=>{
+  for(const [path,extra,version] of [['existing_cloud',{},'v3'],['existing_cloud',{BLUE_SIGNUP_VERSION_EXISTING:'v4'},'v4'],['existing_cloud',{BLUE_SIGNUP_VERSION_EXISTING:'v99'},'v3'],['new_number',{BLUE_SIGNUP_VERSION_EXISTING:'v3'},'v4'],['coexistence',{},'v4']]) {
+    const h=harness({env:{...env,...extra}}),c=await client(h.handler);
+    assert.equal((await c.call({action:'profile',businessName:profile.businessName,profile})).statusCode,200);
+    const r=await c.call({action:'begin',path});assert.equal(r.body.esVersion,version);assert.equal((await c.call()).body.prepared.esVersion,version);
+  }
+});
+test('operator attempt reset restores the connection budget only while nothing is in flight',async()=>{
+  const h=harness(),c=await client(h.handler);
+  assert.equal((await c.call({action:'profile',businessName:profile.businessName,profile})).statusCode,200);
+  const row=[...h.db.rows.values()].find(r=>r.__table==='blueReviewSessions');row.attempts=9;
+  h.db.rows.set('acct-2',{_id:'acct-2',__table:'accounts',email:'owner@example.com',draftHash:row.sessionHash});row.accountId='acct-2';
+  assert.equal((await resetAttempts({db:h.db.db},{email:'owner@example.com'},h.db.now())).reason,'confirmation_required');
+  row.operation='op';assert.equal((await resetAttempts({db:h.db.db},{email:'owner@example.com',confirm:true},h.db.now())).reason,'operation_in_progress');delete row.operation;
+  assert.deepEqual(await resetAttempts({db:h.db.db},{email:'owner@example.com',confirm:true},h.db.now()),{ok:true,value:{reset:true}});
+  assert.equal(h.db.rows.get(row._id).attempts,0);
 });
 test('existing routing stays refused without the exact approved pair and path',async()=>{
   for(const [takeover,path] of [[undefined,'existing_cloud'],['1712714900182074:9999','existing_cloud'],['1712714900182074:1234','coexistence'],['1712714900182074:1234:1','existing_cloud']]) {

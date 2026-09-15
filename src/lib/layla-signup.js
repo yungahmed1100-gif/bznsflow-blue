@@ -8,7 +8,14 @@ export function signupInit(prepared) {
 export function signupOptions(prepared) {
   // Keep extras object-shaped, as in the supplied Meta sample.
   return { config_id: prepared.configId, auth_type: 'rerequest', response_type: 'code', override_default_response_type: true,
-    extras: { setup: signupSetup(prepared), version: 'v4', sessionInfoVersion: '3', ...(prepared.path === 'coexistence' ? { featureType: 'whatsapp_business_app_onboarding' } : {}) } };
+    extras: { setup: signupSetup(prepared), version: signupVersion(prepared), sessionInfoVersion: '3', ...(prepared.path === 'coexistence' ? { featureType: 'whatsapp_business_app_onboarding' } : {}) } };
+}
+
+// The existing-API path uses the business-first flow (portfolio → WABA → number), as
+// Tech Providers like Twilio do; the server names the version. Other paths stay on v4.
+const SIGNUP_VERSIONS = ['v2', 'v3', 'v4'];
+function signupVersion({ path, esVersion }) {
+  return path === 'existing_cloud' && SIGNUP_VERSIONS.includes(esVersion) ? esVersion : 'v4';
 }
 
 // Meta's phone-number-first flow scopes its number list to one business portfolio.
@@ -25,8 +32,10 @@ export function signupEvent(event, path) {
   try { payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data; } catch { return null; }
   if (payload?.type !== 'WA_EMBEDDED_SIGNUP') return null;
   if (['CANCEL', 'ERROR'].includes(payload.event)) return { cancelled: true };
-  const expected = path === 'coexistence' ? 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING' : 'FINISH';
-  if (payload.event !== expected || !/^\d{1,30}$/.test(payload.data?.waba_id || '') || (payload.data?.phone_number_id ? !/^\d{1,30}$/.test(payload.data.phone_number_id) : path !== 'coexistence')) return null;
+  // Coexistence and existing API numbers may finish with only a WABA; the server then lists its numbers.
+  const expected = path === 'coexistence' ? ['FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'] : path === 'existing_cloud' ? ['FINISH', 'FINISH_ONLY_WABA'] : ['FINISH'];
+  const phoneOptional = path === 'coexistence' || path === 'existing_cloud';
+  if (!expected.includes(payload.event) || !/^\d{1,30}$/.test(payload.data?.waba_id || '') || (payload.data?.phone_number_id ? !/^\d{1,30}$/.test(payload.data.phone_number_id) : !phoneOptional)) return null;
   return { assets: { waba: payload.data.waba_id, ...(payload.data.phone_number_id ? { phone: payload.data.phone_number_id } : {}) } };
 }
 

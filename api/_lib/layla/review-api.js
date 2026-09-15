@@ -62,6 +62,12 @@ export async function inspectReviewConnection({ c, integration: i, token, fetche
   return { nameStatus: ['APPROVED','AVAILABLE_WITHOUT_REVIEW','DECLINED','EXPIRED','PENDING_REVIEW','NONE'].includes(name?.name_status) ? name.name_status : 'UNKNOWN', pathVerified, registered: phone.status === 'CONNECTED', isolated: isolated && pathVerified, safeToSubscribe, connected: isolated && pathVerified && phone.status === 'CONNECTED', subscribed: !!app,
     phoneMatches: phone.id === i.phone, phoneRoutedElsewhere: !!routing?.phone_number && routing.phone_number !== CALLBACK };
 }
+// Existing API numbers use the business-first Embedded Signup flow so an owner with several
+// portfolios picks the right one. BLUE_SIGNUP_VERSION_EXISTING can switch it without code.
+export function signupVersion(env, path) {
+  if (path !== 'existing_cloud') return 'v4';
+  return ['v2','v3','v4'].includes(env.BLUE_SIGNUP_VERSION_EXISTING) ? env.BLUE_SIGNUP_VERSION_EXISTING : 'v3';
+}
 // The owner approved moving exactly one existing Cloud API number from other routing
 // to Blue: BLUE_ROUTING_TAKEOVER="<waba>:<phone id>". Any other asset stays refused.
 export function routingTakeoverApproved(env, i) {
@@ -102,7 +108,7 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
         reviewMode, websiteImportAvailable: env.BLUE_WEBSITE_IMPORT_ENABLED === 'true', accountSaveAvailable: accountsAvailable, savedToAccount: !!row.accountId,
         account: account ? { email:account.email } : null,
         ...(row.attempt && !row.attempt.claimed && ['prepared','awaiting_meta'].includes(row.status) && row.attempt.expiresAt > now() ? {
-          prepared: {attempt:row.attempt.id,state:attemptState(row.attempt.id),path:row.attempt.path,expiresAt:row.attempt.expiresAt,appId:APP,configId:CONFIG,version:'v25.0',...(row.attempt.preselect ? {preselect:row.attempt.preselect} : {})},
+          prepared: {attempt:row.attempt.id,state:attemptState(row.attempt.id),path:row.attempt.path,expiresAt:row.attempt.expiresAt,appId:APP,configId:CONFIG,version:'v25.0',esVersion:signupVersion(env,row.attempt.path),...(row.attempt.preselect ? {preselect:row.attempt.preselect} : {})},
         } : {}),
       });
       if (req.method === 'GET') return send(res,200,result(),{vary:'Cookie'});
@@ -202,7 +208,7 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
         const preselect = named.length ? Object.fromEntries(named.map(k => [k, body[k]])) : undefined;
         const attempt = randomUUID(), state = attemptState(attempt);
         await write('begin',{attempt,stateHash:digest(state),path:body.path,...(preselect ? {preselect} : {})});
-        return send(res,200,{...result(),attempt,state,path:row.attempt.path,expiresAt:row.attempt.expiresAt,appId:APP,configId:CONFIG,version:'v25.0',...(preselect ? {preselect} : {})},{vary:'Cookie'});
+        return send(res,200,{...result(),attempt,state,path:row.attempt.path,expiresAt:row.attempt.expiresAt,appId:APP,configId:CONFIG,version:'v25.0',esVersion:signupVersion(env,body.path),...(preselect ? {preselect} : {})},{vary:'Cookie'});
       } else if (['cancel','finish'].includes(body.action)) {
         if (typeof body.state !== 'string' || !/^[a-f0-9]{64}$/.test(body.state) || typeof body.attempt !== 'string') throw new PilotError('invalid_state',409);
         if (body.action === 'cancel') await write('cancel',{attempt:body.attempt,stateHash:digest(body.state)});
