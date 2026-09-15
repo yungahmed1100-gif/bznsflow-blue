@@ -360,3 +360,10 @@ test('a missing portfolio never blocks the connection',async()=>{
   const done=await c.call(await begin(c));
   assert.equal(done.body.status,'connected');assert.equal(done.body.connectionChecks.portfolio,undefined);
 });
+
+test('signup completion is accepted from Meta subdomains but never from look-alike or insecure origins',async()=>{
+  const finish=origin=>{const done=[],popup={};const a=createSignupAttempt({prepared:{attempt:'a',state:'s',path:'coexistence',expiresAt:100},complete:async b=>done.push(b),failed:()=>{},now:()=>1});a.capture(popup);
+    a.message({origin,source:popup,data:{type:'WA_EMBEDDED_SIGNUP',event:'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING',data:{waba_id:'1'}}});a.callback({authResponse:{code:'code'}});return new Promise(r=>setImmediate(()=>r(done.length)));};
+  for (const origin of ['https://www.facebook.com','https://business.facebook.com','https://web.facebook.com']) assert.equal(await finish(origin),1,origin);
+  for (const origin of ['https://evilfacebook.com','http://business.facebook.com','https://facebook.com.evil.io','https://business.facebook.com:8443','null']) assert.equal(await finish(origin),0,origin);
+});

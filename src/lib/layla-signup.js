@@ -26,8 +26,15 @@ function signupSetup({ path, preselect }) {
   return { ...(preselect.business ? { business: { id: preselect.business } } : {}), ...(preselect.waba ? { whatsAppBusinessAccount: { ids: [preselect.waba] } } : {}) };
 }
 
+function facebookOrigin(origin) {
+  try { const u = new URL(origin); return u.protocol === 'https:' && !u.port && (u.hostname === 'facebook.com' || u.hostname.endsWith('.facebook.com')); }
+  catch { return false; }
+}
+
 export function signupEvent(event, path) {
-  if (!['https://www.facebook.com', 'https://web.facebook.com', 'https://facebook.com'].includes(event.origin)) return null;
+  // Meta's sample accepts any facebook.com origin: flows such as Business App onboarding
+  // finish on Meta subdomains. HTTPS only; the caller also requires the captured popup.
+  if (!facebookOrigin(event.origin)) return null;
   let payload;
   try { payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data; } catch { return null; }
   if (payload?.type !== 'WA_EMBEDDED_SIGNUP') return null;
