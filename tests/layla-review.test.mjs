@@ -171,10 +171,10 @@ test('operator attempt reset restores the connection budget only while nothing i
   assert.deepEqual(await resetAttempts({db:h.db.db},{email:'owner@example.com',confirm:true},h.db.now()),{ok:true,value:{reset:true}});
   assert.equal(h.db.rows.get(row._id).attempts,0);
 });
-const OWNER={email:'ahmed@bznsflowai.com',waba:'2213485365896306',phone:'1250149564857596'};
+const OWNER={email:'ahmed@bznsflowai.com',waba:'2213485365896306',phone:'1250149564857596',business:'4360221360973294'};
 const OWNER_TOKEN='owner-system-user-token-'.repeat(3);
 const ownerEnv=(extra={})=>({...env,BLUE_ACCOUNT_SAVE_ENABLED:'true',BLUE_RESEND_API_KEY:'re_test_key_123456',BLUE_AUTH_FROM:'Blue <auth@example.com>',
-  BLUE_ROUTING_TAKEOVER:`${OWNER.waba}:${OWNER.phone}`,BLUE_OWNER_CONNECT:`${OWNER.email}:${OWNER.waba}:${OWNER.phone}`,BLUE_OWNER_CONNECT_TOKEN:OWNER_TOKEN,...extra});
+  BLUE_ROUTING_TAKEOVER:`${OWNER.waba}:${OWNER.phone}`,BLUE_OWNER_CONNECT:`${OWNER.email}:${OWNER.waba}:${OWNER.phone}:${OWNER.business}`,BLUE_OWNER_CONNECT_TOKEN:OWNER_TOKEN,...extra});
 async function ownerClient({envExtra={},email=OWNER.email,exchange,inspect}={}) {
   const draftHash='d'.repeat(64);const exchanges=[];let inspections=0;
   const h=harness({reviewMode:false,env:ownerEnv(envExtra),accountStore:async op=>op==='session'?{id:'acct-owner',email,draftHash}:null,
@@ -192,13 +192,13 @@ test('the owner connects their own directly created number with the Blue-only to
   const r=await c.call({action:'connect_owner_number'});
   assert.equal(r.statusCode,200);assert.equal(r.body.status,'connected');assert.equal(r.body.integration.path,'existing_cloud');
   assert.equal(exchanges.length,1);assert.equal(exchanges[0].token,OWNER_TOKEN);assert.equal(exchanges[0].code,undefined);
-  assert.deepEqual([exchanges[0].waba,exchanges[0].phone,exchanges[0].path],[OWNER.waba,OWNER.phone,'existing_cloud']);
+  assert.deepEqual([exchanges[0].waba,exchanges[0].phone,exchanges[0].path,exchanges[0].ownerBusiness],[OWNER.waba,OWNER.phone,'existing_cloud',OWNER.business]);
   assert.deepEqual(h.effects.map(e=>e.path),[`/v25.0/${OWNER.waba}/subscribed_apps`,`/v25.0/${OWNER.phone}`]);
   assert.equal(r.body.ownerConnectAvailable,false);
   for(const body of [before,r.body]) assert(!JSON.stringify(body).includes('owner-system-user-token'));
 });
 test('owner connection is refused for other accounts, a malformed binding or a missing token',async()=>{
-  for(const setup of [{email:'someone@example.com'},{envExtra:{BLUE_OWNER_CONNECT:`${OWNER.email}:${OWNER.waba}`}},{envExtra:{BLUE_OWNER_CONNECT_TOKEN:''}},{envExtra:{BLUE_OWNER_CONNECT:`${OWNER.email}:${OWNER.waba}:12ab`}}]) {
+  for(const setup of [{email:'someone@example.com'},{envExtra:{BLUE_OWNER_CONNECT:`${OWNER.email}:${OWNER.waba}`}},{envExtra:{BLUE_OWNER_CONNECT_TOKEN:''}},{envExtra:{BLUE_OWNER_CONNECT:`${OWNER.email}:${OWNER.waba}:${OWNER.phone}:12ab`}},{envExtra:{BLUE_OWNER_CONNECT:`${OWNER.email}:${OWNER.waba}:${OWNER.phone}`}}]) {
     const {h,c,exchanges}=await ownerClient(setup);
     assert.equal((await c.call()).body.ownerConnectAvailable,false);
     const r=await c.call({action:'connect_owner_number'});assert.equal(r.statusCode,403);assert.equal(r.body.reason,'owner_connection_unavailable');

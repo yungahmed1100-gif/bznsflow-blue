@@ -37,7 +37,7 @@ export async function metaRequest(c, path, token, fetcher, body) {
     return value;
   } catch (error) { if (error instanceof PilotError) throw error; throw new PilotError('meta_connection_unavailable', 502); }
 }
-export async function exchangeAndVerify({ c, code, token: existingToken, waba, phone, path, allowPhoneSelection = false, fetcher = fetch, now = Date.now }) {
+export async function exchangeAndVerify({ c, code, token: existingToken, waba, phone, path, allowPhoneSelection = false, ownerBusiness, fetcher = fetch, now = Date.now }) {
   if ((!existingToken && (typeof code !== 'string' || !code || code.length > 4096)) || !/^\d{1,30}$/.test(waba || '') || (!/^\d{1,30}$/.test(phone || '') && !(allowPhoneSelection && !phone))) throw new PilotError('invalid_signup_result');
   const token = existingToken || (await metaRequest(c, 'oauth/access_token', `${c.app}|${c.secret}`, fetcher, { client_id: c.app, client_secret: c.secret, code })).access_token;
   if (typeof token !== 'string' || token.length < 20 || token.length > 8192) throw new PilotError('invalid_customer_token', 502);
@@ -47,12 +47,17 @@ export async function exchangeAndVerify({ c, code, token: existingToken, waba, p
   if (d?.is_valid !== true || d.app_id !== c.app || expired(d.expires_at) || expired(d.data_access_expires_at) ||
     !['whatsapp_business_management', 'whatsapp_business_messaging'].every(scope => d.scopes?.includes(scope))) throw new PilotError('token_permissions_incomplete', 409);
   const granted = d.granular_scopes?.find(s => s.scope === 'whatsapp_business_management');
-  if (!granted?.target_ids?.includes(waba)) throw new PilotError('waba_not_granted', 403);
+  // Signup tokens list the granted WABAs. A business system-user token with broad access
+  // lists none; it is accepted only on the owner path, for a WABA the owner portfolio owns.
+  const listed = Array.isArray(granted?.target_ids) && granted.target_ids.length > 0;
+  const ownerToken = !listed && !!granted && /^\d{1,30}$/.test(ownerBusiness || '') && d.type === 'SYSTEM_USER';
+  if (listed ? !granted.target_ids.includes(waba) : !ownerToken) throw new PilotError('waba_not_granted', 403);
   const [account, phones] = await Promise.all([
-    metaRequest(c, `${waba}?fields=id`, token, fetcher),
+    metaRequest(c, `${waba}?fields=id${ownerToken ? ',owner_business_info' : ''}`, token, fetcher),
     metaRequest(c, `${waba}/phone_numbers?fields=id,display_phone_number,platform_type,is_on_biz_app&limit=100`, token, fetcher),
   ]);
   if (account.id !== waba || !Array.isArray(phones.data)) throw new PilotError('phone_not_in_customer_waba', 403);
+  if (ownerToken && account.owner_business_info?.id !== ownerBusiness) throw new PilotError('waba_not_granted', 403);
   if (!phone && allowPhoneSelection) {
     const eligible = phones.data.filter(p => /^\d{1,30}$/.test(p.id) && p.is_on_biz_app === (path === 'coexistence') && /^\d{7,15}$/.test(String(p.display_phone_number || '').replace(/\D/g,'')));
     if (!eligible.length) throw new PilotError('phone_not_in_customer_waba',403);

@@ -76,13 +76,13 @@ export function routingTakeoverApproved(env, i) {
 }
 // BznsFlow's own number sits in a WABA created directly in Meta, which Embedded Signup
 // cannot select. The owner connects it with a Blue-only system-user token kept in the
-// server environment: BLUE_OWNER_CONNECT="<email>:<waba id>:<phone id>".
+// server environment: BLUE_OWNER_CONNECT="<email>:<waba id>:<phone id>:<business portfolio id>".
 export function ownerConnection(env, account) {
   const parts = String(env.BLUE_OWNER_CONNECT || '').split(':');
   const token = env.BLUE_OWNER_CONNECT_TOKEN;
-  if (parts.length !== 3 || !assetId(parts[1]) || !assetId(parts[2]) || typeof token !== 'string' || token.length < 20 || token.length > 8192) return null;
+  if (parts.length !== 4 || !parts.slice(1).every(assetId) || typeof token !== 'string' || token.length < 20 || token.length > 8192) return null;
   if (!account?.email || String(account.email).toLowerCase() !== parts[0].toLowerCase()) return null;
-  return { waba: parts[1], phone: parts[2] };
+  return { waba: parts[1], phone: parts[2], business: parts[3] };
 }
 export function createReviewHandler({ env = process.env, fetcher = fetch, now = Date.now, store = reviewStore({ env, fetcher }), catalog = catalogStore({env,fetcher}), exchange = exchangeAndVerify, inspect = inspectReviewConnection, reviewMode = true, accountStore = blueAuthStore({env,fetcher}), websiteImport = importWebsite } = {}) {
   return async (req, res) => {
@@ -261,7 +261,7 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
         const attempt = randomUUID(), state = attemptState(attempt);
         await write('begin',{attempt,stateHash:digest(state),path:'existing_cloud'});
         await write('claim',{attempt,stateHash:digest(state)});
-        await verifyAndPersist({ attemptId:attempt, waba:owner.waba, phone:owner.phone, exchangeArgs:{ token:env.BLUE_OWNER_CONNECT_TOKEN }, stage:'owner_connection' });
+        await verifyAndPersist({ attemptId:attempt, waba:owner.waba, phone:owner.phone, exchangeArgs:{ token:env.BLUE_OWNER_CONNECT_TOKEN, ownerBusiness:owner.business }, stage:'owner_connection' });
       } else if (body.action === 'cancel_selection') {
         await write('cancel_selection');
       } else if (body.action === 'select_phone') {

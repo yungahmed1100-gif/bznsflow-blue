@@ -104,6 +104,20 @@ test('server verifies app, permissions, granted WABA, phone relationship and act
   assert.equal((await verify()).sender, '201036755930');
   for (const change of [b => { if (b.data?.app_id) b.data.app_id = 'wrong'; }, b => { if (b.data?.scopes) b.data.scopes = []; }, b => { if (b.data?.granular_scopes) b.data.granular_scopes = []; }, b => { if (Array.isArray(b.data)) b.data[0].id = 'wrong'; }, b => { if (Array.isArray(b.data)) b.data[0].is_on_biz_app = false; }]) await assert.rejects(verify(change));
 });
+test('an owner system-user token without listed targets is accepted only for a WABA the owner portfolio owns', async () => {
+  const token = 'OWNER_SYSTEM_USER_TOKEN_LONG', waba = '2213485365896306', phone = '1250149564857596', business = '4360221360973294';
+  const fixture = url => url.includes('debug_token')
+    ? { data: { is_valid: true, app_id: c.app, type: 'SYSTEM_USER', expires_at: 0, data_access_expires_at: 0, scopes: ['whatsapp_business_management', 'whatsapp_business_messaging'], granular_scopes: [{ scope: 'whatsapp_business_management' }] } }
+    : url.includes('/phone_numbers') ? { data: [{ id: phone, display_phone_number: '+968 7113 4025', platform_type: 'CLOUD_API', is_on_biz_app: false }] }
+    : { id: waba, owner_business_info: { id: business } };
+  const verify = ({ change = () => {}, ownerBusiness = business } = {}) => exchangeAndVerify({ c, token, waba, phone, path: 'existing_cloud', ownerBusiness,
+    fetcher: async url => { const body = fixture(String(url)); change(body, String(url)); return { ok: true, text: async () => JSON.stringify(body) }; } });
+  assert.equal((await verify()).sender, '96871134025');
+  await assert.rejects(verify({ ownerBusiness: null }), /waba_not_granted/);
+  await assert.rejects(verify({ change: b => { if (b.owner_business_info) b.owner_business_info.id = '999'; } }), /waba_not_granted/);
+  await assert.rejects(verify({ change: b => { if (b.data?.type) b.data.type = 'USER'; } }), /waba_not_granted/);
+  await assert.rejects(verify({ change: b => { if (b.data?.granular_scopes) b.data.granular_scopes = [{ scope: 'whatsapp_business_management', target_ids: ['111'] }]; } }), /waba_not_granted/);
+});
 test('additive migration preserves auth and enforces sender uniqueness, callback replay and cross-tenant foreign keys', async () => {
   const db = new PGlite();
   try {
