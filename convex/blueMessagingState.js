@@ -180,7 +180,7 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
   if(a.operation==='result') {
     const job=await ctx.db.get(a.jobId);
     if(!job || job.intent!==a.intent || !['submitted','ambiguous','failed','blocked'].includes(a.status)) return fail('invalid_state');
-    if(!terminal.has(job.status)) await ctx.db.patch(job._id,{status:a.status,...(a.reason?{reason:a.reason}:{}),...(a.providerId?{providerId:a.providerId}:{})});
+    if(!terminal.has(job.status)) await ctx.db.patch(job._id,{status:a.status,...(a.reason?{reason:a.reason}:{}),...(a.providerId?{providerId:a.providerId}:{}),...(a.status==='failed'&&Number.isSafeInteger(a.errorCode)?{errorCode:a.errorCode}:{})});
     if(a.status==='ambiguous' || a.status==='failed' || ['connection_not_ready','connection_check_failed'].includes(a.reason)) {
       const control=await controls(job.integrationId);
       if(control) await ctx.db.patch(control._id,{active:false,reason:a.status==='ambiguous'?'send_outcome_unknown':'provider_failed'});

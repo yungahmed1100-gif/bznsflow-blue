@@ -4,7 +4,8 @@ import { answer, guard, maintain, reconcile } from './domain.js';
 import { transact } from './store.js';
 
 export function providerResult(status, body) {
-  if (status < 200 || status >= 300) return { status: status >= 500 || status === 408 ? 'ambiguous' : 'failed', error: `provider_http_${status}` };
+  // Only Meta's numeric error code is kept; its message text never leaves this function.
+  if (status < 200 || status >= 300) return { status: status >= 500 || status === 408 ? 'ambiguous' : 'failed', error: `provider_http_${status}`, ...(Number.isSafeInteger(body?.error?.code) ? { errorCode: body.error.code } : {}) };
   const providerId = body?.messages?.[0]?.id;
   if (typeof providerId !== 'string' || !/^[A-Za-z0-9_.:=/-]{1,220}$/.test(providerId)) return { status: 'ambiguous', error: 'provider_missing_id' };
   return { status: 'submitted', providerId };

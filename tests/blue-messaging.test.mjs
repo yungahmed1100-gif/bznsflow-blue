@@ -83,6 +83,11 @@ test('receipts require tenant and recipient match and never downgrade delivery',
   await m.call('result',{jobId,intent:'one',status:'submitted',providerId:'wamid.1'});
   assert.equal(m.outgoing()[0].status,'delivered');
 });
+test('a rejected send keeps Meta\'s numeric error code for the owner, never its message',async()=>{
+  const m=await setup();await m.inbound();const jobId=m.outgoing()[0]._id;
+  await m.call('claim',{jobId,intent:'one'});await m.call('result',{jobId,intent:'one',status:'failed',reason:'provider_http_400',errorCode:131030});
+  assert.deepEqual([m.outgoing()[0].status,m.outgoing()[0].reason,m.outgoing()[0].errorCode],['failed','provider_http_400',131030]);
+});
 test('ambiguous sends pause the business and prevent blind reactivation',async()=>{
   const m=await setup();await m.inbound();const jobId=m.outgoing()[0]._id;
   await m.call('claim',{jobId,intent:'one'});await m.call('result',{jobId,intent:'one',status:'ambiguous'});

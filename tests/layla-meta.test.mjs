@@ -153,6 +153,7 @@ test('Cloud API response contract separates accepted, rejected and ambiguous res
  for(const code of [408,500,503])assert.equal(providerResult(code,{}).status,'ambiguous');
  for(const code of [400,401,403,429])assert.equal(providerResult(code,{error:{message:'SECRET'}}).status,'failed');
  assert(!JSON.stringify(providerResult(401,{error:{message:'SECRET'}})).includes('SECRET'));
+ assert.deepEqual(providerResult(400,{error:{code:131030,message:'SECRET'}}),{status:'failed',error:'provider_http_400',errorCode:131030});
 });
 test('authenticated ingress still requires an owner and new app mapping',async()=>{
  for(const key of ['owner','app'])assert.equal((await call(webhook({configuration:()=>({...cfg(),[key]:''}),store:memory(),now:()=>NOW}),req())).code,503);
