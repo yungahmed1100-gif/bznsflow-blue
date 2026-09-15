@@ -1,135 +1,135 @@
-# Meta App Review — submission package and live rehearsal (2026-09-14)
+# Meta App Review — submission package (updated 2026-09-15)
 
 App `1388038082832745` (bznsflowai), Blue review environment
-`https://bznsflow-blue.vercel.app`. Nothing has been submitted. Every statement
-below was checked against the deployed Blue code or read from Meta's App Review
-API on 2026-09-14; re-read both before submitting.
+`https://bznsflow-blue.vercel.app`. Nothing has been submitted yet. Re-read Meta's
+App Review API (`devtools_app_review requirements`) right before submitting.
 
-## Current state (verified 2026-09-14)
+Authority for the rules below: Meta's Tech Provider App Review page
+(developers.facebook.com/docs/whatsapp/solution-providers/app-review, read
+2026-09-15). The rules are:
+- one video per permission;
+- a written description **and** a video for each permission;
+- the management video may use **WhatsApp Manager** to create the template;
+- the messaging video must show the app sending a message and the WhatsApp client receiving it;
+- unnecessary permissions are a common reason for rejection;
+- drafts are never reviewed.
+
+## Decisions (2026-09-15)
+
+- **Reviewers use Blue for everything.** The app's Privacy, Terms and Data Deletion URLs point to Blue.
+- **Reviewer link:** valid 365 days, revocable, opening an empty isolated account.
+- **business_management stays requested.** It is backed by a real feature: connection checks read the business portfolio that owns the connected WABA (name and verification status) and show it on setup and in the dashboard. This supersedes the 2026-09-14 advice to remove it.
+
+## Current state
 
 | Item | State |
 | --- | --- |
-| Blue deployment | `dpl_ESnM3qtXvc8qbaZzRAoeCkQ52A4Q`, READY, aliased to the Blue URL; commits `45ed72b`, `5100f51` on `layla/blue` |
-| Convex | `quaint-nightingale-675` schema/functions pushed; contact migration complete (0 unlinked) |
-| Gates | `BLUE_DASHBOARD_ENABLED=true`, `BLUE_BROADCAST_ENABLED=true` (template sync only); durable Convex `broadcast` gate **off** (no campaign can be created) |
-| Blue account | one saved account, connected (`new_number`, sender ending 6936 — a Meta 555 test number), answers approved, connection checks passing, **Layla not activated** |
-| Templates / contacts / campaigns | 0 / 0 / 0 |
-| Review status | `UNSUBMITTED`; `can_submit: false` — Meta: "cannot submit for app review while previously submitted information is under review" |
-| Requested permissions | `business_management`, `whatsapp_business_management`, `whatsapp_business_messaging`; for each: use case, screencast, API precheck and data-use checkup **not completed** |
-| Live permissions | none of the three (grant status shows not granted; no reasons listed) |
-| App mode | development, not live |
-| Business verification / privacy URL present | passes / yes |
+| Code | commit `d04ab38` on `layla/blue` |
+| Convex | `quaint-nightingale-675`: pushed 2026-09-15 (added index `sessions.by_account`) |
+| Blue deployment | `dpl_C8GYrZ7a4CdFm3h7EyQunuF1Hgqj`, READY, aliased to the Blue URL |
+| Legal URLs (HTTP 200, no redirect, verified) | `/en/privacy`, `/en/terms`, `/en/data-deletion` (Arabic without `/en`) |
+| Reviewer link | rotated 2026-09-15, expires **2027-09-15**, verified to sign in; stored only in ignored `.env.blue-review-access.local` |
+| Meta review status (read 2026-09-15) | `UNSUBMITTED`; `can_submit: false` (prior submitted information still under review) |
+| Requested permissions | business_management, whatsapp_business_management, whatsapp_business_messaging; all four steps incomplete on each |
+| App settings | Privacy URL = Green; Terms and Data Deletion = `https://www.facebook.com/` placeholders; contact email unverified; dev mode |
 
-## Blockers before submission (in order)
+Rotate the link with `node scripts/issue-blue-review-access.mjs --rotate`. The old link and its sessions are revoked, and the new link is never printed.
 
-1. **Pending prior review.** Find what Meta still has under review (App Dashboard →
-   App Review → Requests, and Business verification / Data Use Checkup notices)
-   and let it finish or withdraw it. Submission is impossible until then.
-2. **Privacy policy URL** points to Green `https://www.bznsflowai.com/en/privacy`,
-   which does not yet describe WhatsApp chats, contacts, qualification, broadcasts,
-   consent evidence, exports or retention. Either release the updated privacy page
-   to Green (a production release — needs explicit authorization) or point the app
-   to `https://bznsflow-blue.vercel.app/en/privacy` (public, noindex).
-3. **Terms of Service and Data Deletion URLs** are `https://www.facebook.com/`
-   placeholders. Replace with a real terms page and a deletion-instructions URL
-   (the privacy page's "Your rights" and contact-deletion sections can serve as
-   deletion instructions until a dedicated page exists).
-4. **Contact email** `ahmed@bznsflowai.com` is not verified in the app.
-5. **`business_management`.** Current Blue code never calls a business-portfolio
-   endpoint; onboarding uses the Embedded Signup code exchange, `debug_token`
-   granular scopes and WABA/phone endpoints. Recommendation: remove it from the
-   submission **and** from Embedded Signup configuration `2144711899802123`, or
-   document a real use before requesting it. Do not request a permission the
-   screencast cannot show.
-6. **API precheck.** Each WhatsApp permission needs successful recent API calls
-   from the app. The rehearsal below produces them (WABA/phone/template reads,
-   subscription, message sends).
-7. **Approved MARKETING template** in the connected WABA (created in WhatsApp
-   Manager; category MARKETING, text header or none, body with text variables,
-   optional "Stop promotions" quick reply).
-8. **Test recipient.** A second WhatsApp number that is not a US +1 number
-   (WhatsApp does not deliver marketing templates to US numbers). Because the
-   sender is a Meta 555 test number, add the recipient under App Dashboard →
-   WhatsApp → API Setup → "To" (up to five numbers) if Meta rejects the send.
+## Owner checklist (in order)
 
-## Use-case text (draft — English, as Meta requires)
+1. **Clear `can_submit`.** App Dashboard → App Review → Requests, plus the Business verification, Tech Provider and Access Verification notices. Find what is still under review, then wait for it or withdraw it.
+2. **App Settings → Basic:**
+   - Privacy `https://bznsflow-blue.vercel.app/en/privacy`
+   - Terms `https://bznsflow-blue.vercel.app/en/terms`
+   - Data Deletion Instructions `https://bznsflow-blue.vercel.app/en/data-deletion`
+   - Verify the contact email.
+3. **Embedded Signup config `2144711899802123`:** confirm it holds all three permissions and the Blue domain.
+4. **Template:** in WhatsApp Manager for the connected WABA, create a template and get it approved (this is recorded as video A).
+5. **Test recipient:** add a non-US recipient under WhatsApp → API Setup → "To" (the sender is a Meta 555 test number).
+6. **Live rehearsal:** follow the runbook below. It makes the recent successful API calls every permission needs for **api_precheck**:
+   - business_management: portfolio read, triggered by Check connection
+   - whatsapp_business_management: templates sync, `subscribed_apps`
+   - whatsapp_business_messaging: `messages`
+7. **Record** videos A, B and C (below). Then, for each permission: paste its description, upload its video, complete the Data Use Checkup, and **Submit**.
+
+## Permission descriptions (English, paste per permission)
+
+**business_management**
+When a business connects WhatsApp through Meta Embedded Signup inside BznsFlow, we read the business portfolio that owns the WhatsApp Business Account the owner granted. We read its ID, name and verification status. We use this to confirm which portfolio BznsFlow is acting for and to show the owner "Connected business portfolio: NAME · Verified" on the setup page and in the dashboard. The check repeats whenever the owner checks the connection. We do not create, edit or manage portfolios, users or other assets.
 
 **whatsapp_business_management**
-BznsFlow lets small businesses connect their own WhatsApp Business Account to
-Layla, a front-desk assistant. During onboarding the business owner completes
-Meta Embedded Signup inside BznsFlow. We use this permission to confirm which
-WhatsApp Business Account and phone number the owner granted, read the phone
-number's registration status, display name status and messaging limit, subscribe
-our app to that account's webhooks, register a new number when the owner chooses
-that path, and read the owner's approved message templates so they can choose one
-in the BznsFlow dashboard. Templates are created and edited only in WhatsApp
-Manager. We never access accounts the owner did not grant.
+BznsFlow lets small businesses connect their own WhatsApp Business Account to Layla, a front-desk assistant. During onboarding the owner completes Meta Embedded Signup inside BznsFlow. We use this permission to:
+- confirm which WhatsApp Business Account and phone number the owner granted;
+- read the number's registration status, display-name status and messaging limit;
+- subscribe our app to that account's webhooks;
+- register a new number when the owner chooses that option;
+- read the owner's approved message templates so they can pick one in the BznsFlow dashboard.
+
+Templates are created in WhatsApp Manager. We never access accounts the owner did not grant.
 
 **whatsapp_business_messaging**
-After the owner reviews Layla's answers and activates her, BznsFlow receives
-messages sent to the business's WhatsApp number and replies with answers taken
-only from facts the owner approved, then asks short qualification questions. The
-owner sees every conversation in the BznsFlow dashboard, can take a chat over
-("Leave this chat for me"), reply manually within the 24-hour customer service
-window, and send an approved marketing template only to customers whose consent
-the business recorded. Opt-outs ("stop" or "Stop promotions") are honoured
-immediately. Delivery and read statuses are shown to the owner.
+After the owner reviews Layla's answers and activates her, BznsFlow receives messages sent to the business's WhatsApp number and replies only from facts the owner approved, then asks short qualification questions. The owner sees every conversation in the dashboard and can:
+- take a chat over;
+- reply manually within the 24-hour window;
+- send an approved template only to customers whose consent the business recorded.
 
-## Screencasts (one continuous recording per permission)
+Opt-outs are honoured immediately. Delivery and read statuses are shown to the owner.
 
-Record in English UI, at a readable browser zoom, without terminal windows,
-secrets, tokens or mocked data. Narrate or caption each step.
+## Videos (one per permission, English UI, no secrets/terminal/mocks)
 
-**A — whatsapp_business_management**
-1. Open `https://bznsflow-blue.vercel.app/en/layla/setup`; enter business facts,
-   try an answer, approve it, sign in with the emailed code.
-2. Choose a number path → Prepare secure connection → Connect with Facebook; show
-   the Meta Embedded Signup window, the business/WABA/number selection and consent.
-3. Back in BznsFlow: show the connected number and passing connection checks.
-4. Open the dashboard → Broadcast → "Sync approved templates"; show the template
-   list (name, language, status, body, variables) and the WhatsApp Manager link.
+- **A · whatsapp_business_management:** create a template in WhatsApp Manager and show it approved. Then BznsFlow Dashboard → Broadcast → Sync approved templates, and show it listed.
+- **B · whatsapp_business_messaging:** a second phone messages the business number. Show Layla's reply arriving on the phone and the chat in Dashboard → Chats with ticks. Then send a manual dashboard reply and show it arriving in WhatsApp.
+- **C · business_management:** `/en/layla/review` → Prepare secure connection → Connect with Facebook, and select or confirm the portfolio, WABA and number in Meta's window. Back in BznsFlow, show "Connected business portfolio: NAME · Verified". In the dashboard, press Check connection and show the portfolio line.
 
-**B — whatsapp_business_messaging**
-1. On setup, click Activate Layla; show "Layla is active" and the automatic move
-   to the dashboard.
-2. From a second phone, send "What services do you offer?" to the business
-   number. Show the phone receiving Layla's answer plus qualification questions,
-   and the same chat updating in Dashboard → Chats with delivery/read ticks.
-3. Reply on the phone with qualification details; show Contacts marking the lead
-   Qualified with captured details.
-4. Toggle "Leave this chat for me"; send a manual reply from the dashboard; show
-   it arrive on the phone and the delivered status.
-5. Broadcast → New broadcast: pick the approved template, map variables, add the
-   test number with the consent attestation, review, send now. Show the template
-   arriving on the phone and the campaign's delivered/read counts.
-6. On the phone tap "Stop promotions" (or reply "stop"); show the contact marked
-   Opted out and excluded from a new broadcast preview.
+## App Review form answers
 
-## Reviewer instructions (draft)
+**web-2 — access and testing instructions**
 
-- URL: `https://bznsflow-blue.vercel.app/en/layla/review` for the onboarding path.
-- A dedicated reviewer access link exists in the ignored local file
-  `.env.blue-review-access.local` (seven-day expiry). Paste it only into Meta's
-  private "test user credentials" field; reissue with
-  `scripts/issue-blue-review-access.mjs` if it has expired. It signs into an
-  isolated reviewer account with its own empty business.
-- Reviewers must use their own Meta test assets to connect WhatsApp; state that
-  our production number is not shared.
+> BznsFlow is a web app for small businesses. Its assistant, Layla, answers customer messages on the business's own WhatsApp number using only facts the owner has approved. There is nothing to download and nothing to pay.
+>
+> **Access:** Open https://bznsflow-blue.vercel.app/en/layla/review in desktop Chrome (Arabic version: /layla/review). To sign in, use the reviewer link in the test-credentials field. It opens a dedicated, empty reviewer account. You can also register at the same page with any email address; we email you a 6-digit code.
+>
+> **Testing:**
+> 1. **Business setup.** Enter a business name, sector, services and a human contact. Click "Try an answer" and approve the answer.
+> 2. **Connect WhatsApp (Facebook Login for Business / Embedded Signup).** Choose a number option, click "Prepare secure connection", then "Connect with Facebook". Meta's Embedded Signup window opens, where the business selects its business portfolio, WhatsApp Business Account and phone number and grants access. BznsFlow then shows the connected business portfolio name and verification status, the number, and passing connection checks. While the app is in development mode, Meta only lets people with a role on our app finish this window. The attached videos show the full flow with our own Meta test number; we do not share our production number.
+> 3. **After connecting.** Click "Activate Layla". In Dashboard → Chats, customer messages and Layla's replies appear with delivery and read status; the owner can take a chat over and reply manually within the 24-hour window. Contacts shows qualified leads and opt-outs. Broadcast → "Sync approved templates" lists the templates created in WhatsApp Manager. "Check connection" re-reads the number and business portfolio.
+>
+> **Meta APIs and Facebook Login:** We use Facebook Login for Business only to run WhatsApp Embedded Signup (configuration 2144711899802123, response_type=code). The code is exchanged on our server.
+> - **business_management:** reads the business portfolio that owns the granted WhatsApp Business Account (ID, name, verification status).
+> - **whatsapp_business_management:** reads the granted WhatsApp Business Account, phone numbers and status, registers a new number when the owner chooses that option, subscribes our app to the account's webhooks, and reads approved message templates.
+> - **whatsapp_business_messaging:** sends Layla's replies, owner replies and consented template messages, and receives messages and delivery statuses.
+>
+> We do not request or use email, public_profile, user_friends, user_gender, user_birthday or any other Facebook user data. Facebook Login is not used to sign in to BznsFlow; sign-in uses an emailed one-time code.
+
+**fblogin-web-1:** Yes. Facebook Login for Business is used only for WhatsApp Embedded Signup.
+
+**accesscode-web-1**
+
+> Reviewer sign-in link (valid until 15 September 2027): <paste BLUE_REVIEW_ACCESS_URL from .env.blue-review-access.local>. It opens an isolated reviewer account with an empty business. No payment or membership is required. You can also register at the same page with any email address using the emailed 6-digit code. To complete the Meta Embedded Signup window while the app is in development mode, use a Facebook account with a role on the app or your Meta test assets.
+
+**accesscode-web-2:** Not applicable. BznsFlow is a free-to-access web app, not an app-store download, and has no in-app purchases.
+
+**geo-web-5**
+
+> BznsFlow has no geo-blocking or geo-fencing and can be reached worldwide. The interface opens in Arabic by default, with English under /en/. Our business focus is Oman and the GCC, but access is not restricted. WhatsApp's own policy means marketing template messages are not delivered to US (+1) numbers; that is a Meta rule, not a restriction of our app.
+
+**documents-web-1:** Upload videos A, B and C (.mp4, about 1–3 minutes each) and a short PDF of annotated screenshots covering reviewer sign-in → Embedded Signup → connected portfolio → dashboard. Include no secrets, and do not include the reviewer link in any uploaded file.
 
 ## Live rehearsal runbook (Blue, owner-performed with engineering support)
 
 | # | Owner action | Engineering action / check |
 | --- | --- | --- |
 | 1 | Sign in at `/en/layla/setup` with the account that owns the 6936 connection | — |
-| 2 | Activate Layla; confirm the dialog opens the dashboard | Confirm `blueMessagingControls` active |
-| 3 | Create/confirm an approved MARKETING template in WhatsApp Manager; Dashboard → Broadcast → Sync | Confirm a sendable template in `blueTemplates` |
-| 4 | — | Enable durable gate: `npx convex run blueCampaign:setBroadcastEnabled '{"enabled":true}'` |
+| 2 | Dashboard → Check connection; confirm the portfolio line appears | Portfolio stored in `connectionChecks.portfolio` |
+| 3 | Activate Layla; confirm the dialog opens the dashboard | Confirm `blueMessagingControls` active |
+| 4 | Create/confirm an approved template in WhatsApp Manager; Dashboard → Broadcast → Sync | Confirm a sendable template in `blueTemplates` |
 | 5 | From the test recipient phone, message the business number | Watch webhook ingest, contact created, reply queued → delivered |
-| 6 | Answer qualification questions; toggle takeover; manual reply | Verify contact fields/status, blocked queued replies, manual receipt |
-| 7 | Broadcast one template to the recipient via manual entry with consent | Watch campaign start revalidation, one send, receipts |
-| 8 | Tap "Stop promotions" / reply stop | Verify opt-out, unclaimed jobs blocked |
-| 9 | Record screencasts A and B during steps 1–8 or a clean repeat | Update this file with evidence (IDs, times, statuses — no message text or numbers) |
+| 6 | Toggle takeover; send a manual reply | Verify the manual receipt |
+| 7 | Record videos A, B and C during steps 2–6 or a clean repeat | Update this file with evidence (IDs, times, statuses; no message text or numbers) |
 
-Rollback at any point: `npx convex run blueCampaign:setBroadcastEnabled '{"enabled":false}'`;
-pause Layla from the dashboard; `blueMessaging:setEnabled {"enabled":false}` closes
-all conversational sending. See [dashboard pack](blue-dashboard.md).
+Rollback at any point:
+- Pause Layla from the dashboard.
+- Run `blueMessaging:setEnabled {"enabled":false}` to close all conversational sending.
+- Run `npx convex run blueCampaign:setBroadcastEnabled '{"enabled":false}'` if broadcast was enabled.
+
+See the [dashboard pack](blue-dashboard.md).
