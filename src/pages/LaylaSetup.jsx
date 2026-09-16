@@ -1,19 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import LaylaEligibility from './LaylaEligibility';
+import { callApi, reasonOf } from '../lib/api-client.js';
 
 export default function LaylaSetup({ csrf, demo = false }) {
   const [activation, setActivation] = useState(null), [challenge, setChallenge] = useState(null), [pin, setPin] = useState('');
   const [test, setTest] = useState(null), [recipient, setRecipient] = useState(''), [text, setText] = useState(''), [allowed, setAllowed] = useState(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [clock, setClock] = useState(Date.now());
   async function request(endpoint, body) {
-    const result = await fetch(`/api/layla-meta-${endpoint}`, { method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store',
-      ...(body ? { headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify(body) } : {}) }).then(r => r.json());
-    if (!result.ok) throw new Error(/^[a-z_]{1,60}$/.test(result.reason) ? result.reason : 'unavailable');
-    return result;
+    // callApi throws ApiError; these pages surface `e.message`, which ApiError
+    // sets to the reason code, so the existing handling below still applies.
+    return callApi(`/api/layla-meta-${endpoint}`, { body, csrf });
   }
   async function run(task) {
     setBusy(true); setError('');
-    try { await task(); } catch (e) { setError(/^[a-z_]{1,60}$/.test(e.message) ? e.message : 'unavailable'); }
+    try { await task(); } catch (e) { setError(reasonOf(e.message)); }
     finally { setBusy(false); }
   }
   useEffect(() => {

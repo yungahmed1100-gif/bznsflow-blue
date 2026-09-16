@@ -3,6 +3,7 @@ import { Seo } from '../components/ui/Seo';
 import '../styles/layla-pilot.css';
 import LaylaSetup from './LaylaSetup';
 import LaylaOpenTest from './LaylaOpenTest';
+import { callApi } from '../lib/api-client.js';
 const labels = { sector:'Sector / القطاع', services:'Approved services / الخدمات المعتمدة', prices:'Prices (leave blank if unknown) / الأسعار إن توفرت', hours:'Hours / ساعات العمل', location:'Location / الموقع', humanContact:'Actual human contact / وسيلة التواصل مع الفريق' };
 const states = {configuration_missing:'Configuration missing / إعدادات ناقصة',configured:'Configured / تم الإعداد',incoming_message_received:'Incoming message received / وصلت رسالة',reply_submitted:'Reply submitted; delivery pending / الرد قيد التسليم',reply_delivered:'Reply delivered / تم تسليم الرد',failed:'Failure needs review / يلزم مراجعة الخطأ'};
 export default function LaylaPilot() {
@@ -11,16 +12,14 @@ export default function LaylaPilot() {
     try {
       const session={ csrfToken: 'b'.repeat(64) };
       setCsrf(session.csrfToken || '');
-      const result=await fetch('/api/layla-meta',{credentials:'same-origin',cache:'no-store'}).then(r=>r.json());
-      if(!result.ok) throw new Error(result.reason);
+      const result=await callApi('/api/layla-meta');
       setData(result);setError('');
     } catch(e) {setData(null);setError(e.message || 'unavailable');}
   }
   async function checkConnection() {
     setBusy(true);setError('');setReadiness(null);
     try {
-      const result=await fetch('/api/layla-meta-readiness',{credentials:'same-origin',cache:'no-store'}).then(r=>r.json());
-      if(!result.ok)throw new Error(result.reason);
+      const result=await callApi('/api/layla-meta-readiness');
       setReadiness(result);
     } catch(e) {setError(e.message || 'unavailable');} finally {setBusy(false);}
   }
@@ -31,8 +30,7 @@ export default function LaylaPilot() {
   async function act(body) {
     setBusy(true);setError('');
     try {
-      const result=await fetch('/api/layla-meta',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','x-csrf-token':csrf},body:JSON.stringify(body)}).then(r=>r.json());
-      if(!result.ok) throw new Error(result.reason);
+      const result=await callApi('/api/layla-meta',{body,csrf});
       if(body.action==='preview')setReply(result.text || 'Automation pauses; no reply sent. / تم إيقاف الرد الآلي.');
       else setData(result);
     } catch(e) {setError(e.message || 'unavailable');} finally {setBusy(false);}

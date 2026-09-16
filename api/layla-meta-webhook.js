@@ -1,7 +1,7 @@
 import { settings, PilotError } from './_lib/layla/config.js';
 import { ingestBlueEnvelope, messagingStore } from './_lib/layla/blue-messaging.js';
 import { safeEqual } from './_lib/cookies.js';
-import { send } from './_lib/http.js';
+import { send, sendPilotError } from './_lib/http.js';
 import { createStore, transact } from './_lib/layla/store.js';
 import { accept } from './_lib/layla/domain.js';
 import { rawBody, signatureValid, parseEvents } from './_lib/layla/webhook.js';
@@ -41,7 +41,7 @@ export function createHandler({ store = createStore(), configuration = settings,
       }
       return;
     } catch (error) {
-      return send(res, error instanceof PilotError ? error.status : 503, { ok: false, reason: error instanceof PilotError ? error.code : 'unavailable' });
+      return sendPilotError(res, error);
     }
   };
 }
@@ -66,7 +66,7 @@ export async function blueReviewWebhook(req, res, env = process.env) {
       return send(res,200,{ok:true,accepted:true});
     }
     return send(res,200,{ok:true,ignored:true,messagingEnabled:false});
-  } catch (error) { return send(res,error instanceof PilotError ? error.status : 503,{ok:false,reason:error instanceof PilotError ? error.code : 'unavailable'}); }
+  } catch (error) { return sendPilotError(res, error); }
 }
 const ownerWebhook = createHandler();
 export default function handler(req,res) {

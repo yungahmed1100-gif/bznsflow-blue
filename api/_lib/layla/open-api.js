@@ -4,7 +4,7 @@ import { owner } from './owner.js';
 import { createStore, transact } from './store.js';
 import { checkMetaReadiness } from './readiness.js';
 import { openView, prepareOpen, startOpen, stopOpen, feedbackOpen, maintainOpen } from './open-test.js';
-import { readBody, send } from '../http.js';
+import { readBody, send, sendPilotError } from '../http.js';
 
 export function createHandler({ configuration = settings, store = createStore(), sessionLookup, now = Date.now, fetcher = fetch, env = process.env } = {}) {
   return async (req, res) => {
@@ -34,6 +34,6 @@ export function createHandler({ configuration = settings, store = createStore(),
       }
       await transact(store, c, s => maintainOpen(s, now()));
       return send(res, 200, { ok: true, ...openView((await store.read(c)).state, c, env, now()), ...(challenge ? { challenge } : {}) }, { vary: 'Cookie' });
-    } catch (e) { return send(res, e instanceof PilotError ? e.status : 503, { ok: false, reason: e instanceof PilotError ? e.code : 'unavailable' }, { vary: 'Cookie' }); }
+    } catch (e) { return sendPilotError(res, e, { vary: 'Cookie' }); }
   };
 }

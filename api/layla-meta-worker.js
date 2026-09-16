@@ -1,7 +1,7 @@
 import { settings, PilotError } from './_lib/layla/config.js';
 import { createBlueWorker } from './_lib/layla/blue-messaging.js';
 import { safeEqual } from './_lib/cookies.js';
-import { send } from './_lib/http.js';
+import { send, sendPilotError } from './_lib/http.js';
 import { createStore, transact } from './_lib/layla/store.js';
 import { runOne } from './_lib/layla/gateway.js';
 import { runOpen, maintainOpen } from './_lib/layla/open-test.js';
@@ -18,7 +18,7 @@ export function createHandler({store=createStore(), configuration=settings, env=
       if ((await store.read(c)).state.openTest) return send(res,200,{ok:true,...await runOpen({store,configuration,env,now,fetcher})});
       return send(res,200,{ok:true,...await runOne({store,config:configuration,now,fetcher})});
     }
-    catch(e) { return send(res,e instanceof PilotError ? e.status : 503,{ok:false,reason:e instanceof PilotError ? e.code : 'unavailable'}); }
+    catch(e) { return sendPilotError(res, e); }
   };
 }
 const ownerWorker=createHandler();

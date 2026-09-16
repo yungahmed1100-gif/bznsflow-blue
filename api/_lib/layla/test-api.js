@@ -2,7 +2,7 @@ import { settings, PilotError } from './config.js';
 import { owner } from './owner.js';
 import { createStore, transact } from './store.js';
 import { testView, previewTest, stopTest, confirmTest, acceptTestEvents } from './supervised.js';
-import { readBody, send } from '../http.js';
+import { readBody, send, sendPilotError } from '../http.js';
 
 export function createHandler({ configuration = settings, store = createStore(), sessionLookup, now = Date.now, mockSend } = {}) {
   return async (req, res) => {
@@ -27,7 +27,7 @@ export function createHandler({ configuration = settings, store = createStore(),
       }
       return send(res, 200, { ok: true, ...testView((await store.read(c)).state, now()) }, { vary: 'Cookie' });
     } catch (error) {
-      return send(res, error instanceof PilotError ? error.status : 503, { ok: false, reason: error instanceof PilotError ? error.code : 'unavailable' }, { vary: 'Cookie' });
+      return sendPilotError(res, error, { vary: 'Cookie' });
     }
   };
 }

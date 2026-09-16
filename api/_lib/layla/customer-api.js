@@ -2,7 +2,7 @@ import { createHash, randomUUID, randomBytes } from 'node:crypto';
 import { hashToken } from '../auth.js';
 import { parseCookies, SESSION_COOKIE } from '../cookies.js';
 import { getSession } from '../db.js';
-import { readBody, send } from '../http.js';
+import { readBody, send, sendPilotError } from '../http.js';
 import { owner } from './owner.js';
 import { PilotError, settings } from './config.js';
 import { answer, reviewProfile } from './domain.js';
@@ -108,7 +108,7 @@ export function createHandler({ configuration = settings, env = process.env, sto
         else throw new PilotError('unknown_action');
       }
       return send(res, 200, { ok: true, ...await store.view(account), liveEnabled: false, beta: true }, { vary: 'Cookie' });
-    } catch (e) { return send(res, e instanceof PilotError ? e.status : 503, { ok: false, reason: e instanceof PilotError ? e.code : 'unavailable' }, { vary: 'Cookie' }); }
+    } catch (e) { return sendPilotError(res, e, { vary: 'Cookie' }); }
     finally { if (body && typeof body === 'object') { delete body.code; delete body.pin; } }
   };
 }

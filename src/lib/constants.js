@@ -1,6 +1,13 @@
+import { waLink } from './whatsapp.js';
+
 // Site-wide shared constants.
 export const CALENDAR_URL = 'https://calendar.app.google/KS48NKMVXPugQEhm6';
-export const WHATSAPP_URL = 'https://wa.me/201036755930';
+
+// Derived, not retyped. The number itself lives in src/lib/whatsapp.js, which
+// builds the prefilled deep links; this used to be a second hardcoded copy of
+// the same digits, so changing the business number meant changing two files and
+// finding out later if you missed one.
+export const WHATSAPP_URL = waLink();
 
 // Second conversion route, offered alongside WhatsApp wherever Layla closes —
 // some visitors will not use WhatsApp, and a dead end there is a lost lead.

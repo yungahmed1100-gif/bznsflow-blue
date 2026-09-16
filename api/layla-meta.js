@@ -3,7 +3,7 @@ import { createMessagingApi } from './_lib/layla/blue-messaging.js';
 import { createDashboardApi } from './_lib/layla/dashboard-api.js';
 import { settings, PilotError } from './_lib/layla/config.js';
 import { owner } from './_lib/layla/owner.js';
-import { send, readBody } from './_lib/http.js';
+import { readBody, send, sendPilotError } from './_lib/http.js';
 import { createStore, transact } from './_lib/layla/store.js';
 import { answer, accept, reviewProfile, summary, maintain } from './_lib/layla/domain.js';
 import { runOne } from './_lib/layla/gateway.js';
@@ -72,7 +72,7 @@ export function createHandler({ store = createStore(), configuration = settings,
       const { state } = await store.read(c);
       return send(res,200,{ok:true,...summary(state,c,now())},{vary:'Cookie'});
     } catch (error) {
-      return send(res,error instanceof PilotError ? error.status : 503,{ok:false,reason:error instanceof PilotError ? error.code : 'unavailable'},{vary:'Cookie'});
+      return sendPilotError(res, error, { vary: 'Cookie' });
     }
   };
 }

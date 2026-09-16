@@ -5,7 +5,8 @@ import { PlaybookForm, PlaybookSuccess } from '../components/ui/PlaybookForm';
 import { getStrings } from '../i18n';
 import { trackEvent } from '../lib/analytics';
 import { CALENDAR_URL, WHATSAPP_URL } from '../lib/constants';
-import '../styles/playbook.css';
+// playbook.css is imported globally by src/index.css — the modal on the home
+// page needs its .playbook-* rules, so this page does not import it again.
 
 // /playbook — the page an ad campaign can point at.
 //

@@ -2,7 +2,7 @@ import { PilotError, settings } from './config.js';
 import { metaRequest } from './customer-meta.js';
 import { owner } from './owner.js';
 import { createStore } from './store.js';
-import { send } from '../http.js';
+import { send, sendPilotError } from '../http.js';
 
 // Configuration membership proves neither permission approval nor number eligibility.
 export async function verifySignupConfiguration(c, env, fetcher = fetch) {
@@ -41,6 +41,6 @@ export function createHandler({ configuration = settings, env = process.env, sto
         scheduler: { status: Number.isFinite(state.openWorkerAt) && state.openWorkerAt <= now() && now() - state.openWorkerAt < 180000 ? 'passed' : 'needs_action', reason: 'worker_heartbeat_freshness' },
         customerMessaging: { status: 'needs_action', reason: 'customer_live_release_pending_review' },
       } }, { vary: 'Cookie' });
-    } catch (e) { return send(res, e instanceof PilotError ? e.status : 503, { ok: false, reason: e instanceof PilotError ? e.code : 'unavailable' }, { vary: 'Cookie' }); }
+    } catch (e) { return sendPilotError(res, e, { vary: 'Cookie' }); }
   };
 }

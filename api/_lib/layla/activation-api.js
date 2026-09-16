@@ -2,7 +2,7 @@ import { settings, PilotError } from './config.js';
 import { owner } from './owner.js';
 import { createStore } from './store.js';
 import { activationView, prepareActivation, activate, recoverSubscription } from './activation.js';
-import { readBody, send } from '../http.js';
+import { readBody, send, sendPilotError } from '../http.js';
 
 function clearRequestBody(req) {
   // Vercel can expose a configurable getter-only body. Clearing must neither
@@ -30,7 +30,7 @@ export function createHandler({ configuration = settings, store = createStore(),
       }
       return send(res, 200, { ok: true, ...activationView(c, (await store.read(c)).state) }, { vary: 'Cookie' });
     } catch (error) {
-      return send(res, error instanceof PilotError ? error.status : 503, { ok: false, reason: error instanceof PilotError ? error.code : 'unavailable' }, { vary: 'Cookie' });
+      return sendPilotError(res, error, { vary: 'Cookie' });
     } finally { if (body && typeof body === 'object') delete body.pin; clearRequestBody(req); }
   };
 }

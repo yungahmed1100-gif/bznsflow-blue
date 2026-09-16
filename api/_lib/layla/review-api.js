@@ -3,7 +3,7 @@ import { BLUE_CLOUD, convexConfigured, reviewStore, catalogStore } from '../conv
 import { blueAccountsAvailable, blueAuthStore, blueAccount, BLUE_ACCOUNT_COOKIE, hashAccountToken } from '../blue-auth.js';
 import { parseCookies } from '../cookies.js';
 import { safeEqual } from '../cookies.js';
-import { readBody, send } from '../http.js';
+import { readBody, send, sendPilotError } from '../http.js';
 import { PilotError } from './config.js';
 import { importWebsite } from './website-import.js';
 import { validateReviewProfile, previewAnswer } from './review-profile.js';
@@ -325,7 +325,7 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
       else throw new PilotError('unknown_action');
       return send(res,200,result(),{vary:'Cookie'});
     } catch (error) {
-      return send(res,error instanceof PilotError ? error.status : 503,{ok:false,reason:error instanceof PilotError ? error.code : 'review_backend_unavailable'},{vary:'Cookie'});
+      return sendPilotError(res, error, { fallback: 'review_backend_unavailable', vary: 'Cookie' });
     } finally { if (body && typeof body === 'object') { delete body.code; delete body.pin; } }
   };
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import '../../styles/layla-dashboard.css';
+// layla-dashboard.css is imported by the page this only ever renders inside.
 
 /** Native modal <dialog>: focus trapping, Escape and inert background come from the browser. */
 export function Dialog({ s, title, children, onClose, wide = false, role = 'dialog' }) {

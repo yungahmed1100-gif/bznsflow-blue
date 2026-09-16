@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BLUE_SITE, convexConfigured, reviewStore } from '../convex.js';
+import { convexConfigured, messagingStore, reviewStore } from '../convex.js';
 import { blueAccount, blueAuthStore } from '../blue-auth.js';
 import { ensureCsrfToken, verifyCsrf, safeEqual } from '../cookies.js';
 import { send, readBody } from '../http.js';
@@ -13,18 +13,10 @@ import { providerResult } from './gateway.js';
 import { campaignStore } from './dashboard-store.js';
 import { runCampaignSend, runCampaignStart } from './campaign-worker.js';
 
-export function messagingStore({env=process.env,fetcher=fetch}={}) {
-  return async(operation,args={})=>{
-    if(!convexConfigured(env)) throw new PilotError('messaging_unavailable',503);
-    try {
-      const r=await fetcher(`${BLUE_SITE}/blue-messaging`,{method:'POST',redirect:'error',signal:AbortSignal.timeout(6000),headers:{Authorization:`Bearer ${env.BLUE_REVIEW_SERVICE_SECRET}`,'Content-Type':'application/json'},body:JSON.stringify({operation,...args})});
-      if(!r.ok) throw new Error('backend');
-      const body=await r.json();
-      if(!body?.ok) throw new PilotError(/^[a-z_]{1,60}$/.test(body?.reason)?body.reason:'messaging_unavailable',409);
-      return body.value;
-    } catch(e) {if(e instanceof PilotError) throw e;throw new PilotError('messaging_unavailable',503);}
-  };
-}
+// messagingStore is built in ../convex.js with the other five route clients;
+// re-exported here because this module is where its callers look.
+export { messagingStore };
+
 export function liveAnswer(text,profile,catalog=[]) {
   const intent=classify(text);
   if(intent==='optout') return {intent,reply:null,handoff:false};

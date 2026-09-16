@@ -1,3 +1,5 @@
+import { PilotError } from './layla/config.js';
+
 // Shared request/response plumbing for the serverless functions.
 //
 // `send`, `readBody` and `limits` were each copy-pasted into three handlers,
@@ -69,6 +71,33 @@ export function readBody(req) {
     }
   }
   return typeof b === 'object' ? b : {};
+}
+
+/**
+ * Answer a failed Layla/Blue request.
+ *
+ * This block was written out by hand at eleven call sites, differing only in the
+ * fallback reason and whether `Vary: Cookie` was set — so eleven places had to
+ * agree, forever, on how a failure is shaped.
+ *
+ * `instanceof PilotError` is the load-bearing part and not a formality. A
+ * PilotError carries a reason that was *decided* — a machine code the client is
+ * meant to read. Anything else arrived from the runtime, and Node's own errors
+ * carry a `.code` too (`ABORT_ERR`, `ENOTFOUND`, `ECONNREFUSED`): duck-typing on
+ * `.code` would forward those to the browser as if they were answers.
+ *
+ * @param {import('http').ServerResponse} res
+ * @param {unknown} error
+ * @param {{ fallback?: string, vary?: string }} [options]
+ */
+export function sendPilotError(res, error, { fallback = 'unavailable', vary } = {}) {
+  const decided = error instanceof PilotError;
+  return send(
+    res,
+    decided ? error.status : 503,
+    { ok: false, reason: decided ? error.code : fallback },
+    vary ? { vary } : {},
+  );
 }
 
 /**

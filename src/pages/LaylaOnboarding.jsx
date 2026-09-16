@@ -9,6 +9,7 @@ import { INDUSTRIES } from '../lib/industries.js';
 import { prefillFor, isSectorDefaultService } from '../lib/sector-prefill.generated.js';
 import { readCatalogFile } from '../lib/catalog-import.js';
 import { portfolioStatus } from '../lib/portfolio.js';
+import { callApi } from '../lib/api-client.js';
 
 const blank = { sector: '', services: '', prices: '', hours: '', location: '', humanContact: '', reviewed: false };
 const COUNTRY_CODES = [['968','Oman / عُمان'],['20','Egypt / مصر'],['971','UAE / الإمارات'],['966','Saudi Arabia / السعودية'],['973','Bahrain / البحرين'],['974','Qatar / قطر'],['965','Kuwait / الكويت'],['962','Jordan / الأردن'],['44','United Kingdom / المملكة المتحدة'],['1','United States / الولايات المتحدة']];
@@ -126,10 +127,8 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
   function explain(reason) { return ar ? arabicExplanations[reason] || 'تعذّر إكمال الخطوة. يبقى إعدادك محفوظاً. حاول مجدداً أو تواصل معنا.' : explanations[reason] || 'We could not finish that step. Your setup is saved. Please try again or contact ahmed@bznsflowai.com.'; }
   async function request(body) {
     const surface = reviewMode ? 'customer-review' : 'customer';
-    const r = await fetch(`/api/layla-meta?surface=${surface}`, { method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(60000),
-      ...(body ? { headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify(body) } : {}) }).then(r => r.json());
-    if (!r.ok) throw new Error(/^[a-z_]{1,60}$/.test(r.reason) ? r.reason : 'unavailable');
-    return r;
+    // 60s: signup and website import both wait on Meta or a third-party site.
+    return callApi(`/api/layla-meta?surface=${surface}`, { body, csrf, timeout: 60000 });
   }
   async function act(task) { if (actionBusy.current) return; actionBusy.current = true; setBusy(true); setError(''); try { await task(); } catch (e) { setError(explain(e.message)); } finally { actionBusy.current = false; setBusy(false); } }
   function applyState(r) {

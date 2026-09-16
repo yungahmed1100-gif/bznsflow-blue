@@ -1,23 +1,18 @@
 // Browser client for the owner dashboard. Components call `dashboard(action)`
 // and never build URLs, headers or tenant identifiers themselves.
 
-export class DashboardError extends Error {
-  constructor(reason, status) { super(reason); this.reason = reason; this.status = status; }
-}
+import { ApiError, callApi } from '../api-client.js';
 
+// Kept as a distinct name because components catch `DashboardError` by name.
+export { ApiError as DashboardError };
+
+// This surface threads its own CSRF token: the dashboard mounts without one and
+// learns it from the first response, where the Layla pages receive it as a prop.
+// That difference is why the shared client takes the token rather than owning it.
 let csrfToken = '';
 async function call(surface, body, { timeout = 30000 } = {}) {
-  const response = await fetch(`/api/layla-meta?surface=${surface}`, {
-    method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(timeout),
-    ...(body ? { headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken }, body: JSON.stringify(body) } : {}),
-  });
-  let payload = null;
-  try { payload = await response.json(); } catch { payload = null; }
+  const payload = await callApi(`/api/layla-meta?surface=${surface}`, { body, csrf: csrfToken, timeout });
   if (payload?.csrfToken) csrfToken = payload.csrfToken;
-  if (!response.ok || !payload?.ok) {
-    const reason = /^[a-z_]{1,60}$/.test(payload?.reason || '') ? payload.reason : 'unavailable';
-    throw new DashboardError(reason, response.status);
-  }
   return payload;
 }
 

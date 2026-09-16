@@ -1,9 +1,14 @@
 import { createHash, createHmac, randomBytes, randomInt, randomUUID } from 'node:crypto';
-import { BLUE_SITE, convexConfigured } from './convex.js';
+import { blueAuthStore, convexConfigured } from './convex.js';
+
 import { parseCookies, ensureCsrfToken, verifyCsrf, appendCookie, serializeCookie } from './cookies.js';
 import { isValidEmail, normalizeEmail } from './auth.js';
-import { send, readBody } from './http.js';
+import { readBody, send, sendPilotError } from './http.js';
 import { PilotError } from './layla/config.js';
+
+// blueAuthStore is built in convex.js alongside the other five Convex route
+// clients; re-exported here because this module is where its callers look.
+export { blueAuthStore };
 
 export const BLUE_ACCOUNT_COOKIE = '__Host-blue_account';
 const origin = 'https://bznsflow-blue.vercel.app';
@@ -11,18 +16,6 @@ export const hashAccountToken = value => createHash('sha256').update(value).dige
 export function blueAccountsAvailable(env = process.env) {
   return convexConfigured(env) && env.BLUE_ACCOUNT_SAVE_ENABLED === 'true' && /^re_[\w-]{10,}$/.test(env.BLUE_RESEND_API_KEY || '') &&
     typeof env.BLUE_AUTH_FROM === 'string' && env.BLUE_AUTH_FROM.length < 200 && !/[\r\n]/.test(env.BLUE_AUTH_FROM) && isValidEmail(env.BLUE_AUTH_FROM.match(/<([^<>]+)>$/)?.[1] || env.BLUE_AUTH_FROM);
-}
-export function blueAuthStore({env = process.env, fetcher = fetch} = {}) {
-  return async (operation, args = {}) => {
-    if (!convexConfigured(env)) throw new PilotError('account_unavailable',503);
-    try {
-      const r = await fetcher(`${BLUE_SITE}/blue-auth`,{method:'POST',redirect:'error',signal:AbortSignal.timeout(6000),headers:{Authorization:`Bearer ${env.BLUE_REVIEW_SERVICE_SECRET}`,'Content-Type':'application/json'},body:JSON.stringify({operation,...args})});
-      if (!r.ok) throw Error('backend');
-      const body = await r.json();
-      if (!body?.ok) throw new PilotError(['too_soon','too_many','code_invalid','session_expired','draft_not_claimable'].includes(body?.reason) ? body.reason : 'account_unavailable',409);
-      return body.value;
-    } catch (error) { if (error instanceof PilotError) throw error; throw new PilotError('account_unavailable',503); }
-  };
 }
 export async function blueAccount(req, store) {
   const token = parseCookies(req)[BLUE_ACCOUNT_COOKIE];
@@ -84,6 +77,6 @@ export function createBlueAuthHandler({env = process.env,fetcher = fetch,store =
       delete body.code;
       appendCookie(res,serializeCookie(BLUE_ACCOUNT_COOKIE,raw,{maxAge:2592000,httpOnly:true}));
       return send(res,200,{ok:true,account:{id:account.id,email:account.email,name:account.name || '',profileComplete:true}},{vary:'Cookie'});
-    } catch (error) { return send(res,error instanceof PilotError ? error.status : 503,{ok:false,reason:error instanceof PilotError ? error.code : 'account_unavailable'},{vary:'Cookie'}); }
+    } catch (error) { return sendPilotError(res, error, { fallback: 'account_unavailable', vary: 'Cookie' }); }
   };
 }

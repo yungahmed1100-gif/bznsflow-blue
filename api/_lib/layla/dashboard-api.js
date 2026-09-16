@@ -4,7 +4,7 @@
 import { convexConfigured, reviewStore } from '../convex.js';
 import { blueAccount, blueAuthStore } from '../blue-auth.js';
 import { ensureCsrfToken, verifyCsrf } from '../cookies.js';
-import { readBody, send } from '../http.js';
+import { readBody, send, sendPilotError } from '../http.js';
 import { PilotError } from './config.js';
 import { credentialContext, openToken } from './customer-meta.js';
 import { dashboardStore } from './dashboard-store.js';
@@ -118,7 +118,7 @@ export function createDashboardApi({ env = process.env, fetcher = fetch, now = D
       if (action === 'campaign_cancel') return reply(await store('campaign_cancel', { sessionHash, campaignId: id(body.campaignId) || '' }));
       throw new PilotError('invalid_action');
     } catch (e) {
-      return send(res, e instanceof PilotError ? e.status : 503, { ok: false, reason: e instanceof PilotError ? e.code : 'dashboard_unavailable' }, { vary: 'Cookie' });
+      return sendPilotError(res, e, { fallback: 'dashboard_unavailable', vary: 'Cookie' });
     }
   };
 }
