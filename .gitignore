@@ -42,9 +42,10 @@ dist-ssr
 # Scratch: screenshots, baselines and working notes, not artefacts.
 work/
 
-# Working media. Large enough to ruin a clone if one is ever staged by accident;
-# three at the repo root already came to 237 MB. Deliberately broad.
-*.mp4
-*.mov
+# Scratch media parked at the repo root. Large enough to ruin a clone if one is
+# ever staged by accident. Root-only on purpose: a real asset under public/ must
+# still be committable, so do not broaden these to **/*.mp4.
+/*.mp4
+/*.mov
 
 .vercel

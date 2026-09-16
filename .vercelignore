@@ -19,10 +19,11 @@ work
 tests
 docs
 
-# Working media. These are large — three files at the repo root came to 237 MB —
-# and a deploy uploads every one of them.
-*.mp4
-*.mov
+# Scratch media parked at the repo root — a deploy uploads every one of them.
+# Root-only: a video the site actually serves would live under public/ and must
+# still be deployed.
+/*.mp4
+/*.mov
 
 # NOTE: web-chatbot/ must NOT be excluded. prebuild runs `gen-kb.mjs --check`,
 # which reads web-chatbot/system-prompt-web-bznsflow.md and
