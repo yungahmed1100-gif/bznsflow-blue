@@ -1,0 +1,48 @@
+# Scripts — what exists, what runs it, when to use it
+
+Every file in `scripts/`. Written because six of them were reachable only by
+knowing they existed: no npm script, no doc, no mention anywhere. A tool nobody
+can find is indistinguishable from a tool that does not work.
+
+## Run automatically
+
+These need no decision — the build or the test suite invokes them.
+
+| Script | Invoked by | What it does |
+|---|---|---|
+| `check-blue-environment.mjs` | `prebuild`, `deploy-blue.mjs`, `tests/blue-environment.test.mjs` | Hard-fails the build if a Green secret, the wrong Vercel project, or a half-enabled gate combination is present. The single most important guardrail in the repo. |
+| `gen-kb.mjs --check` | `prebuild` | Fails if `api/_lib/kb.generated.js` has drifted from the knowledge-base markdown. |
+| `gen-sector-prefill.mjs --check` | `prebuild` | Fails if `src/lib/sector-prefill.generated.js` has drifted from `industries.js`, `layla-suggestions.js` or `layla-sector-packs.js`. |
+| `gen-sitemap.mjs` | `prebuild`, `gen:sitemap` | Regenerates `public/sitemap.xml` from the route manifest. |
+| `seo/checks.mjs`, `seo/collect.mjs`, `seo/rules.mjs` | imported by `seo-audit.mjs` | Library code, not entry points. |
+
+## Run on demand
+
+| Script | Command | When |
+|---|---|---|
+| `gen-kb.mjs` | `npm run gen:kb` | After editing the knowledge-base markdown. Commit the result. |
+| `gen-sector-prefill.mjs` | `npm run gen:sector-prefill` | After editing any sector source. Commit the result. |
+| `seo-audit.mjs` | `npm run seo:audit` | Crawls the sitemap and reports Core Web Vitals. |
+| `a11y.mjs` | `npm run test:a11y` | axe-core over both languages at desktop and phone widths. Needs a dev server; set `BASE` if not on :5173. |
+| `shoot.mjs` | `npm run shots -- <label>` | Screenshots the homepage across the breakpoint scale in both languages, into `work/shots/<label>/`. Use it to compare a design change against the state before it. |
+| `chat-test-stack.sh` | `npm run test:stack up` | Brings up the Postgres container `tests/e2e-chat.mjs` needs. |
+| `convex-migrate-blue.mjs` | `npm run convex:migrate:validate` | Validates a Convex migration export before import. |
+| `deploy-blue.mjs` | `npm run deploy:blue` | Deploys to Blue **only**, after the isolation check passes. |
+
+## Operational — these write real state
+
+**Each one changes something outside the repo.** They are deliberately not wired
+to npm scripts, so that running one is always a decision. Read the file before
+running it; none of them prints a secret value.
+
+| Script | Effect |
+|---|---|
+| `configure-blue-email.mjs` | Reads `.env.local` and installs Blue's Resend email configuration into the Vercel project. Refuses to run against any project id but Blue's. |
+| `configure-blue-messaging.mjs` | Mints `BLUE_MESSAGING_WORKER_SECRET`, writes it to `.env.blue-worker.local` (mode 600) and installs it in Vercel. Refuses any project but Blue's. |
+| `issue-blue-review-access.mjs` | Creates an isolated reviewer account and saves an expiring sign-in link to `.env.blue-review-access.local`. **The link is a credential** — supply it only in Meta's review access field. `--rotate` revokes the saved link and issues a new one. Referenced by [meta-app-review-submission.md](meta-app-review-submission.md). |
+| `generate-agent-avatars.mjs` | Regenerates the 12 agent avatars in `src/assets/agents/` via the Gemini image API. Needs `GEMINI_API_KEY`. Kept as the provenance of committed artwork: without it, nobody can reproduce or restyle those assets. Two-phase — Layla is the style anchor, the other 11 are generated against her image. |
+
+## Deleted, and why
+
+- `tests/layla-https.mjs` — probed `https://www.bznsflowai.com`, i.e. **frozen Green production**, from the Blue worktree. No script ran it. Removed as a Blue-boundary hazard under AGENTS.md, not merely as dead weight.
+- `tests/layla-setup-server.mjs` — a Vite fixture server nothing imported. Both browser suites take a `--port` URL from `process.argv[2]` instead.

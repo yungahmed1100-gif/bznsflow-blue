@@ -36,8 +36,28 @@ something.
 
 ## The decision
 
-**Blue's versions supersede master's** for every file above. `d8e84aa` is
-already present in blue in substance via `45ed72b`.
+**Blue's versions supersede master's** for every file above **except one**.
+`d8e84aa` is already present in blue in substance via `45ed72b`.
+
+### The exception: `tests/lead.test.mjs` — master's version won
+
+Blue's copy was a rewrite that never ran (no npm script referenced it), and it
+does not work. It fails 3 of 7 checks with `sent is not defined`, and the
+approach cannot be repaired as written: it tries to stub the mailer with
+
+```js
+Object.defineProperty(mailer, 'pushLead', { value: … })
+```
+
+on the strength of a comment claiming "api/lead.js calls it through the module
+object". It does not — `api/lead.js:29` does `import { pushLead } from
+'./_lib/mailer.js'`, a named binding, and an ESM module namespace object is
+sealed, so the redefinition can never intercept that call.
+
+Master's version passes 8/8 because it tests the exported pure helpers
+(`cleanPhone`, `cleanIndustry`) directly instead of trying to intercept a
+network call. Master's file was therefore restored over blue's, and wired into
+the `test` script — it had never been run by anything on either branch.
 
 The only thing blue genuinely lacked was the **"back to the site" playbook nav**
 from `a03c79d`. That has now been ported by hand onto blue's files rather than
@@ -54,8 +74,8 @@ present in both `src/i18n/en.js` and `src/i18n/ar.js`.
 
 `master` is expected to be **fast-forwarded to, or reset onto, blue** — not
 merged with it. If a merge is run anyway, resolve every conflict in the nine
-files above **in favour of blue**, and check that the ported nav above is still
-present afterwards.
+files above **in favour of blue, except `tests/lead.test.mjs`** (see the
+exception above), and check that the ported nav is still present afterwards.
 
 The two `master` commits can then be considered absorbed. Nothing else in
 `master` is missing from blue.

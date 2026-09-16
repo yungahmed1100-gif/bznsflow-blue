@@ -64,49 +64,43 @@ await t('never caches a response', async () => {
   assert.equal(res.getHeader('cache-control'), 'no-store');
 });
 
-console.log('\nPOST /api/lead — the phone and sector fields');
+console.log('\nthe phone and sector fields');
 
-// The rest needs pushLead not to reach the network. Swapping the export is the
-// smallest way in: api/lead.js calls it through the module object.
-const capture = async (body) => {
-  sent = null;
-  Object.defineProperty(mailer, 'pushLead', {
-    value: async (payload) => { sent = payload; return { ok: true, emailed: true }; },
-    configurable: true,
-    writable: true,
-  });
+await t('a usable phone keeps its digits and loses everything else', () => {
+  assert.equal(cleanPhone('+968 9123 4567'), '+96891234567');
+  assert.equal(cleanPhone('(968) 9123-4567'), '+96891234567');
+  // A leading zero is a national trunk prefix, not part of the number.
+  assert.equal(cleanPhone('0096891234567'), '+96891234567');
+});
+
+await t('an unusable phone is dropped, never thrown', () => {
+  for (const bad of ['', '12', 'abc', null, undefined, {}, '1'.repeat(16)]) {
+    assert.equal(cleanPhone(bad), undefined, `"${String(bad)}" should be dropped`);
+  }
+});
+
+await t('a known sector survives and an unknown one is dropped', () => {
+  for (const s of INDUSTRIES) assert.equal(cleanIndustry(s.id), s.id);
+  for (const bad of ['not-a-real-sector', '', 'Dental', null, undefined, 42]) {
+    assert.equal(cleanIndustry(bad), undefined, `"${String(bad)}" should be dropped`);
+  }
+});
+
+await t('a garbage phone or sector is never answered with a 400', async () => {
+  // The point of the two helpers above. This file already lets a lead through
+  // when the rate-limit check itself fails, because a lead is revenue; a
+  // mistyped digit must not be the one thing that does refuse it.
+  //
+  // LEAD_ENDPOINT is unset here, so the call dies at the network with a 502.
+  // That is the assertion: it got past validation to reach the network at all.
   const res = mockRes();
-  await lead({ method: 'POST', headers, body }, res);
-  Object.defineProperty(mailer, 'pushLead', { value: realPushLead, configurable: true, writable: true });
-  return res;
-};
-
-const base = { email: 'a@b.com', playbook: true, name: 'Ahmed' };
-
-await t('a valid sector is kept, an unknown one is dropped rather than fatal', async () => {
-  const known = INDUSTRIES[0].id;
-  let res = await capture({ ...base, industry: known });
-  assert.equal(res.code, 200, 'a valid sector should not fail the request');
-  if (sent) assert.equal(sent.industry, known);
-
-  res = await capture({ ...base, industry: 'not-a-real-sector' });
-  assert.equal(res.code, 200, 'an unknown sector must never cost the lead');
-  if (sent) assert.equal(sent.industry, undefined, 'an unknown sector should not be forwarded');
-});
-
-await t('a usable phone is kept, a too-short one is dropped rather than fatal', async () => {
-  let res = await capture({ ...base, phone: '+968 9123 4567' });
-  assert.equal(res.code, 200);
-  if (sent) assert.equal(sent.phone, '+96891234567', 'digits should survive, punctuation should not');
-
-  res = await capture({ ...base, phone: '12' });
-  assert.equal(res.code, 200, 'a short phone must never cost the lead');
-  if (sent) assert.equal(sent.phone, undefined);
-});
-
-await t('a submission with neither field still succeeds', async () => {
-  const res = await capture({ email: 'a@b.com', playbook: true });
-  assert.equal(res.code, 200, 'email is the only field that was ever required');
+  await lead({
+    method: 'POST',
+    headers,
+    body: { email: 'a@b.com', playbook: true, phone: 'nonsense', industry: 'nope' },
+  }, res);
+  assert.notEqual(res.code, 400, 'a bad phone or sector must not refuse the lead');
+  assert.equal(res.code, 502, 'expected it to fail at the unconfigured endpoint instead');
 });
 
 console.log(`\n${fail ? '✗' : '✓'} lead: ${pass} passed, ${fail} failed\n`);
