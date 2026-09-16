@@ -298,6 +298,44 @@
 
 .pb-lang:hover { color: var(--text-primary); }
 
+.pb-nav-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* The way back to the site. A secondary button — paper fill, ink border, no
+   shadow — because it is the second of the two things a visitor can do here
+   and must not compete with the form's own CTA. See DESIGN.md, Buttons. */
+.pb-services {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--text-primary);
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition), color var(--transition);
+}
+
+.pb-services:hover {
+  color: var(--bg-primary);
+  background: var(--text-primary);
+}
+
+/* The arrow points the way the language reads, so it points AT the site in
+   both directions rather than back at the page in one of them. */
+.pb-services-arrow {
+  transform: scaleX(var(--x-sign));
+}
+
+[lang="ar"] .pb-services,
+[dir="rtl"] .pb-services { letter-spacing: normal; }
+
 /* A reading column, set flush to the start edge rather than centred text.
    65ch on the lede, per the type scale in DESIGN.md. */
 .pb-doc {
@@ -420,7 +458,12 @@
 
 @media (max-width: 640px) {
   .pb-page { padding: var(--space-5) var(--space-4) var(--space-10); }
-  .pb-nav { margin-bottom: var(--space-8); }
+  .pb-nav { margin-bottom: var(--space-8); gap: var(--space-3); }
+  .pb-nav-end { gap: var(--space-3); }
+  .pb-services { padding: 8px 12px; font-size: 0.75rem; }
+  /* The wordmark stands down before the button does — the logo is beside it and
+     still identifies the page, and the way back matters more than the word. */
+  .pb-brand span { display: none; }
   .pb-card { padding: var(--space-5); }
   .pb-problems li { grid-template-columns: 2.2rem minmax(0, 1fr); gap: var(--space-3); }
 }

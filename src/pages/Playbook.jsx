@@ -49,10 +49,19 @@ export default function Playbook({ lang = 'ar' }) {
             <img src="/logo.png" alt="BznsFlow" width="36" height="36" />
             <span>BznsFlow</span>
           </a>
-          <a className="pb-lang" href={ar ? '/en/playbook' : '/playbook'}>
-            <Icon name="globe" size={15} />
-            <span>{ar ? 'English' : 'العربية'}</span>
-          </a>
+          <div className="pb-nav-end">
+            {/* Back to the site, landing on what it sells rather than the top of
+                the home page. Labelled with the same string the main nav uses
+                for that section, so the two agree and no new copy is invented. */}
+            <a className="pb-services" href={ar ? '/#solutions' : '/en#solutions'}>
+              <span>{t.nav_solution}</span>
+              <Icon name="arrow-right" size={15} className="pb-services-arrow" aria-hidden="true" />
+            </a>
+            <a className="pb-lang" href={ar ? '/en/playbook' : '/playbook'}>
+              <Icon name="globe" size={15} />
+              <span>{ar ? 'English' : 'العربية'}</span>
+            </a>
+          </div>
         </header>
 
         <article className="pb-doc">
