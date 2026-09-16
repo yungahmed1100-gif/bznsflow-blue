@@ -4,7 +4,7 @@ import { checkBlue } from '../scripts/check-blue-environment.mjs';
 import blueHandler from '../api/layla-meta.js';
 import { demoOptions } from '../api/_lib/layla/blue-demo.js';
 import { INDUSTRIES } from '../src/lib/industries.js';
-import { suggestionsFor, LAYLA_SUGGESTIONS } from '../src/lib/layla-suggestions.js';
+import { prefillFor, SECTOR_PREFILL } from '../src/lib/sector-prefill.generated.js';
 
 const response = () => ({ headers: {}, setHeader(k,v) { this.headers[k] = v; }, status(n) { this.statusCode = n; }, end(body) { this.body = JSON.parse(body); } });
 
@@ -51,10 +51,13 @@ test('Real Blue setup cannot bypass database and webhook isolation or enable gen
 });
 
 test('Every canonical industry has localized, contextual onboarding suggestions', () => {
+  // Asserts the module onboarding actually imports. This used to exercise
+  // suggestionsFor(), which composed Arabic questions at runtime; the drafts are
+  // now generated data, so the coverage follows the live path.
   for (const industry of INDUSTRIES) {
-    assert(LAYLA_SUGGESTIONS[industry.id], `missing ${industry.id}`);
+    assert(SECTOR_PREFILL[industry.id], `missing ${industry.id}`);
     for (const lang of ['en', 'ar']) {
-      const result = suggestionsFor(industry.id, lang);
+      const result = prefillFor(industry.id, lang);
       assert(result.service.length > 10, `${industry.id} ${lang} service`);
       assert.equal(result.questions.length, 4, `${industry.id} questions`);
       assert(result.questions.every(question => question.length > 8));

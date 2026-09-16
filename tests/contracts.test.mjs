@@ -13,8 +13,13 @@
 
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+
+import { INDUSTRIES } from '../src/lib/industries.js';
+import { SECTOR_PACKS } from '../config/layla-sector-packs.js';
+import { SECTOR_PREFILL, FREE_TEXT_SECTOR, prefillFor, isSectorDefaultService } from '../src/lib/sector-prefill.generated.js';
 
 import { PLAYBOOK_PDF } from '../src/lib/constants.js';
 import { PAGES } from '../src/routes-manifest.js';
@@ -219,6 +224,58 @@ t('both new functions declare a maxDuration', () => {
   for (const fn of ['api/auth-oauth.js', 'api/auth-callback.js']) {
     assert.ok(vercel.functions?.[fn]?.maxDuration, `vercel.json does not configure ${fn}`);
   }
+});
+
+// ── the sector taxonomy ────────────────────────────────────────────────────
+// The same sector list is maintained in three files that cannot import each
+// other across the client/server line. A sector present in one and missing from
+// another reaches a customer as an empty suggestion for one industry only —
+// which is why it went unnoticed long enough to need a check.
+t('every industry has sector pre-fill in both languages', () => {
+  for (const { id } of INDUSTRIES) {
+    const row = SECTOR_PREFILL[id];
+    assert.ok(row, `src/lib/sector-prefill.generated.js has no row for industry "${id}"`);
+    assert.ok(row.services.en.trim(), `sector "${id}" has no English service summary`);
+    assert.ok(row.services.ar.trim(), `sector "${id}" has no Arabic service summary`);
+    assert.ok(row.questions.en.length, `sector "${id}" has no English question drafts`);
+    assert.equal(row.questions.ar.length, row.questions.en.length, `sector "${id}" question counts differ between languages`);
+  }
+  assert.equal(Object.keys(SECTOR_PREFILL).length, INDUSTRIES.length, 'sector-prefill has rows for ids absent from INDUSTRIES');
+});
+
+t('every industry except the free-text one has a sector pack', () => {
+  for (const { id } of INDUSTRIES) {
+    if (id === FREE_TEXT_SECTOR) {
+      assert.equal(SECTOR_PREFILL[id].archetype, null, 'the free-text sector must not claim a pack archetype');
+      continue;
+    }
+    assert.ok(SECTOR_PACKS[id], `config/layla-sector-packs.js has no pack for industry "${id}"`);
+    assert.equal(SECTOR_PREFILL[id].archetype, SECTOR_PACKS[id].archetype, `sector "${id}" archetype disagrees with its pack`);
+  }
+});
+
+t('the committed pre-fill file is not stale', () => {
+  // The generator is deterministic, so regenerating into memory and comparing is
+  // the whole drift check. Without this, an edit to layla-suggestions.js or the
+  // packs ships nothing until someone remembers to regenerate.
+  const generated = execFileSync(process.execPath, [join(root, 'scripts/gen-sector-prefill.mjs'), '--check'], { encoding: 'utf8' });
+  assert.match(generated, /in sync/, 'run `npm run gen:sector-prefill` and commit the result');
+});
+
+t('pre-filled service text is recognised as a default, customer text is not', () => {
+  // This guard is what stops a sector change from overwriting words the customer
+  // typed, and what lets review warn that a summary was never edited.
+  assert.equal(isSectorDefaultService(''), true, 'blank text must count as a default');
+  assert.equal(isSectorDefaultService('   '), true, 'whitespace must count as a default');
+  assert.equal(isSectorDefaultService(SECTOR_PREFILL.dental.services.en), true, 'an English default must be recognised');
+  assert.equal(isSectorDefaultService(SECTOR_PREFILL.dental.services.ar), true, 'an Arabic default must be recognised');
+  assert.equal(isSectorDefaultService('We do same-day crowns and open on Saturdays'), false, 'customer-authored text must never be treated as a default');
+});
+
+t('prefillFor falls back to the free-text sector for an unknown id', () => {
+  const unknown = prefillFor('not-a-real-sector', 'en');
+  assert.equal(unknown.service, SECTOR_PREFILL[FREE_TEXT_SECTOR].services.en);
+  assert.equal(prefillFor('dental', 'ar').service, SECTOR_PREFILL.dental.services.ar, 'Arabic must not fall back to English');
 });
 
 console.log(`\n${fail ? '✗' : '✓'} contracts: ${pass} passed, ${fail} failed\n`);

@@ -1,6 +1,12 @@
 // Customer-facing prompts derived from the canonical industries list and the
 // approved sector hypotheses in Market/Growth-Systems-Catalog.md. These are
 // editable starting points, never claims about what a tenant offers.
+//
+// THIS FILE IS AUTHORED INPUT, NOT A RUNTIME MODULE. Onboarding imports
+// src/lib/sector-prefill.generated.js, which scripts/gen-sector-prefill.mjs
+// compiles from this file plus src/lib/industries.js and
+// config/layla-sector-packs.js — failing the build if the three disagree.
+// After editing here, run `npm run gen:sector-prefill` and commit the result.
 const row = (en, ar, questions = []) => ({ en, ar, questions });
 
 export const LAYLA_SUGGESTIONS = {
@@ -29,11 +35,7 @@ export const LAYLA_SUGGESTIONS = {
   other: row('Your main services, prices, availability and how customers reach your team', 'خدماتك الرئيسية والأسعار والتوفر وكيفية تواصل العملاء مع فريقك', ['What do you help customers with?', 'How much does it cost?', 'What information do you need?', 'How can I speak to someone?']),
 };
 
-export function suggestionsFor(industryId, lang = 'en') {
-  const item = LAYLA_SUGGESTIONS[industryId] || LAYLA_SUGGESTIONS.other;
-  if (lang === 'ar') return {
-    service: item.ar,
-    questions: [`ما الخدمات المتاحة في ${item.ar}؟`, 'كم تبلغ الأسعار؟', 'ما مواعيد العمل والتوفر؟', 'كيف أتواصل مع الفريق؟'],
-  };
-  return { service: item.en, questions: item.questions };
-}
+// `suggestionsFor()` used to live here and shape these rows at request time. It
+// was replaced by `prefillFor()` in the generated module: composing the Arabic
+// questions at runtime hid the fact that every Arabic sector shared four generic
+// questions while English got authored ones.

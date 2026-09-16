@@ -6,7 +6,7 @@ import { Seo } from '../components/ui/Seo';
 import '../styles/layla-onboarding.css';
 import { signupOptions, signupInit, createSignupAttempt } from '../lib/layla-signup.js';
 import { INDUSTRIES } from '../lib/industries.js';
-import { suggestionsFor } from '../lib/layla-suggestions.js';
+import { prefillFor, isSectorDefaultService } from '../lib/sector-prefill.generated.js';
 import { readCatalogFile } from '../lib/catalog-import.js';
 import { portfolioStatus } from '../lib/portfolio.js';
 
@@ -243,7 +243,21 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
     finally { window.open = originalOpen; if (!captured) attempt.cancel('popup_blocked'); }
   }
   const steps = [tr('Your business', 'نشاطك التجاري'), tr('Connect WhatsApp', 'ربط واتساب'), tr('Try the answers', 'جرّب الإجابات'), tr('Your setup', 'إعدادك')];
-  const tailored = suggestionsFor(industryId, lang);
+  const tailored = prefillFor(industryId, lang);
+  const sectorFaqSuggestions = tailored.questions.filter(q => !(profile.faqs || []).some(faq => faq.question === q));
+  // Changing sector replaces the service summary only while it is still
+  // boilerplate. Once the customer has written their own, it is never clobbered.
+  function selectSector(id) {
+    setIndustryId(id);
+    const next = INDUSTRIES.find(item => item.id === id);
+    const suggested = prefillFor(id, lang).service;
+    setProfile(current => ({
+      ...current,
+      sector: next?.[lang] || next?.en || '',
+      services: isSectorDefaultService(current.services) ? suggested : current.services,
+      reviewed: false,
+    }));
+  }
   return <main className="layla-customer" dir={ar ? 'rtl' : 'ltr'} lang={lang}>
     <Seo lang={lang} title={tr('Set up Layla | BznsFlow', 'إعداد ليلى | BznsFlow')} description={tr('Connect your business to Layla.', 'اربط نشاطك التجاري بليلى.')} noindex />
     <header className="layla-customer-nav"><a href={ar ? '/' : '/en'} aria-label="BznsFlow"><img src={logoImg} alt="" width="40" height="40" />BznsFlow</a><nav aria-label={tr('Page navigation','التنقل في الصفحة')}><a className="layla-back-home" href={ar ? '/' : '/en'}>{tr('Back to main website','العودة إلى الموقع الرئيسي')}</a><a href={`${ar ? '/en' : ''}/layla/${reviewMode ? 'review' : 'setup'}`} lang={ar ? 'en' : 'ar'}>{ar ? 'English' : 'العربية'}</a></nav></header>
@@ -276,18 +290,21 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
           <p>{tr('Give Layla the facts your customers ask about. You can edit these later.', 'زوّد ليلى بالمعلومات التي يسأل عنها عملاؤك. يمكنك تعديلها لاحقاً.')}</p>
           <label>{tr('Business name', 'اسم النشاط')}<input required maxLength={100} autoComplete="organization" value={businessName} onChange={e => { setName(e.target.value); setProfile({ ...profile, reviewed: false }); }} /></label>
           <label>{tr('What does your business do?', 'ما مجال نشاطك؟')}
-            <select className="layla-suggestion" required value={industryId} onChange={e => { const id = e.target.value; setIndustryId(id); const next = INDUSTRIES.find(item => item.id === id); setProfile({ ...profile, sector: next?.[lang] || next?.en || '', reviewed: false }); }}>
+            <select className="layla-suggestion" required value={industryId} onChange={e => selectSector(e.target.value)}>
               <option value="">{tr('Choose your business type', 'اختر نوع نشاطك')}</option>
               {INDUSTRIES.map(item => <option key={item.id} value={item.id}>{item[lang] || item.en}</option>)}
             </select>
             {industryId === 'other' && <textarea required maxLength={350} rows={2} value={profile.sector} placeholder={tr('Describe your business in a few words', 'صف نشاطك بكلمات قليلة')} onChange={e => setProfile({ ...profile, sector: e.target.value, reviewed: false })} />}
           </label>
           <label>{tr('Short service summary', 'ملخص الخدمات')}
-            <select className="layla-suggestion" aria-label={tr('Service suggestions for your business', 'اقتراحات خدمات نشاطك')} value="" onChange={e => { if (e.target.value) setProfile({ ...profile, services: e.target.value, reviewed: false }); }}>
-              <option value="">{tr('Choose a tailored suggestion (optional)', 'اختر اقتراحاً مناسباً (اختياري)')}</option><option value={tailored.service}>{tailored.service}</option>
-            </select>
             <textarea required maxLength={350} rows={3} value={profile.services} placeholder={tr('A short summary for immediate replies. Add the full catalog below.', 'ملخص قصير للردود الفورية. أضف الكتالوج الكامل أدناه.')} onChange={e => setProfile({ ...profile, services: e.target.value, reviewed: false })} />
           </label>
+          {/* The summary arrives pre-filled from the sector. Say so plainly, so an
+              industry description is not mistaken for a description of this
+              business — and offer the suggestion back if they clear it. */}
+          {isSectorDefaultService(profile.services)
+            ? <small className="layla-field-help">{tr('This is a suggestion for your industry — edit it so it describes your business.', 'هذا اقتراح لمجال نشاطك — عدّله ليصف نشاطك أنت.')}</small>
+            : <button type="button" className="layla-secondary" disabled={busy} onClick={() => setProfile({ ...profile, services: tailored.service, reviewed: false })}>{tr('Restore the suggested summary', 'استعادة الملخص المقترح')}</button>}
           {data?.savedToAccount&&<section className="layla-answer" aria-labelledby="catalog-heading"><h3 id="catalog-heading">{tr('Services & prices','الخدمات والأسعار')}</h3><div className="layla-quick-questions"><button type="button" className={catalogTab==='services'?'layla-primary':'layla-secondary'} onClick={()=>setCatalogTab('services')}>{tr('Services','الخدمات')}</button><button type="button" className={catalogTab==='prices'?'layla-primary':'layla-secondary'} onClick={()=>setCatalogTab('prices')}>{tr('Prices','الأسعار')}</button></div>
             <p>{tr('Add up to 1,000 services or products. Imported information stays a draft until you publish it.','أضف حتى ١٠٠٠ خدمة أو منتج. تبقى المعلومات المستوردة مسودة حتى تنشرها.')}</p>
             {catalogTab==='services'?<><label>{tr('Service name in English','اسم الخدمة بالإنجليزية')}<input maxLength={160} value={catalogDraft.nameEn} onChange={e=>setCatalogDraft({...catalogDraft,nameEn:e.target.value})}/></label><label>{tr('Service name in Arabic','اسم الخدمة بالعربية')}<input dir="rtl" maxLength={160} value={catalogDraft.nameAr} onChange={e=>setCatalogDraft({...catalogDraft,nameAr:e.target.value})}/></label><label>{tr('How does it help customers?','كيف تساعد العملاء؟')}<textarea maxLength={700} value={ar?catalogDraft.benefitAr:catalogDraft.benefitEn} onChange={e=>setCatalogDraft({...catalogDraft,[ar?'benefitAr':'benefitEn']:e.target.value})}/></label><label>{tr('Details Layla may explain','تفاصيل يمكن لليلى شرحها')}<textarea maxLength={700} value={ar?catalogDraft.descriptionAr:catalogDraft.descriptionEn} onChange={e=>setCatalogDraft({...catalogDraft,[ar?'descriptionAr':'descriptionEn']:e.target.value})}/></label></>:<><label>{tr('Choose a service','اختر خدمة')}<select required value={selectedCatalogKey} onChange={e=>setSelectedCatalogKey(e.target.value)}><option value="">{tr('Select an existing service','اختر خدمة موجودة')}</option>{catalog.map(item=><option key={item.entryKey} value={item.entryKey}>{(ar?item.nameAr:item.nameEn)||item.nameEn||item.nameAr}</option>)}</select></label><label>{tr('Price type','نوع السعر')}<select value={catalogDraft.priceType} onChange={e=>setCatalogDraft({...catalogDraft,priceType:e.target.value})}>{[['fixed',tr('Fixed','ثابت')],['from',tr('Starting from','ابتداءً من')],['range',tr('Range','نطاق')],['free',tr('Free','مجاني')],['quote',tr('Quote required','بحسب عرض السعر')],['recurring',tr('Recurring','متكرر')],['unavailable',tr('Not available','غير متاح')]].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label>{tr('Displayed price','السعر المعروض')}<input maxLength={160} placeholder={tr('Example: From 20 OMR','مثال: ابتداءً من ٢٠ ر.ع.')} value={catalogDraft.priceLabel} onChange={e=>setCatalogDraft({...catalogDraft,priceLabel:e.target.value})}/></label><label>{tr('Currency','العملة')}<select value={catalogDraft.currency} onChange={e=>setCatalogDraft({...catalogDraft,currency:e.target.value})}>{['OMR','AED','SAR','USD'].map(v=><option key={v}>{v}</option>)}</select></label></>}
@@ -296,19 +313,34 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
             {!!catalog.length&&<button type="button" className="layla-secondary" disabled={busy} onClick={()=>act(async()=>{await request({action:'catalog_publish'});await loadCatalog();})}>{tr('Approve and publish catalog','اعتماد ونشر الكتالوج')}</button>}
             {catalogCursor!==null&&<button type="button" className="layla-secondary" disabled={busy} onClick={()=>act(()=>loadCatalog(catalogCursor))}>{tr('Load more services','عرض خدمات إضافية')}</button>}
           </section>}
-          <details><summary>{tr('Add your own questions and answers (optional)', 'أضف أسئلتك وإجاباتك (اختياري)')}</summary>
+          <details><summary>{tr('Questions your customers ask (optional)', 'أسئلة يطرحها عملاؤك (اختياري)')}</summary>
             {(profile.faqs || []).map((faq,i)=><div className="layla-faq" key={i}><strong>{faq.question}</strong><p>{faq.answer}</p><button type="button" className="layla-secondary" onClick={()=>setProfile({...profile,faqs:profile.faqs.filter((_,index)=>index!==i),reviewed:false})}>{tr('Remove','حذف')}</button></div>)}
+            {/* The industry's own questions, offered as one-tap fills. These were
+                already authored per sector but only ever surfaced on the test
+                step, so customers retyped them here. Only the ANSWER is theirs to
+                write — the question is the part we can safely suggest. */}
+            {sectorFaqSuggestions.length > 0 && <>
+              <p className="layla-field-help">{tr('Common questions in your industry — pick one, then write your answer.', 'أسئلة شائعة في مجال نشاطك — اختر سؤالاً ثم اكتب إجابتك.')}</p>
+              <div className="layla-quick-questions">
+                {sectorFaqSuggestions.map(suggested => <button type="button" key={suggested} className="layla-secondary" onClick={() => setFaqQuestion(suggested)}>{suggested}</button>)}
+              </div>
+            </>}
             <label>{tr('Customer question','سؤال العميل')}<input maxLength={200} value={faqQuestion} onChange={e=>setFaqQuestion(e.target.value)} /></label>
             <label>{tr('Your approved answer','إجابتك المعتمدة')}<textarea maxLength={700} value={faqAnswer} onChange={e=>setFaqAnswer(e.target.value)} /></label>
             <button type="button" className="layla-secondary" disabled={!faqQuestion.trim() || !faqAnswer.trim() || (profile.faqs?.length || 0)>=12} onClick={()=>{setProfile({...profile,faqs:[...(profile.faqs || []),{question:faqQuestion.trim(),answer:faqAnswer.trim()}],reviewed:false});setFaqQuestion('');setFaqAnswer('');}}>{tr('Add question and answer','إضافة السؤال والإجابة')}</button>
           </details>
-          {data?.websiteImportAvailable && <details><summary>{tr('Read business facts from a website (optional)', 'قراءة معلومات النشاط من موقع (اختياري)')}</summary>
+          {data?.websiteImportAvailable && <details><summary>{tr('Fill this in from your website — the fastest way', 'املأ هذا من موقعك — الطريقة الأسرع')}</summary>
             <label>{tr('Import from your website','استيراد من موقعك')}<input type="url" placeholder="https://example.com/services" maxLength={2000} value={websiteUrl} onChange={e=>setWebsiteUrl(e.target.value)} /></label>
             <button type="button" className="layla-secondary" disabled={busy || !websiteUrl} onClick={()=>act(async()=>{const r=await request({action:'import_website',url:websiteUrl});setImported(r.imported);})}>{tr('Scan relevant pages','فحص الصفحات ذات الصلة')}</button>
             {imported&&/^https:\/\//.test(imported.url)&&<div><p>{tr('Source:','المصدر:')} <a href={imported.url} target="_blank" rel="noopener noreferrer">{imported.url}</a></p><h4>{tr('1. What are they?','١. ما الخدمات أو المنتجات؟')}</h4><p>{imported.extracted?.questions?.whatTheyAre}</p><h4>{tr('2. How do they help customers?','٢. كيف تخدم العملاء؟')}</h4><p>{imported.extracted?.questions?.howTheyHelp||tr('Review the extracted services below.','راجع الخدمات المستخرجة أدناه.')}</p><h4>{tr('3. How will Layla use this?','٣. كيف ستستخدم ليلى هذه المعلومات؟')}</h4><p>{tr('Layla uses approved services, prices and policies to answer accurately without guessing.','تستخدم ليلى الخدمات والأسعار والسياسات المعتمدة للإجابة بدقة دون تخمين.')}</p>{imported.partial&&<p className="layla-notice">{tr('Useful information was extracted; oversized content was skipped.','تم استخراج المعلومات المفيدة وتجاوز المحتوى الكبير.')}</p>}{data?.savedToAccount&&!!imported.extracted?.entries?.length&&<button type="button" className="layla-primary" disabled={busy} onClick={()=>act(saveImportedCatalog)}>{tr('Add all extracted drafts','إضافة كل المسودات المستخرجة')}</button>}{data?.savedToAccount&&imported.extracted?.entries?.map((entry,i)=><button key={i} type="button" className="layla-secondary" onClick={()=>act(()=>saveCatalogDraft(imported.url,{...entry,priceLabel:entry.prices?.[0]?.label,priceType:entry.prices?.[0]?.type,currency:entry.prices?.[0]?.currency,unit:entry.prices?.[0]?.unit}))}>{tr('Add draft:','إضافة مسودة:')} {entry.nameEn||entry.nameAr}</button>)}</div>}
           </details>}
-          {data?.savedToAccount&&<details><summary>{tr('Upload a price list or catalog','رفع قائمة أسعار أو كتالوج')}</summary><p>{tr('PDF, CSV, XLSX, DOCX, TXT, JPG, PNG or WebP. The file is read in your browser and extracted items remain drafts.','PDF أو CSV أو XLSX أو DOCX أو TXT أو JPG أو PNG أو WebP. يُقرأ الملف في متصفحك وتبقى العناصر المستخرجة مسودات.')}</p><input type="file" accept=".pdf,.csv,.xlsx,.docx,.txt,.jpg,.jpeg,.png,.webp" disabled={busy||importingFile} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;setImportingFile(true);setError('');try{const parsed=await readCatalogFile(file);setImported({url:file.name,text:parsed.text,partial:parsed.partial,extracted:{questions:{whatTheyAre:parsed.text.slice(0,500),howTheyHelp:'',howLaylaUsesIt:''},entries:parsed.entries}});}catch(error){setError(explain(error.message));}finally{setImportingFile(false);e.target.value='';}}}/>{importingFile&&<p role="status">{tr('Reading catalog…','جارٍ قراءة الكتالوج…')}</p>}{imported&&!/^https:\/\//.test(imported.url)&&<div><p>{tr('Extracted draft items:','العناصر المستخرجة كمسودة:')} {imported.extracted?.entries?.length||0}</p>{!!imported.extracted?.entries?.length&&<button type="button" className="layla-primary" disabled={busy} onClick={()=>act(saveImportedCatalog)}>{tr('Add all extracted drafts','إضافة كل المسودات المستخرجة')}</button>}{imported.extracted?.entries?.map((entry,i)=><button key={i} type="button" className="layla-secondary" onClick={()=>act(()=>saveCatalogDraft(imported.url,{...entry,priceLabel:entry.prices?.[0]?.label,priceType:entry.prices?.[0]?.type,currency:entry.prices?.[0]?.currency,unit:entry.prices?.[0]?.unit}))}>{tr('Add draft:','إضافة مسودة:')} {entry.nameEn||entry.nameAr}</button>)}</div>}</details>}
-          <details><summary>{tr('Team contact — needed before connecting WhatsApp', 'جهة اتصال الفريق — مطلوبة قبل ربط واتساب')}</summary>
+          {data?.savedToAccount&&<details><summary>{tr('Upload a price list or catalog — we read it for you','ارفع قائمة أسعار أو كتالوج — نقرأه عنك')}</summary><p>{tr('PDF, CSV, XLSX, DOCX, TXT, JPG, PNG or WebP. The file is read in your browser and extracted items remain drafts.','PDF أو CSV أو XLSX أو DOCX أو TXT أو JPG أو PNG أو WebP. يُقرأ الملف في متصفحك وتبقى العناصر المستخرجة مسودات.')}</p><input type="file" accept=".pdf,.csv,.xlsx,.docx,.txt,.jpg,.jpeg,.png,.webp" disabled={busy||importingFile} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;setImportingFile(true);setError('');try{const parsed=await readCatalogFile(file);setImported({url:file.name,text:parsed.text,partial:parsed.partial,extracted:{questions:{whatTheyAre:parsed.text.slice(0,500),howTheyHelp:'',howLaylaUsesIt:''},entries:parsed.entries}});}catch(error){setError(explain(error.message));}finally{setImportingFile(false);e.target.value='';}}}/>{importingFile&&<p role="status">{tr('Reading catalog…','جارٍ قراءة الكتالوج…')}</p>}{imported&&!/^https:\/\//.test(imported.url)&&<div><p>{tr('Extracted draft items:','العناصر المستخرجة كمسودة:')} {imported.extracted?.entries?.length||0}</p>{!!imported.extracted?.entries?.length&&<button type="button" className="layla-primary" disabled={busy} onClick={()=>act(saveImportedCatalog)}>{tr('Add all extracted drafts','إضافة كل المسودات المستخرجة')}</button>}{imported.extracted?.entries?.map((entry,i)=><button key={i} type="button" className="layla-secondary" onClick={()=>act(()=>saveCatalogDraft(imported.url,{...entry,priceLabel:entry.prices?.[0]?.label,priceType:entry.prices?.[0]?.type,currency:entry.prices?.[0]?.currency,unit:entry.prices?.[0]?.unit}))}>{tr('Add draft:','إضافة مسودة:')} {entry.nameEn||entry.nameAr}</button>)}</div>}</details>}
+          {/* Open by default, and never collapsed: humanContact is REQUIRED by
+              reviewProfile() in api/_lib/layla/domain.js. While this sat closed,
+              a customer could fill every visible field, confirm the facts and be
+              refused with `review_sector_services_contact` for an input they had
+              never been shown. */}
+          <details open><summary>{tr('Team contact — required before connecting WhatsApp', 'جهة اتصال الفريق — مطلوبة قبل ربط واتساب')}</summary>
           <label>{tr('How can customers reach your team?', 'كيف يتواصل العملاء مع فريقك؟')}
             <select className="layla-suggestion" aria-label={tr('Escalation contact type', 'نوع جهة اتصال التصعيد')} value={contactMode} onChange={e => { setContactMode(e.target.value); setContactValue(''); setProfile({ ...profile, humanContact: '', reviewed: false }); }}>
               <option value="whatsapp">{tr('WhatsApp number (recommended)', 'رقم واتساب (موصى به)')}</option><option value="email">{tr('Email address', 'عنوان البريد الإلكتروني')}</option>
@@ -317,7 +349,12 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
             <small className="layla-field-help">{contactMode === 'whatsapp' ? tr('This number must already be active on WhatsApp so your team can receive the handoff.', 'يجب أن يكون الرقم مفعّلاً على واتساب حتى يستلم فريقك التحويل.') : tr('Layla will direct customers to this team email when a human is needed.', 'ستوجّه ليلى العملاء إلى بريد الفريق عند الحاجة إلى موظف.')}</small>
           </label>
           </details>
-          <details><summary>{tr('Add hours and location (optional)', 'أضف أوقات العمل والموقع (اختياري)')}</summary>{[['hours',tr('Opening hours','أوقات العمل')],['location',tr('Location','الموقع')]].map(([key,label]) => <label key={key}>{label}<textarea maxLength={350} rows={2} value={profile[key]} onChange={e => setProfile({ ...profile, [key]: e.target.value, reviewed: false })} /></label>)}</details>
+          {/* `prices` is part of the profile schema and is validated by
+              reviewProfile(), but had no input on this form at all: the only way
+              to give prices was the catalog section, which is gated behind
+              `savedToAccount`. A customer previewing Layla without signing in
+              therefore could not state a price in any field. */}
+          <details><summary>{tr('Add prices, hours and location (optional)', 'أضف الأسعار وأوقات العمل والموقع (اختياري)')}</summary>{[['prices',tr('Prices','الأسعار')],['hours',tr('Opening hours','أوقات العمل')],['location',tr('Location','الموقع')]].map(([key,label]) => <label key={key}>{label}<textarea maxLength={350} rows={2} value={profile[key]} onChange={e => setProfile({ ...profile, [key]: e.target.value, reviewed: false })} /></label>)}</details>
           <p className="layla-help">{tr('Leave unknown details blank. Layla should ask your team rather than guess.', 'اترك التفاصيل غير المعروفة فارغة. ستوجّه ليلى السؤال لفريقك بدلاً من التخمين.')}</p>
           <label className="layla-check"><input type="checkbox" required checked={profile.reviewed} onChange={e => setProfile({ ...profile, reviewed: e.target.checked })} /><span>{tr('I checked these business facts.', 'راجعت معلومات النشاط هذه.')}</span></label>
           {!checking && !available && <p className="layla-notice" role="status">{tr('Your business facts are saved securely for 24 hours without a BznsFlow login. Meta connection is waiting for verified Blue test setup.', 'تُحفظ معلومات نشاطك بأمان لمدة ٢٤ ساعة دون تسجيل دخول إلى BznsFlow. ينتظر ربط Meta التحقق من إعداد الاختبار في Blue.')}</p>}
