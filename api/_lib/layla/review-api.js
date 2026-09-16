@@ -78,7 +78,15 @@ export async function inspectPortfolio({ c, integration: i, token, fetcher }) {
     const name = typeof business.name === 'string' ? business.name.replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 120) : '';
     const status = String(business.verification_status || '').toLowerCase();
     return { id, name, verificationStatus: PORTFOLIO_STATUSES.includes(status) ? status : 'unknown' };
-  } catch { return null; }
+  } catch (error) {
+    // `null` still means "no portfolio to show", because a missing portfolio must
+    // never block a connection. But it used to also mean "the lookup failed",
+    // and a binding check that cannot tell those apart is not a check: a Graph
+    // outage read exactly like a WABA that genuinely has no owning business.
+    // The caller's behaviour is unchanged; the cause is no longer silent.
+    console.error('[review] portfolio lookup failed:', error?.message || 'unknown');
+    return null;
+  }
 }
 // Existing API numbers use the business-first Embedded Signup flow so an owner with several
 // portfolios picks the right one. BLUE_SIGNUP_VERSION_EXISTING can switch it without code.
