@@ -50,7 +50,9 @@ function convexStore({ route, fallback, timeout = 8000, reasons = REASON_CODE, s
         body: JSON.stringify({ operation, ...args }),
       });
       if (!response.ok) throw Error('backend');
-      const body = await response.json();
+      // `fetcher` is injectable, so json() is `unknown` to the checker. The shape
+      // is the Convex route contract: { ok, reason?, value? }.
+      const body = /** @type {{ ok?: boolean, reason?: string, value?: unknown }} */ (await response.json());
       if (!body?.ok) {
         const reason = forwards(body?.reason) ? body.reason : fallback;
         throw new PilotError(reason, status(reason));

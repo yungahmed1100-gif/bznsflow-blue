@@ -286,6 +286,30 @@ t('pre-filled service text is recognised as a default, customer text is not', ()
   assert.equal(isSectorDefaultService('We do same-day crowns and open on Saturdays'), false, 'customer-authored text must never be treated as a default');
 });
 
+t('the Blue build is never indexable', () => {
+  // The review deployment is publicly reachable. If it were indexed it would
+  // compete with www.bznsflowai.com for the same copy, and Meta's reviewer link
+  // would turn up in search. vercel.json also sends X-Robots-Tag, but a header
+  // and a meta tag are set in different files and only one of them survives a
+  // promotion — so pin the tag too.
+  // Read as source: Node cannot import .jsx, and the same constraint is why the
+  // other checks in this file read files rather than importing them.
+  const seo = read('src/components/ui/Seo.jsx');
+  const blue = seo.match(/ROBOTS_BLUE = '([^']+)'/)?.[1];
+  const green = seo.match(/ROBOTS_GREEN = '([^']+)'/)?.[1];
+  const active = seo.match(/export const ROBOTS = (\w+);/)?.[1];
+  assert.ok(blue && green && active, 'Seo.jsx no longer declares the robots constants this check reads');
+  assert.equal(active, 'ROBOTS_BLUE', 'Seo.jsx must emit the Blue robots value');
+  assert.match(blue, /^noindex\b/, 'Blue must emit noindex');
+  assert.match(green, /^index\b/, 'the Green value kept alongside it must still be the indexable one');
+  assert.ok(seo.includes('content={ROBOTS}'), 'the robots meta tag must render the ROBOTS constant');
+
+  const vercel = JSON.parse(read('vercel.json'));
+  const header = vercel.headers?.flatMap((h) => h.headers).find((h) => h.key === 'X-Robots-Tag');
+  assert.ok(header, 'vercel.json must send X-Robots-Tag on Blue');
+  assert.match(header.value, /noindex/, 'the X-Robots-Tag header must agree with the meta tag');
+});
+
 t('prefillFor falls back to the free-text sector for an unknown id', () => {
   const unknown = prefillFor('not-a-real-sector', 'en');
   assert.equal(unknown.service, SECTOR_PREFILL[FREE_TEXT_SECTOR].services.en);

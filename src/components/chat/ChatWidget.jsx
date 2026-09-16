@@ -16,7 +16,6 @@ export function ChatWidget({ t, lang = 'en', trackEvent = () => {}, onOpenChange
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]); // { role: 'user'|'layla', text, handoff?, handoffContext? }
   const [isTyping, setIsTyping] = useState(false);
-  const [error, setError] = useState(false);
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
@@ -68,7 +67,6 @@ export function ChatWidget({ t, lang = 'en', trackEvent = () => {}, onOpenChange
     const text = input.trim();
     if (!text || isTyping) return;
 
-    setError(false);
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', text }]);
     setIsTyping(true);
@@ -87,7 +85,6 @@ export function ChatWidget({ t, lang = 'en', trackEvent = () => {}, onOpenChange
       ]);
       if (res.handoff) trackEvent('ChatHandoff', { source: 'widget' });
     } catch (_) {
-      setError(true);
       setMessages((prev) => [...prev, { role: 'layla', text: t.chat_error }]);
     } finally {
       setIsTyping(false);

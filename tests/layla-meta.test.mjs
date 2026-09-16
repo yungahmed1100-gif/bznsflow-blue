@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { Readable, PassThrough } from 'node:stream';
-import { settings, binding, stateKey, LIVE_RELEASE_ENABLED } from '../api/_lib/layla/config.js';
+import { settings, stateKey, LIVE_RELEASE_ENABLED } from '../api/_lib/layla/config.js';
 import { initialState, reviewProfile, accept, answer, guard, DAY, summary, maintain } from '../api/_lib/layla/domain.js';
 import { parseEvents, signatureValid } from '../api/_lib/layla/webhook.js';
 import { transact, createStore } from '../api/_lib/layla/store.js';

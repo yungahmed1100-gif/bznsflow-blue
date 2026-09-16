@@ -2,6 +2,15 @@ import React from 'react';
 import { Head } from 'vite-react-ssg';
 import { SITE, urlFor } from '../../routes-manifest';
 
+// Blue is never indexed, whatever a page would otherwise ask for. This was
+// written as `true ? noindex : index`, which reads as a live choice and is not
+// one — the Green value is kept beside it so promoting the environment is a
+// one-line change with the correct string already written down.
+export const ROBOTS_BLUE = 'noindex, follow';
+export const ROBOTS_GREEN = 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1';
+export const ROBOTS = ROBOTS_BLUE;
+
+
 // Per-page head: title, description, canonical, reciprocal hreflang (en/ar/
 // x-default), OpenGraph/Twitter, and optional JSON-LD. Rendered into the static
 // HTML at build time via vite-react-ssg's <Head>. Global tags (favicons, fonts,
@@ -39,14 +48,7 @@ export function Seo({
       {/* Always emitted, never conditional. Helmet can only dedupe tags it
           manages, so an "only when noindex" tag left the indexable pages with
           no robots directive at all once the copy in index.html was removed. */}
-      <meta
-        name="robots"
-        content={
-          true // Blue is never indexed, regardless of page defaults.
-            ? 'noindex, follow'
-            : 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1'
-        }
-      />
+      <meta name="robots" content={ROBOTS} />
 
       {/* Reciprocal hreflang — English is the primary/default language
           (worldwide English-first targeting); Arabic is the alternate. */}

@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { runInNewContext } from 'node:vm';
 import { initialState } from '../api/_lib/layla/domain.js';
 import { APPROVED, activate, prepareActivation, activationGate, recoverSubscription } from '../api/_lib/layla/activation.js';
 import { checkMetaReadiness, WEBHOOK_URL } from '../api/_lib/layla/readiness.js';

@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Seo } from '../components/ui/Seo';
 import '../styles/layla-pilot.css';
 import LaylaSetup from './LaylaSetup';
-import LaylaOpenTest from './LaylaOpenTest';
 import { callApi } from '../lib/api-client.js';
 const labels = { sector:'Sector / القطاع', services:'Approved services / الخدمات المعتمدة', prices:'Prices (leave blank if unknown) / الأسعار إن توفرت', hours:'Hours / ساعات العمل', location:'Location / الموقع', humanContact:'Actual human contact / وسيلة التواصل مع الفريق' };
 const states = {configuration_missing:'Configuration missing / إعدادات ناقصة',configured:'Configured / تم الإعداد',incoming_message_received:'Incoming message received / وصلت رسالة',reply_submitted:'Reply submitted; delivery pending / الرد قيد التسليم',reply_delivered:'Reply delivered / تم تسليم الرد',failed:'Failure needs review / يلزم مراجعة الخطأ'};

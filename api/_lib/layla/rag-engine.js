@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { answer, classify } from './domain.js';
+import { answer } from './domain.js';
 
 // Cost-aware answer pipeline. Storage and model calls are injected so the same
 // policy can run against Convex actions, a local test double, or a later worker.

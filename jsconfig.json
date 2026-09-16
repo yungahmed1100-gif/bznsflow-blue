@@ -1,0 +1,24 @@
+{
+  "// why": [
+    "Editor IntelliSense and module resolution for the whole repo.",
+    "checkJs is OFF here on purpose: turning it on across a codebase with no",
+    "annotations reports hundreds of errors on the first run, which is how a",
+    "type-check gets switched off in its first week. `npm run typecheck` opts a",
+    "single directory in instead — see tsconfig.typecheck.json."
+  ],
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "jsx": "react-jsx",
+    "types": ["node"]
+  },
+  "include": ["src/**/*", "api/**/*", "scripts/**/*", "tests/**/*", "config/**/*"],
+  "exclude": ["node_modules", "dist", "work", "convex", ".convex"]
+}

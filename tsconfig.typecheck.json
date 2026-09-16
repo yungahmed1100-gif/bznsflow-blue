@@ -1,0 +1,44 @@
+{
+  "// why": [
+    "A deliberately small beachhead for type-checking, run by `npm run typecheck`.",
+    "",
+    "The list below is the set of api/_lib modules that type-check CLEAN today —",
+    "the shared plumbing every serverless function depends on. It is enforced:",
+    "`npm run typecheck` must pass.",
+    "",
+    "The rest of api/_lib is excluded, not forgotten. Turning the whole directory",
+    "on reports 147 errors, almost all of them loose `@returns {object}` JSDoc",
+    "rather than real defects, and a check that is allowed to fail is not a check.",
+    "Add files here one at a time as their annotations are tightened; the current",
+    "counts are in docs/technical-debt.md.",
+    "",
+    "strict is off for the same reason: the goal today is catching genuine mistakes",
+    "(wrong arity, a typo'd property, an impossible comparison), not annotating a",
+    "codebase that was never written for it."
+  ],
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext"],
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "types": ["node"]
+  },
+  "include": [
+    "api/_lib/http.js",
+    "api/_lib/convex.js",
+    "api/_lib/cookies.js",
+    "api/_lib/guard.js",
+    "api/_lib/auth.js",
+    "api/_lib/fetch.js",
+    "api/_lib/replies.js",
+    "api/_lib/prompt.js",
+    "api/_lib/mailer.js",
+    "api/_lib/db.js"
+  ]
+}

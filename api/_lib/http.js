@@ -1,5 +1,15 @@
 import { PilotError } from './layla/config.js';
 
+/**
+ * The response object these handlers actually receive.
+ *
+ * Not `http.ServerResponse`: Vercel adds `status()` on top of it, and the JSDoc
+ * here claimed the bare Node type — so every `res.status(...)` in this file was
+ * annotated as a call to a method that does not exist.
+ *
+ * @typedef {import('http').ServerResponse & { status(code: number): unknown }} Res
+ */
+
 // Shared request/response plumbing for the serverless functions.
 //
 // `send`, `readBody` and `limits` were each copy-pasted into three handlers,
@@ -18,7 +28,7 @@ import { PilotError } from './layla/config.js';
  * per-visitor or state-changing, and a cached response on any of them is a bug —
  * a shared cache serving one visitor's chat reply or account to another.
  *
- * @param {import('http').ServerResponse} res
+ * @param {Res} res
  * @param {number} status
  * @param {object} payload
  * @param {{ vary?: string }} [options] `Vary` for responses that differ by cookie
@@ -40,7 +50,7 @@ export function send(res, status, payload, options = {}) {
  * carry Set-Cookie, and a cached 302 would hand one visitor's session to the
  * next.
  *
- * @param {import('http').ServerResponse} res
+ * @param {Res} res
  * @param {string} location a path on this site, never a caller-supplied URL
  */
 export function redirect(res, location) {
@@ -86,7 +96,7 @@ export function readBody(req) {
  * carry a `.code` too (`ABORT_ERR`, `ENOTFOUND`, `ECONNREFUSED`): duck-typing on
  * `.code` would forward those to the browser as if they were answers.
  *
- * @param {import('http').ServerResponse} res
+ * @param {Res} res
  * @param {unknown} error
  * @param {{ fallback?: string, vary?: string }} [options]
  */

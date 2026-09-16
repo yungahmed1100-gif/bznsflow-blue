@@ -1,4 +1,4 @@
-import { settings, PilotError } from './_lib/layla/config.js';
+import { settings } from './_lib/layla/config.js';
 import { createBlueWorker } from './_lib/layla/blue-messaging.js';
 import { safeEqual } from './_lib/cookies.js';
 import { send, sendPilotError } from './_lib/http.js';
