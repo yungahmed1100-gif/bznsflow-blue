@@ -1,8 +1,18 @@
 # Layla dashboard after activation — engineering pack (2026-09-14)
 
-Blue-only. Implemented and locally verified; **not deployed**. Deployment, the
-Convex schema push, gate changes and the Meta review rehearsal (which sends one
-real marketing template) each need Ahmed's explicit authorization.
+Blue-only. **Deployed 2026-09-14 with authorization** — commits `45ed72b` and
+`5100f51`, Convex schema pushed to `quaint-nightingale-675`, deployment
+`dpl_ESnM3qtXvc8qbaZzRAoeCkQ52A4Q` READY on the Blue alias. The durable Convex
+`broadcast` gate remains **off** and no live send has happened.
+
+> This line read "not deployed" until 2026-09-16. It was written in `45ed72b`,
+> the very commit that was then deployed, and never updated — while
+> [SESSION-CHECKPOINT.md](SESSION-CHECKPOINT.md) recorded the deployment in a
+> later commit. Two docs in the repo disagreed about whether this shipped.
+
+Further gate changes, another Convex schema push and the Meta review rehearsal
+(which sends one real marketing template) each still need Ahmed's explicit
+authorization.
 
 ## Scope
 

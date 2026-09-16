@@ -9,21 +9,37 @@
 
 ```
 ├── src/
-│   ├── pages/            Home.jsx, SignIn.jsx
-│   ├── components/       layout/ · sections/ · ui/
-│   ├── lib/              constants, analytics, chat, cookies, countries, industries
-│   ├── styles/           imported in a load-bearing order by src/index.css
-│   ├── i18n/             en.js · ar.js — flat key→string maps
+│   ├── pages/            12 routed + embedded pages — Home, SignIn, Playbook,
+│   │                     the legal three, and the Layla* onboarding set
+│   ├── components/       layout/ · sections/ · ui/ · chat/ · dashboard/ (13 files)
+│   ├── lib/              constants, analytics, chat, cookies, countries,
+│   │                     industries, catalog-import, portfolio, schemas,
+│   │                     sector-prefill.generated.js, dashboard/ (7 files)
+│   ├── hooks/ layouts/ content/ data/ assets/
+│   ├── styles/           22 sheets; src/index.css imports 17 in a load-bearing
+│   │                     order, 5 more are imported per-page from JS
+│   ├── i18n/             en.js · ar.js — flat key→string maps, 258 keys each
 │   └── routes.jsx        route table, prerendered by vite-react-ssg
-├── api/                  Vercel serverless functions
-│   ├── chat.js           Layla's chat backend  → OpenAI + Supabase
+├── api/                  11 Vercel serverless functions
+│   ├── chat.js           Layla's web chat      → OpenAI + Supabase
 │   ├── auth-code.js      send a sign-in code   → Apps Script
 │   ├── auth-session.js   verify / profile / sign out
+│   ├── auth-oauth.js     start social sign-in  → Google · Microsoft · LinkedIn
+│   ├── auth-callback.js  finish social sign-in
 │   ├── lead.js           playbook capture      → Apps Script
-│   ├── keepalive.js      daily cron, stops Supabase pausing
-│   └── _lib/             shared: db, auth, cookies, guard, http, fetch, llm
+│   ├── keepalive.js      anti-pause ping (Green only — vercel.json has no cron)
+│   ├── layla-meta*.js    4 routes: surface router, webhook, worker, readiness
+│   └── _lib/             shared: db, auth, cookies, guard, http, fetch, llm,
+│                         convex, blue-auth + layla/ (29 modules)
+├── convex/               Blue backend — schema (26 tables), http router, crons
+├── config/               sector packs, qualification, templates
+├── scripts/              build generators and operational tools — see
+│                         docs/operational-scripts.md
+├── tests/                28 files; `npm test` runs the unit suite
+├── docs/                 engineering packs; start at layla-meta-engineering.md
 ├── apps-script/          Code.gs — the Sheet-bound web app (deploys separately)
-├── web-chatbot/          SETUP.md runbook + SQL migrations
+├── web-chatbot/          SETUP.md runbook + SQL migrations. NOTE: prebuild reads
+│                         its markdown — do not exclude it from a deploy.
 └── public/               static assets, sitemap, robots.txt
 ```
 
@@ -51,11 +67,24 @@ Environment: copy `.env.example` to `.env` and fill it in. `VITE_*` vars are
 ## ✅ Tests
 
 ```bash
-npm test                  # unit — no infrastructure needed
-npm run test:auth-browser  # sign-in flow in a real browser (needs npm run dev)
+npm test                   # the whole unit suite — no infrastructure needed.
+                           # Chains: api-chat, cookies, auth, oauth, lead,
+                           # contracts, then test:layla (6 files) and
+                           # test:blue (12 files).
+npm run test:a11y          # axe-core, both languages, desktop + phone
 npm run seo:audit          # crawls the sitemap, reports Core Web Vitals
-npm run test:stack up && npm run test:e2e   # chat against real Postgres (Docker)
+npm run shots -- <label>   # breakpoint screenshots into work/shots/<label>/
+
+# these need something running
+npm run test:auth-browser                    # sign-in flow (needs npm run dev)
+npm run test:layla-browser -- <url>          # Layla setup flow
+npm run test:dashboard-browser -- <url>      # owner dashboard
+npm run test:stack up && npm run test:e2e    # chat against real Postgres (Docker)
 ```
+
+`npm run build` is also a gate, not just a build: `prebuild` runs the Blue
+isolation check and two drift checks (`gen-kb --check`, `gen-sector-prefill
+--check`), any of which fails the build.
 
 ---
 
@@ -105,7 +134,11 @@ Owner-only mock pilot: `/owner/layla`. The dedicated BznsFlow number is configur
 
 `/layla/dashboard` (Chats, Contacts, Broadcast) opens after activation. Read the
 [dashboard engineering pack](docs/blue-dashboard.md) before changing it; it is
-gated by `BLUE_DASHBOARD_ENABLED` and `BLUE_BROADCAST_ENABLED`. Browser checks:
+gated by **four** flags, not two — `dashboardAvailable` in
+`api/_lib/layla/dashboard-api.js` also requires `convexConfigured(env)` and
+`BLUE_ACCOUNT_SAVE_ENABLED`, and `broadcastAvailable` additionally requires
+`BLUE_LIVE_MESSAGING_ENABLED`. Setting `BLUE_DASHBOARD_ENABLED=true` alone does
+nothing. Browser checks:
 `npm run dev -- --port 5199` then `npm run test:dashboard-browser -- http://127.0.0.1:5199`.
 
 ## Blue Convex backend

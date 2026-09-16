@@ -42,7 +42,9 @@ dist-ssr
 # Scratch: screenshots, baselines and working notes, not artefacts.
 work/
 
-# Impeccable ships a ~14MB platform-specific binary. The skill is reinstalled
-# with `npx impeccable install`, so the download does not belong in git.
-.claude/skills/impeccable/scripts/bin/
+# Working media. Large enough to ruin a clone if one is ever staged by accident;
+# three at the repo root already came to 237 MB. Deliberately broad.
+*.mp4
+*.mov
+
 .vercel

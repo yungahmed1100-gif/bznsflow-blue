@@ -7,4 +7,24 @@ dist
 work
 
 .codex
-.agents
+
+# Agent tooling and local state. .claude alone is ~2.1 MB of vendored skill,
+# including a 512 KB bundled browser script and a 1.1 MB font index; .convex
+# holds a local SQLite backend. None of it is read at build or at runtime.
+.claude
+.impeccable
+.convex
+
+# Not referenced by prebuild, the SSG build, or any serverless function.
+tests
+docs
+
+# Working media. These are large — three files at the repo root came to 237 MB —
+# and a deploy uploads every one of them.
+*.mp4
+*.mov
+
+# NOTE: web-chatbot/ must NOT be excluded. prebuild runs `gen-kb.mjs --check`,
+# which reads web-chatbot/system-prompt-web-bznsflow.md and
+# layla-knowledge-base.md; without them the production build fails.
+# config/ and scripts/ are likewise build inputs.

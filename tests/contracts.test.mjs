@@ -12,7 +12,7 @@
 // check that would have caught it on the first `npm test`.
 
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -207,17 +207,31 @@ t('every cookie the server can set is disclosed in COOKIES.md', () => {
   }
 });
 t('every env var the API reads is listed in .env.example', () => {
+  // Scans ALL of api/ and ops/, not the three OAuth files it used to. That
+  // narrow scope is why .env.example drifted to 20 undocumented variables while
+  // this test stayed green — including OPENAI_API_KEY, which the chat backend
+  // cannot run without, and every LAYLA_META_* value.
   const example = read('.env.example');
   const seen = new Set();
-  for (const file of ['api/_lib/oidc.js', 'api/auth-oauth.js', 'api/auth-callback.js']) {
-    for (const [, name] of read(file).matchAll(/process\.env\.([A-Z0-9_]+)/g)) seen.add(name);
+  const walk = (dir) => readdirSync(join(root, dir), { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory() ? walk(`${dir}/${entry.name}`) : [`${dir}/${entry.name}`]);
+  const sources = [...walk('api'), ...walk('ops')].filter((f) => f.endsWith('.js') || f.endsWith('.mjs'));
+
+  for (const file of sources) {
+    // `process.env.X`, and the `{ env = process.env }` injection style the Blue
+    // modules use, which reads `env.X` with no `process.` prefix. Either capture
+    // group may be undefined depending on which branch matched.
+    for (const match of read(file).matchAll(/\benv(?:\.([A-Z0-9_]{2,})|\['([A-Z0-9_]{2,})'\])/g)) {
+      seen.add(match[1] || match[2]);
+    }
   }
   // The registry names its env vars as strings rather than property accesses.
   for (const p of Object.values(PROVIDERS)) { seen.add(p.idEnv); seen.add(p.secretEnv); }
+  // Supplied by the platform, not by an operator, so not template material.
+  const platform = /^(VERCEL|CI|NODE_ENV|AWS_|npm_)/;
 
-  for (const name of seen) {
-    assert.ok(new RegExp(`^${name}=`, 'm').test(example), `.env.example is missing ${name}`);
-  }
+  const missing = [...seen].filter((name) => !platform.test(name) && !new RegExp(`^${name}=`, 'm').test(example)).sort();
+  assert.equal(missing.length, 0, `.env.example is missing: ${missing.join(', ')}`);
 });
 t('both new functions declare a maxDuration', () => {
   const vercel = JSON.parse(read('vercel.json'));

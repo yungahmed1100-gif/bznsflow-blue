@@ -11,6 +11,8 @@ because JSON cannot carry comments and every one of these has a reason.
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | Outbound links to WhatsApp and Google Calendar leak the origin, not the full path. |
 | `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), interest-cohort=()` | The site needs none of these; denying them means an injected script cannot ask either. |
 | `Content-Security-Policy-Report-Only` | see below | Reports violations without blocking. **Deliberately not enforced — see below.** |
+| `X-Robots-Tag` | `noindex, nofollow, noarchive` | **Blue only.** Keeps the review deployment out of search results entirely. Removing it is part of any Green promotion, or the production site goes unindexed. |
+| `X-Bznsflow-Environment` | `blue` | **Blue only.** Lets a response be identified as Blue's without reading the body — the quickest way to catch "am I looking at Green or Blue?" during review. |
 
 `/assets/*` additionally gets `Cache-Control: public, max-age=31536000, immutable`,
 which is safe because Vite fingerprints those filenames — a changed file gets a
@@ -20,11 +22,19 @@ changed name, so a year-long cache can never serve stale code.
 
 Not caution. Enforcing it today would break the site on the next deploy.
 
-The built HTML carries **four executable inline scripts**:
+The built HTML carries **four executable inline scripts** — on Green:
 
 1. the scroll-reveal gate in `index.html`, which must run before first paint;
 2. the Meta Pixel bootstrap in `index.html`;
 3. and two that `vite-react-ssg` injects at build time.
+
+> **Blue differs.** On the `layla/blue` branch, `index.html` line 66 reads
+> `<!-- Marketing instrumentation is disabled in Blue. -->` and there is no
+> `fbq` anywhere in it, so Blue carries **three**, not four. Everything below
+> describes Green, which is the environment the policy has to survive.
+>
+> Blue still needs `script-src https://connect.facebook.net` for a different
+> reason: `src/pages/LaylaOnboarding.jsx` loads Meta's Embedded Signup SDK.
 
 A strict policy would have to allow these by hash. The first two are stable, but
 **the two vite-react-ssg emits change hash on every build** — so a hash-pinned

@@ -41,6 +41,15 @@ loses its hreflang pair from the index. The public routes stay deterministic.
 
 ## Marketing — consent required, **currently NOT gated**
 
+> **Green only.** These three are set by the Meta Pixel bootstrap in
+> `index.html`, which exists on `master` (Green) and is disabled on `layla/blue`
+> — Blue's `index.html` line 66 reads `Marketing instrumentation is disabled in
+> Blue.` and initialises no `fbq`. The table describes Green, which is what a
+> visitor to www.bznsflowai.com actually gets; it is therefore still the
+> accurate disclosure and must not be deleted because Blue happens not to set
+> them. `src/content/privacy.js` says the same thing to visitors, for the same
+> reason.
+
 | Name | Type | Lifetime | Set by |
 |---|---|---|---|
 | `_fbp` | cookie | ~90 days | Meta Pixel, loaded in `index.html` |
