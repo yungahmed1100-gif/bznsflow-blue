@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { PilotError } from './config.js';
+import { CHANNEL_BY_OBJECT, INSTAGRAM, accountOf, channelOf, isSender } from './channel.js';
 export const MAX_BODY = 65536;
 const id = x => typeof x === 'string' && /^[A-Za-z0-9_.:=/-]{1,220}$/.test(x);
 const phone = x => typeof x === 'string' && /^\d{7,15}$/.test(x);
@@ -30,10 +31,22 @@ export async function rawBody(req) {
     req.once('aborted', () => reject(new PilotError('incomplete_body', 400)));
   });
 }
+/**
+ * Turn one verified webhook body into the channel-agnostic events the domain
+ * understands. The envelope names its own channel, but it may not *choose* one:
+ * a binding answers for exactly the channel it was created for, so an Instagram
+ * envelope arriving on a WhatsApp binding is refused rather than parsed.
+ */
 export function parseEvents(raw, c, now) {
   let body;
   try { body = JSON.parse(raw.toString('utf8')); } catch { throw new PilotError('invalid_json'); }
-  if (!body || body.object !== 'whatsapp_business_account' || !Array.isArray(body.entry) || body.entry.length > 100) throw new PilotError('invalid_envelope');
+  const channel = CHANNEL_BY_OBJECT[body?.object];
+  if (!channel || !Array.isArray(body.entry) || body.entry.length > 100) throw new PilotError('invalid_envelope');
+  if (channel !== channelOf(c)) throw new PilotError('wrong_account', 403);
+  return channel === INSTAGRAM ? instagramEvents(body, c, now) : whatsappEvents(body, c, now);
+}
+
+function whatsappEvents(body, c, now) {
   if (!c.waba || !c.phone || !c.sender) throw new PilotError('configuration_missing', 503);
   const events = [];
   const timestamp = x => {
@@ -78,6 +91,46 @@ export function parseEvents(raw, c, now) {
       }
       if (events.length > 100) throw new PilotError('too_many_events', 413);
     }
+  }
+  return events;
+}
+
+// Instagram's envelope shares no structure with WhatsApp's. Entries carry a
+// `messaging` array of individual events rather than a `changes` array of
+// batched values, there is no `metadata`/`messaging_product` pair to check, and
+// timestamps arrive as milliseconds where WhatsApp sends seconds as a string.
+// That is why this is a sibling of whatsappEvents and not a branch inside it.
+function instagramEvents(body, c, now) {
+  const account = accountOf(c);
+  if (!account) throw new PilotError('configuration_missing', 503);
+  const events = [];
+  const timestamp = x => {
+    if (!Number.isSafeInteger(x) || x <= 0 || x > now + 300000) throw new PilotError('invalid_timestamp');
+    return x;
+  };
+  for (const entry of body.entry) {
+    if (entry?.id !== account) throw new PilotError('wrong_account', 403);
+    if (!Array.isArray(entry.messaging) || entry.messaging.length > 100) throw new PilotError('invalid_changes');
+    for (const item of entry.messaging) {
+      if (!item || typeof item !== 'object') throw new PilotError('invalid_change');
+      const senderId = item.sender?.id, recipientId = item.recipient?.id;
+      if (!isSender(senderId, INSTAGRAM) || !isSender(recipientId, INSTAGRAM)) throw new PilotError('wrong_sender', 403);
+      // Reads, postbacks and reactions carry no message body. They are authentic
+      // and create no reply work, exactly like an unknown WhatsApp change field.
+      const message = item.message;
+      if (!message || typeof message !== 'object') continue;
+      if (!id(message.mid)) throw new PilotError('invalid_message');
+      // An echo is the business answering from the Instagram app itself, so the
+      // contact is the recipient rather than the sender. Same meaning as a
+      // WhatsApp smb_message_echo: a human has taken this thread over.
+      if (message.is_echo === true) { events.push({ kind: 'takeover', id: `echo:${message.mid}`, from: recipientId }); continue; }
+      if (senderId === account) continue;
+      // An unsent message must never be answered after the fact.
+      if (message.is_deleted === true) continue;
+      if (typeof message.text !== 'string' || !message.text.trim() || message.text.length > 1000) continue;
+      events.push({ kind: 'message', id: message.mid, from: senderId, at: timestamp(item.timestamp), text: message.text });
+    }
+    if (events.length > 100) throw new PilotError('too_many_events', 413);
   }
   return events;
 }

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { INSTAGRAM, WHATSAPP, channelOf } from './channel.js';
 
 // Server-only general automation lock. The separately authorized open-test
 // transport has its own owner confirmation, environment gate and hard budget.
@@ -10,7 +11,9 @@ export function settings(env = process.env) {
   const mode = env.LAYLA_META_MODE || 'mock';
   if (!['mock', 'live'].includes(mode)) throw new PilotError('invalid_mode', 503);
   const c = {
-    mode, owner: env.LAYLA_OWNER_ACCOUNT_ID || '',
+    // The owner pilot is a single WhatsApp binding read from the environment.
+    // Instagram bindings are per customer and never come from these variables.
+    mode, channel: WHATSAPP, owner: env.LAYLA_OWNER_ACCOUNT_ID || '',
     app: env.LAYLA_META_APP_ID || '', waba: env.LAYLA_META_WABA_ID || '',
     phone: env.LAYLA_META_PHONE_NUMBER_ID || '', sender: env.LAYLA_META_SENDER || env.LAYLA_META_SENDER_NUMBER || '',
     secret: env.LAYLA_META_APP_SECRET || '', token: env.LAYLA_META_ACCESS_TOKEN || '',
@@ -24,7 +27,13 @@ export function settings(env = process.env) {
   if (c.version && !/^v\d{1,3}\.0$/.test(c.version)) throw new PilotError('invalid_graph_version', 503);
   return c;
 }
-export const binding = c => [c.owner, c.mode, c.app, c.waba, c.phone, c.sender].join(':');
+// A WhatsApp binding serialises exactly as it did before a second channel
+// existed — same fields, same order — so every state row already in the store
+// keeps its key. Instagram has no WABA and no separate sending number, so it
+// gets its own shape rather than five empty segments.
+export const binding = c => channelOf(c) === INSTAGRAM
+  ? [c.owner, c.mode, c.app, INSTAGRAM, c.igAccount].join(':')
+  : [c.owner, c.mode, c.app, c.waba, c.phone, c.sender].join(':');
 // A sender change gets a fresh state row. This preserves the retired pilot state
 // as evidence and prevents its contacts, receipts or trial clock crossing into a
 // newly reviewed Meta asset binding.

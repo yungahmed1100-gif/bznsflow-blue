@@ -22,7 +22,7 @@
     "test:auth-browser": "node tests/auth-browser.mjs",
     "test:a11y": "node scripts/a11y.mjs",
     "shots": "node scripts/shoot.mjs",
-    "test:layla": "node --test tests/layla-meta.test.mjs tests/layla-meta-db.test.mjs tests/layla-setup.test.mjs tests/layla-open.test.mjs tests/layla-customer.test.mjs tests/layla-scheduler.test.mjs",
+    "test:layla": "node --test tests/layla-meta.test.mjs tests/instagram-channel.test.mjs tests/layla-meta-db.test.mjs tests/layla-setup.test.mjs tests/layla-open.test.mjs tests/layla-customer.test.mjs tests/layla-scheduler.test.mjs",
     "test:layla-browser": "node tests/layla-meta-browser.mjs",
     "deploy:blue": "node scripts/deploy-blue.mjs",
     "test:blue": "node --test tests/convex-store.test.mjs tests/blue-environment.test.mjs tests/layla-review.test.mjs tests/blue-auth.test.mjs tests/blue-website-import.test.mjs tests/blue-messaging.test.mjs tests/blue-rag.test.mjs tests/blue-sector-packs.test.mjs tests/blue-qualification.test.mjs tests/blue-dashboard.test.mjs tests/blue-contacts-import.test.mjs tests/blue-campaigns.test.mjs tests/deploy-skew.test.mjs",
