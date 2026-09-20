@@ -13,6 +13,7 @@ These need no decision — the build or the test suite invokes them.
 | `check-blue-environment.mjs` | `prebuild`, `deploy-blue.mjs`, `tests/blue-environment.test.mjs` | Hard-fails the build if a Green secret, the wrong Vercel project, or a half-enabled gate combination is present. The single most important guardrail in the repo. |
 | `gen-kb.mjs --check` | `prebuild` | Fails if `api/_lib/kb.generated.js` has drifted from the knowledge-base markdown. |
 | `gen-sector-prefill.mjs --check` | `prebuild` | Fails if `src/lib/sector-prefill.generated.js` has drifted from `industries.js`, `layla-suggestions.js` or `layla-sector-packs.js`. |
+| `check-eval-coverage.mjs` | `prebuild`, `check:eval-coverage`, `tests/eval-harness.test.mjs` | Fails if `config/eval-questions.js` has no labelled questions for a sector in `industries.js`, a required intent, or one of the four language modes. Adding a sector without eval coverage makes its routing quality silently unmeasured. |
 | `gen-sitemap.mjs` | `prebuild`, `gen:sitemap` | Regenerates `public/sitemap.xml` from the route manifest. |
 | `seo/checks.mjs`, `seo/collect.mjs`, `seo/rules.mjs` | imported by `seo-audit.mjs` | Library code, not entry points. |
 
@@ -22,6 +23,8 @@ These need no decision — the build or the test suite invokes them.
 |---|---|---|
 | `gen-kb.mjs` | `npm run gen:kb` | After editing the knowledge-base markdown. Commit the result. |
 | `gen-sector-prefill.mjs` | `npm run gen:sector-prefill` | After editing any sector source. Commit the result. |
+| `eval-intents.mjs` | `npm run eval:intents` | Scores `classify()` and `classifyIntent()` against `config/eval-questions.js` — accuracy, per-intent macro-F1, the `unknown` fall-through rate and every misroute. **Needs no model and no network.** Report lands in `work/eval/`. `--gate` enforces the macro-F1 floor from [blue-rag-engine.md](blue-rag-engine.md); `--min=` moves it. |
+| `propose-eval-questions.mjs` | `npm run eval:propose` | Drafts candidate eval questions with a local Ollama model into `work/eval/proposals/`. The only script that needs a model. It never writes `config/`: a person promotes the good candidates by hand, because a mislabelled question moves the score silently. `--sector`, `--intent`, `--lang`, `--count`. |
 | `seo-audit.mjs` | `npm run seo:audit` | Crawls the sitemap and reports Core Web Vitals. |
 | `a11y.mjs` | `npm run test:a11y` | axe-core over both languages at desktop and phone widths. Needs a dev server; set `BASE` if not on :5173. |
 | `shoot.mjs` | `npm run shots -- <label>` | Screenshots the homepage across the breakpoint scale in both languages, into `work/shots/<label>/`. Use it to compare a design change against the state before it. |

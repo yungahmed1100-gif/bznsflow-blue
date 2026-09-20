@@ -35,7 +35,14 @@ export function classify(text) {
     ['location', /\b(where|location|address)\b|موقع|عنوان|وين|أين/],
     ['services', /\b(services|offer|do you do)\b|خدمات|تقدمون/],
   ].filter(([, re]) => re.test(t));
-  if (matches.length === 1) return matches[0][0];
+  // Ranked precedence, and the array order above IS the ranking:
+  // prices > hours > location > services. Do not reshuffle it casually.
+  //
+  // This used to demand a UNIQUE match, so any question naming two of them fell
+  // through to `unknown` and Layla answered "I don't have confirmed information
+  // about that" to "how much are your services?" / "كم سعر الخدمات؟" — a quarter
+  // of the labelled eval set. Someone asking price-and-something wants the price.
+  if (matches.length) return matches[0][0];
   if (/^(hi|hello|hey|مرحبا|السلام عليكم)[!.؟]*$/.test(t)) return 'greeting';
   return 'unknown';
 }
