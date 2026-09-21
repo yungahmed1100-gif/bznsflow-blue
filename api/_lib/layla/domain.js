@@ -1,4 +1,6 @@
 import { PilotError, binding } from './config.js';
+import { classifyWithGuard } from './guards.js';
+import { route } from './route.js';
 export const DAY = 86400000;
 export const blankProfile = () => ({ sector: '', services: '', prices: '', hours: '', location: '', humanContact: '', reviewed: false });
 export function initialState(c) {
@@ -21,33 +23,24 @@ export function reviewProfile(input) {
   profile.reviewed = true;
   return profile;
 }
-export function classify(text) {
-  const t = text.trim().toLowerCase();
-  if (/^(please\s+)?(stop|unsubscribe|stopall|opt out|do not message me|توقف|إيقاف|ايقاف|لا تراسلني|إلغاء الاشتراك)[.!؟]*$/.test(t)) return 'optout';
-  if (/\b(who are you|are you (human|a bot)|your name)\b|من أنت|من انت|اسمك|روبوت/.test(t)) return 'identity';
-  if (/\b(human|person|agent|complaint)\b|موظف|بشري|شكوى|شخص حقيقي/.test(t)) return 'human';
-  if (/ignore|instructions|system prompt|jailbreak|تجاهل|تعليمات|اكشف/.test(t)) return 'unknown';
-  if (/\b(book|booking|schedule|appointment|follow.?up|marketing)\b|حجز|احجز|موعد|تسويق|متابعة/.test(t)) return 'disabled';
-  if (/\b(medical|diagnos|medicine|treatment)\w*|تشخيص|علاج|دواء/.test(t)) return 'unknown';
-  const matches = [
-    ['prices', /\b(price|prices|cost|costs|how much)\b|سعر|أسعار|اسعار|تكلفة|التكلفة|بكم/],
-    ['hours', /\b(hours|open|opening|close)\b|دوام|ساعات|متى تفتح/],
-    ['location', /\b(where|location|address)\b|موقع|عنوان|وين|أين/],
-    ['services', /\b(services|offer|do you do)\b|خدمات|تقدمون/],
-  ].filter(([, re]) => re.test(t));
-  // Ranked precedence, and the array order above IS the ranking:
-  // prices > hours > location > services. Do not reshuffle it casually.
-  //
-  // This used to demand a UNIQUE match, so any question naming two of them fell
-  // through to `unknown` and Layla answered "I don't have confirmed information
-  // about that" to "how much are your services?" / "كم سعر الخدمات؟" — a quarter
-  // of the labelled eval set. Someone asking price-and-something wants the price.
-  if (matches.length) return matches[0][0];
-  if (/^(hi|hello|hey|مرحبا|السلام عليكم)[!.؟]*$/.test(t)) return 'greeting';
-  return 'unknown';
-}
+/**
+ * Layla's intent router: the regex guards, then the authored lexicon, then the
+ * tenant's own approved profile text.
+ *
+ * `profile` is optional and only the last layer uses it, so every existing
+ * caller keeps working and gains whatever the first two layers can give.
+ * Passing it is strictly better: it is what lets "what is on your menu?" reach
+ * a restaurant's services text, which is vocabulary we never authored.
+ *
+ * See api/_lib/layla/route.js for the layering and why it cannot regress a
+ * question that routes correctly today.
+ */
+export const classify = (text, profile = null) => route(text, profile).intent;
+
+export { classifyWithGuard };
+
 export function answer(text, profile, introduced = false) {
-  const ar = /[\u0600-\u06ff]/.test(text), intent = classify(text);
+  const ar = /[\u0600-\u06ff]/.test(text), intent = classify(text, profile);
   const contact = profile.humanContact ? (ar ? ` للتواصل مع الفريق: ${profile.humanContact}` : ` You can contact our team: ${profile.humanContact}`) : '';
   let reply;
   if (intent === 'optout') return { intent, text: null };
@@ -119,14 +112,14 @@ export function accept(s, events, now) {
       if (!s.receipts.some(r => r.id === e.id && r.status === e.status && r.recipient === e.recipient)) s.receipts.push({ ...e, receivedAt: now });
     }
     if (e.kind !== 'message' || s.jobs[e.id]) continue;
-    if (classify(e.text) === 'optout') {
+    if (classify(e.text, s.profile) === 'optout') {
       s.contacts[e.from] ||= { lastInbound: 0, introduced: false };
       s.contacts[e.from].optout = true;
     }
     if (now - e.at >= DAY) continue;
     const person = s.contacts[e.from] ||= { lastInbound: 0, introduced: false };
     person.lastInbound = Math.max(person.lastInbound, e.at);
-    const intent = classify(e.text);
+    const intent = classify(e.text, s.profile);
     if (intent === 'optout') person.optout = true;
     if (intent === 'human' && !person.takeover) { person.takeover = true; person.handoffJobId = e.id; }
     s.jobs[e.id] = { ...e, feature: 'faq', status: intent === 'optout' ? 'blocked' : 'queued', error: intent === 'optout' ? intent : null };

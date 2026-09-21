@@ -141,11 +141,14 @@ test('the scorer runs with no model and no network, and writes a report', () => 
 
 test('the scorer enforces the release gate when asked', () => {
   const out = mkdtempSync(join(tmpdir(), 'layla-eval-'));
-  // 0.90 is the documented gate and today's score is below it, so --gate must
-  // fail. That is the point: the floor is recorded now and raised deliberately.
-  assert.throws(() => run('scripts/eval-intents.mjs', ['--quiet', '--gate'], { EVAL_OUT: out }),
-    /below the 90\.0% gate|Command failed/);
-  // An achievable floor must pass, proving --gate is not simply always red.
-  assert.match(run('scripts/eval-intents.mjs', ['--quiet', '--gate', '--min=0.60'], { EVAL_OUT: out }),
+  // 0.90 is the documented gate in docs/blue-rag-engine.md, and the layered
+  // router now CLEARS it — this assertion used to be the mirror image, that
+  // --gate must fail because the regexes scored 84.6%. Keeping it pointed at
+  // the real floor is what stops the gain being quietly given back.
+  assert.match(run('scripts/eval-intents.mjs', ['--quiet', '--gate'], { EVAL_OUT: out }),
     /✓ eval-intents:/);
+  // And an unreachable floor must still fail, proving --gate is not simply
+  // always green — a gate that cannot go red is decoration.
+  assert.throws(() => run('scripts/eval-intents.mjs', ['--quiet', '--gate', '--min=1.0'], { EVAL_OUT: out }),
+    /below the 100\.0% gate|Command failed/);
 });

@@ -25,9 +25,11 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { classify } from '../api/_lib/layla/domain.js';
+import { regexClassify } from '../api/_lib/layla/guards.js';
 import { classifyIntent } from '../api/_lib/layla/rag-engine.js';
+import { route } from '../api/_lib/layla/route.js';
 import { CLASSIFY_INTENTS, QUESTIONS } from '../config/eval-questions.js';
+import { profileForRow } from '../config/eval-profiles.js';
 import { SECTOR_PACKS } from '../config/layla-sector-packs.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -66,13 +68,21 @@ for (const [i, row] of QUESTIONS.entries()) {
 const coarse = (intent) => ({ hours: 'hours_location', location: 'hours_location', price: 'prices' })[intent] || intent;
 
 const rows = QUESTIONS.map((row) => {
-  const production = classify(row.text);
+  const production = regexClassify(row.text);
   const rag = classifyIntent(row.text).intent;
+  // The layered router, given the profile a tenant would actually have. Its
+  // vocabulary layer reads the tenant's own approved text, so scoring it with
+  // no profile would measure a configuration production never runs in.
+  const routed = route(row.text, profileForRow(row));
   return {
     ...row,
     production,
     rag,
+    routed: routed.intent,
+    via: routed.via,
+    terms: routed.terms,
     strictHit: production === row.intent,
+    routedHit: routed.intent === row.intent,
     coarseHit: coarse(production) === coarse(row.intent),
     ragHit: coarse(rag) === coarse(row.intent),
   };
@@ -104,16 +114,32 @@ function score(items, expected, predicted) {
 }
 
 const strict = score(rows, (r) => r.intent, (r) => r.production);
+const routed = score(rows, (r) => r.intent, (r) => r.routed);
 const head = {
   production: score(rows, (r) => coarse(r.intent), (r) => coarse(r.production)),
   rag: score(rows, (r) => coarse(r.intent), (r) => coarse(r.rag)),
 };
+
+// Which layer decided, over the whole set. A router whose gains all come from
+// one layer is a different thing to maintain than one where they are spread.
+const byLayer = [...new Set(rows.map((r) => r.via))].sort().map((via) => {
+  const items = rows.filter((r) => r.via === via);
+  return { via, total: items.length, correct: items.filter((r) => r.routedHit).length };
+});
+
+// Regressions: rows today's regexes get right and the layered router does not.
+// The layering is meant to make this impossible — the new layers are consulted
+// only where classify() already said `unknown` — so a non-empty list here is a
+// bug in the control flow, not a tuning matter.
+const regressions = rows.filter((r) => r.strictHit && !r.routedHit);
 
 // The metric the compound-question defect lives in: routed to `unknown` when
 // the label says otherwise, i.e. Layla said "I don't have confirmed information"
 // about something she was told.
 const fellThrough = rows.filter((r) => r.production === 'unknown' && r.intent !== 'unknown');
 const fallthroughRate = rows.length ? fellThrough.length / rows.length : 0;
+const fellThroughRouted = rows.filter((r) => r.routed === 'unknown' && r.intent !== 'unknown');
+const fallthroughRouted = rows.length ? fellThroughRouted.length / rows.length : 0;
 
 // Per-sector, over rows whose correct answer is sector-specific.
 const sectors = [...new Set(rows.filter((r) => r.sector).map((r) => r.sector))].sort();
@@ -148,12 +174,27 @@ const md = [
   '',
   '## Headline',
   '',
-  '| Metric | Value |',
-  '|---|---|',
-  `| \`classify()\` accuracy (strict) | **${pct(strict.accuracy)}** |`,
-  `| \`classify()\` macro-F1 (strict) | **${pct(strict.macroF1)}** |`,
-  `| Fell through to \`unknown\` | **${pct(fallthroughRate)}** (${fellThrough.length} of ${rows.length}) |`,
-  `| Release gate (docs/blue-rag-engine.md) | macro-F1 ≥ ${pct(minF1)} |`,
+  '| Metric | `classify()` regexes | `route()` layered | Δ |',
+  '|---|--:|--:|--:|',
+  `| Accuracy (strict) | ${pct(strict.accuracy)} | **${pct(routed.accuracy)}** | ${pct(routed.accuracy - strict.accuracy)} |`,
+  `| Macro-F1 (strict) | ${pct(strict.macroF1)} | **${pct(routed.macroF1)}** | ${pct(routed.macroF1 - strict.macroF1)} |`,
+  `| Fell through to \`unknown\` | ${pct(fallthroughRate)} | **${pct(fallthroughRouted)}** | ${pct(fallthroughRouted - fallthroughRate)} |`,
+  '',
+  `Release gate (docs/blue-rag-engine.md): macro-F1 ≥ ${pct(minF1)}.`,
+  '',
+  `**Regressions — rows the regexes get right and \`route()\` does not: ${regressions.length}.**`,
+  'The layers are consulted only where `classify()` already returned `unknown`,',
+  'so this number is zero by construction. Anything else is a control-flow bug.',
+  '',
+  ...(regressions.length
+    ? ['| Expected | Regex | Routed | Via | Question |', '|---|---|---|---|---|',
+      ...regressions.map((r) => `| \`${r.intent}\` | \`${r.production}\` | \`${r.routed}\` | ${r.via} | ${r.text.replace(/\|/g, '\\|')} |`), '']
+    : []),
+  '## Which layer decided',
+  '',
+  '| Layer | Rows | Correct |',
+  '|---|--:|--:|',
+  ...byLayer.map((l) => `| \`${l.via}\` | ${l.total} | ${pct(l.total ? l.correct / l.total : 0)} |`),
   '',
   '## Head to head, coarse vocabulary',
   '',
@@ -186,10 +227,14 @@ const md = [
   '',
   '## Misroutes',
   '',
-  ...(rows.filter((r) => !r.strictHit).length
-    ? ['| Expected | Got | Lang | Question | Note |', '|---|---|---|---|---|',
-      ...rows.filter((r) => !r.strictHit).map((r) =>
-        `| \`${r.intent}\` | \`${r.production}\` | ${r.lang} | ${r.text.replace(/\|/g, '\\|')} | ${r.note || ''} |`)]
+  ...(rows.filter((r) => !r.routedHit).length
+    ? ['Rows the layered router still gets wrong. `Regex` is what `classify()` said,',
+      'so a row where both columns agree is an unfixed defect and one where they',
+      'differ is a layer making things worse.', '',
+      '| Expected | Routed | Regex | Via | Lang | Question | Note |', '|---|---|---|---|---|---|---|',
+      ...rows.filter((r) => !r.routedHit).map((r) =>
+        `| \`${r.intent}\` | \`${r.routed}\` | \`${r.production}\` | ${r.via} | ${r.lang} | ` +
+        `${r.text.replace(/\|/g, '\\|')} | ${r.note || ''} |`)]
     : ['Every labelled question routed correctly.']),
   '',
 ].join('\n');
@@ -201,20 +246,25 @@ const mdPath = join(OUT_DIR, 'intents-latest.md');
 writeFileSync(jsonPath, `${JSON.stringify({
   generatedAt: new Date().toISOString(),
   totals: { questions: rows.length, sectors: sectors.length },
-  strict, headToHead: head, fallthroughRate, perSector, byLang, unroutable, packIntents,
-  misroutes: rows.filter((r) => !r.strictHit).map(({ intent, production, lang, sector, text, note }) =>
-    ({ expected: intent, got: production, lang, sector, text, note })),
+  strict, routed, headToHead: head, fallthroughRate, fallthroughRouted,
+  byLayer, perSector, byLang, unroutable, packIntents,
+  regressions: regressions.map(({ intent, production, routed: got, via, text }) =>
+    ({ expected: intent, regex: production, routed: got, via, text })),
+  misroutes: rows.filter((r) => !r.routedHit).map(({ intent, production, routed: got, via, lang, sector, text, note }) =>
+    ({ expected: intent, routed: got, regex: production, via, lang, sector, text, note })),
 }, null, 2)}\n`);
 writeFileSync(mdPath, md);
 
 if (!quiet) console.log(`\n${md}`);
-console.log(`✓ eval-intents: ${rows.length} questions · accuracy ${pct(strict.accuracy)} · ` +
-  `macro-F1 ${pct(strict.macroF1)} · unknown fall-through ${pct(fallthroughRate)}`);
+console.log(`✓ eval-intents: ${rows.length} questions`);
+console.log(`  regex   accuracy ${pct(strict.accuracy)} · macro-F1 ${pct(strict.macroF1)} · fall-through ${pct(fallthroughRate)}`);
+console.log(`  routed  accuracy ${pct(routed.accuracy)} · macro-F1 ${pct(routed.macroF1)} · fall-through ${pct(fallthroughRouted)}` +
+  ` · regressions ${regressions.length}`);
 console.log(`  report  ${mdPath.replace(`${ROOT}/`, '')}`);
 console.log(`  data    ${jsonPath.replace(`${ROOT}/`, '')}\n`);
 
-if (gate && strict.macroF1 < minF1) {
-  fail(`macro-F1 ${pct(strict.macroF1)} is below the ${pct(minF1)} gate.\n` +
+if (gate && routed.macroF1 < minF1) {
+  fail(`macro-F1 ${pct(routed.macroF1)} is below the ${pct(minF1)} gate.\n` +
     `  See ${mdPath.replace(`${ROOT}/`, '')} for the misroutes.`);
 }
 if (!existsSync(jsonPath)) fail('report was not written.');
