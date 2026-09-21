@@ -10,6 +10,7 @@ import { prefillFor, isSectorDefaultService } from '../lib/sector-prefill.genera
 import { readCatalogFile } from '../lib/catalog-import.js';
 import { portfolioStatus } from '../lib/portfolio.js';
 import { callApi } from '../lib/api-client.js';
+import { GuidedSetup } from '../components/onboarding/GuidedSetup.jsx';
 
 const blank = { sector: '', services: '', prices: '', hours: '', location: '', humanContact: '', reviewed: false };
 const COUNTRY_CODES = [['968','Oman / عُمان'],['20','Egypt / مصر'],['971','UAE / الإمارات'],['966','Saudi Arabia / السعودية'],['973','Bahrain / البحرين'],['974','Qatar / قطر'],['965','Kuwait / الكويت'],['962','Jordan / الأردن'],['44','United Kingdom / المملكة المتحدة'],['1','United States / الولايات المتحدة']];
@@ -304,6 +305,16 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
           {isSectorDefaultService(profile.services)
             ? <small className="layla-field-help">{tr('This is a suggestion for your industry — edit it so it describes your business.', 'هذا اقتراح لمجال نشاطك — عدّله ليصف نشاطك أنت.')}</small>
             : <button type="button" className="layla-secondary" disabled={busy} onClick={() => setProfile({ ...profile, services: tailored.service, reviewed: false })}>{tr('Restore the suggested summary', 'استعادة الملخص المقترح')}</button>}
+          {/* The guided lane sits ABOVE every field and replaces none of them.
+              It asks one question at a time and writes each answer into the
+              profile with reviewed:false, so a customer who prefers to type
+              still sees exactly the form they saw before. */}
+          <GuidedSetup
+            lang={lang}
+            sectorId={industryId}
+            busy={busy}
+            onApply={patch => setProfile(current => ({ ...current, ...patch, reviewed: false }))}
+          />
           {data?.savedToAccount&&<section className="layla-answer" aria-labelledby="catalog-heading"><h3 id="catalog-heading">{tr('Services & prices','الخدمات والأسعار')}</h3><div className="layla-quick-questions"><button type="button" className={catalogTab==='services'?'layla-primary':'layla-secondary'} onClick={()=>setCatalogTab('services')}>{tr('Services','الخدمات')}</button><button type="button" className={catalogTab==='prices'?'layla-primary':'layla-secondary'} onClick={()=>setCatalogTab('prices')}>{tr('Prices','الأسعار')}</button></div>
             <p>{tr('Add up to 1,000 services or products. Imported information stays a draft until you publish it.','أضف حتى ١٠٠٠ خدمة أو منتج. تبقى المعلومات المستوردة مسودة حتى تنشرها.')}</p>
             {catalogTab==='services'?<><label>{tr('Service name in English','اسم الخدمة بالإنجليزية')}<input maxLength={160} value={catalogDraft.nameEn} onChange={e=>setCatalogDraft({...catalogDraft,nameEn:e.target.value})}/></label><label>{tr('Service name in Arabic','اسم الخدمة بالعربية')}<input dir="rtl" maxLength={160} value={catalogDraft.nameAr} onChange={e=>setCatalogDraft({...catalogDraft,nameAr:e.target.value})}/></label><label>{tr('How does it help customers?','كيف تساعد العملاء؟')}<textarea maxLength={700} value={ar?catalogDraft.benefitAr:catalogDraft.benefitEn} onChange={e=>setCatalogDraft({...catalogDraft,[ar?'benefitAr':'benefitEn']:e.target.value})}/></label><label>{tr('Details Layla may explain','تفاصيل يمكن لليلى شرحها')}<textarea maxLength={700} value={ar?catalogDraft.descriptionAr:catalogDraft.descriptionEn} onChange={e=>setCatalogDraft({...catalogDraft,[ar?'descriptionAr':'descriptionEn']:e.target.value})}/></label></>:<><label>{tr('Choose a service','اختر خدمة')}<select required value={selectedCatalogKey} onChange={e=>setSelectedCatalogKey(e.target.value)}><option value="">{tr('Select an existing service','اختر خدمة موجودة')}</option>{catalog.map(item=><option key={item.entryKey} value={item.entryKey}>{(ar?item.nameAr:item.nameEn)||item.nameEn||item.nameAr}</option>)}</select></label><label>{tr('Price type','نوع السعر')}<select value={catalogDraft.priceType} onChange={e=>setCatalogDraft({...catalogDraft,priceType:e.target.value})}>{[['fixed',tr('Fixed','ثابت')],['from',tr('Starting from','ابتداءً من')],['range',tr('Range','نطاق')],['free',tr('Free','مجاني')],['quote',tr('Quote required','بحسب عرض السعر')],['recurring',tr('Recurring','متكرر')],['unavailable',tr('Not available','غير متاح')]].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label>{tr('Displayed price','السعر المعروض')}<input maxLength={160} placeholder={tr('Example: From 20 OMR','مثال: ابتداءً من ٢٠ ر.ع.')} value={catalogDraft.priceLabel} onChange={e=>setCatalogDraft({...catalogDraft,priceLabel:e.target.value})}/></label><label>{tr('Currency','العملة')}<select value={catalogDraft.currency} onChange={e=>setCatalogDraft({...catalogDraft,currency:e.target.value})}>{['OMR','AED','SAR','USD'].map(v=><option key={v}>{v}</option>)}</select></label></>}
