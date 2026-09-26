@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { usePolling } from '../../hooks/usePolling';
 import { hasib } from '../../lib/dashboard/api';
 import { listTimestamp } from '../../lib/dashboard/format';
@@ -6,24 +6,16 @@ import { OrderComposer } from './OrderComposer';
 import { OrderDetail } from './OrderDetail';
 import { Money, OrderStatus, PaymentChip } from './Badges';
 
-const FILTERS = ['', 'pending', 'confirmed', 'ready', 'out_for_delivery', 'delivered', 'completed', 'cancelled'];
+const FILTERS = ['', 'layla_waiting', 'pending', 'confirmed', 'ready', 'out_for_delivery', 'delivered', 'completed', 'cancelled'];
 
-/**
- * Orders tab. `fromChat` is a conversation id handed over from a chat thread:
- * the composer opens prefilled with what Layla captured there.
- */
-export function OrdersView({ s, h, overview, business, timezone, fromChat, onConsumedChat }) {
-  const [status, setStatus] = useState(''), [more, setMore] = useState({ items: [], cursor: undefined });
+/** Orders tab. Layla files orders from chats; "Waiting for you" lists the ones to confirm. */
+export function OrdersView({ s, h, overview, business, timezone, onChanged }) {
+  const [status, setStatus] = useState(overview.counts?.laylaWaiting ? 'layla_waiting' : ''), [more, setMore] = useState({ items: [], cursor: undefined });
   const [composer, setComposer] = useState(null), [openId, setOpenId] = useState(null), [notice, setNotice] = useState('');
   const list = usePolling(() => hasib('orders', status ? { status } : {}), [status], { interval: 15000 });
   const items = [...(list.data?.items || []), ...more.items.filter(i => !(list.data?.items || []).some(x => x.id === i.id))];
   const cursor = more.cursor === undefined ? list.data?.cursor : more.cursor;
-  const reset = () => { setMore({ items: [], cursor: undefined }); list.refresh({ quiet: true }); };
-
-  useEffect(() => {
-    if (!fromChat) return;
-    hasib('chat_prefill', { conversationId: fromChat }).then(prefill => setComposer({ prefill })).catch(e => setNotice(h.reason(e.reason) || s.reason(e.reason))).finally(onConsumedChat);
-  }, [fromChat]); // eslint-disable-line react-hooks/exhaustive-deps
+  const reset = () => { setMore({ items: [], cursor: undefined }); list.refresh({ quiet: true }); onChanged?.(); };
 
   const loadMore = async () => {
     const page = await hasib('orders', { ...(status ? { status } : {}), cursor });
@@ -37,7 +29,7 @@ export function OrdersView({ s, h, overview, business, timezone, fromChat, onCon
         <div className="ld-toolbar">
           <label><span className="ld-visually-hidden">{h.t('status')}</span>
             <select value={status} onChange={e => { setStatus(e.target.value); setMore({ items: [], cursor: undefined }); }}>
-              {FILTERS.map(v => <option key={v} value={v}>{v ? h.t(`st_${v}`) : h.t('allOrders')}</option>)}
+              {FILTERS.map(v => <option key={v} value={v}>{v === 'layla_waiting' ? h.t('waitingForYou') : v ? h.t(`st_${v}`) : h.t('allOrders')}</option>)}
             </select></label>
           <button type="button" className="ld-button ld-primary" onClick={() => setComposer({ prefill: null })}>{h.t('newOrder')}</button>
         </div>
@@ -58,7 +50,7 @@ export function OrdersView({ s, h, overview, business, timezone, fromChat, onCon
                   <tr key={o.id}>
                     <td><button type="button" className="ld-row-open ld-num" onClick={() => setOpenId(o.id)} aria-label={h.t('orderNumber', { number: o.number })}>{o.number}</button></td>
                     <td>{o.contact?.name || o.customerName ? <><bdi>{o.contact?.name || o.customerName}</bdi><span className="ld-help"> · {h.t(`ch_${o.channel}`)}</span></> : <span className="ld-help">{h.t(`ch_${o.channel}`)}</span>}</td>
-                    <td><OrderStatus h={h} status={o.status} />{o.stockShort && <span className="ld-chip is-coral">{h.t('stockShort')}</span>}{o.fulfilment.dueAt && !['delivered', 'completed', 'cancelled', 'returned'].includes(o.status) && <span className="ld-chip is-yellow">{h.t('due', { date: listTimestamp(o.fulfilment.dueAt, s.lang, timezone) })}</span>}</td>
+                    <td><OrderStatus h={h} status={o.status} />{o.source === 'layla' && <span className="ld-chip is-blue">{h.t('fromLayla')}</span>}{o.stockShort && <span className="ld-chip is-coral">{h.t('stockShort')}</span>}{o.fulfilment.dueAt && !['delivered', 'completed', 'cancelled', 'returned'].includes(o.status) && <span className="ld-chip is-yellow">{h.t('due', { date: listTimestamp(o.fulfilment.dueAt, s.lang, timezone) })}</span>}</td>
                     <td><PaymentChip h={h} status={o.paymentStatus} /></td>
                     <td><Money h={h} minor={o.totalMinor} /></td>
                     <td><Money h={h} minor={o.balanceMinor} /></td>

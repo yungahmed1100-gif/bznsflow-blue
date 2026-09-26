@@ -82,18 +82,32 @@ try {
     await context.close();
   }
 
-  // 4. A real chat becomes a prefilled order: Layla captured the item, Hasib matched the product.
+  // 4. A buying message in a real chat: Layla files the order herself and acknowledges it;
+  //    the chat header and Orders → Waiting for you both show it. No button involved.
   {
-    await fetch(`${BASE}/demo/inbound`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ from: '96899887766', text: 'Do you have the embroidered abaya?', name: 'Test Buyer' }) });
+    await fetch(`${BASE}/demo/inbound`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ from: '96899887766', text: 'I want the embroidered abaya please', name: 'Test Buyer' }) });
+    const waiting = await api('orders', { status: 'layla_waiting' });
+    const mine = waiting.items.find(o => o.contact?.name === 'Test Buyer');
+    assert.ok(mine, 'Layla created the order'); count++;
+    assert.equal(mine.source, 'layla'); count++;
     const { page, context } = await open(1280, 'en', '/layla/dashboard?tab=chats');
     await page.getByRole('button', { name: /Test Buyer/ }).click();
-    await page.getByRole('button', { name: 'Create order' }).click();
-    const dialog = page.getByRole('dialog');
-    await dialog.locator('.hb-totals').waitFor();
-    assert.match(await dialog.locator('.hb-lines').textContent(), /عباية مطرزة|Embroidered abaya/); count++;
-    assert.match(await dialog.textContent(), /Test Buyer/); count++;
-    await page.screenshot({ path: `${OUT}/chat-to-order-en-1280.png` });
+    assert.equal(await page.getByRole('button', { name: 'Create order' }).count(), 0, 'no manual create-order button in the chat'); count++;
+    await page.locator('.hb-chat-order').first().waitFor();
+    assert.match(await page.locator('.hb-chat-orders').textContent(), new RegExp(`Order #${mine.number}.*From Layla`)); count++;
+    assert.match(await page.locator('.ld-messages').textContent(), new RegExp(`Order #${mine.number} received`), 'Layla acknowledged it in the chat'); count++;
+    await page.locator('.hb-chat-order').first().click();
+    await page.locator('.hb-detail').waitFor();
+    assert.match(await page.locator('.hb-detail').textContent(), /عباية مطرزة|Embroidered abaya/); count++;
+    assert.deepEqual(await axe(page, '.ld-dialog'), [], 'order from chat axe'); count++;
+    await page.screenshot({ path: `${OUT}/chat-layla-order-en-1280.png` });
     await context.close();
+    const orders = await open(1280, 'ar', '/layla/dashboard?tab=orders');
+    await orders.page.locator('.hb-order-table').waitFor();
+    assert.equal(await orders.page.locator('select').first().inputValue(), 'layla_waiting', 'Orders opens on “Waiting for you” when Layla has orders waiting'); count++;
+    assert.ok(await orders.page.locator('.ld-nav-badge').first().isVisible(), 'the nav shows a waiting badge'); count++;
+    await orders.page.screenshot({ path: `${OUT}/orders-waiting-ar-1280.png` });
+    await orders.context.close();
   }
 
   // 5. Stock shows sizes that sold out, and the phone tab bar scrolls inside itself.

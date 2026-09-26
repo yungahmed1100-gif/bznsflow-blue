@@ -4,6 +4,7 @@ import { formatDateTime } from '../../lib/dashboard/format';
 import { parseAmount } from '../../../convex/hasib/money.js';
 import { nextStatuses } from '../../../convex/hasib/orderMachine.js';
 import { receiptText } from '../../lib/hasib/exports';
+import { SerialPicker } from './OrderComposer';
 import { Dialog } from '../dashboard/Dialog';
 import { Money, OrderStatus, PaymentChip } from './Badges';
 
@@ -41,12 +42,16 @@ export function PaymentForm({ h, order, onRecorded }) {
 export function OrderDetail({ s, h, pack, business, orderId, timezone, onClose, onChanged, onExchange }) {
   const fieldLabel = key => { const f = pack.orderFields.find(x => x.key === key); return f ? (s.ar ? f.ar : f.en) : key; };
   const [order, setOrder] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(''), [copied, setCopied] = useState(false);
+  const [picking, setPicking] = useState(null);
   const load = useCallback(() => hasib('order', { orderId }).then(setOrder).catch(e => setError(h.reason(e.reason) || s.reason(e.reason))), [orderId, h, s]);
   useEffect(() => { load(); }, [load]);
 
-  const move = async to => {
+  // IMEI lines Layla filed without units: the owner picks them before confirming.
+  const unitsNeeded = o => o.lines.filter(l => l.serialized && (l.serials?.length || 0) < l.qty);
+  const move = async (to, lineSerials) => {
+    if (to === 'confirmed' && !lineSerials && unitsNeeded(order).length) { setPicking(Object.fromEntries(unitsNeeded(order).map(l => [l.variantId, []]))); return; }
     setBusy(to); setError('');
-    try { setOrder({ ...(await hasib('order_status', { orderId, to, version: order.version })), payments: order.payments }); onChanged(); }
+    try { setOrder({ ...(await hasib('order_status', { orderId, to, version: order.version, ...(lineSerials ? { lineSerials } : {}) })), payments: order.payments }); setPicking(null); onChanged(); }
     catch (e) { setError(h.reason(e.reason) || s.reason(e.reason)); if (e.reason === 'order_conflict') load(); } finally { setBusy(''); }
   };
 
@@ -85,6 +90,7 @@ export function OrderDetail({ s, h, pack, business, orderId, timezone, onClose, 
           </dl>
           {order.customFields.length > 0 && <dl className="ld-names">{order.customFields.map(f => <div key={f.key}><dt>{fieldLabel(f.key)}</dt><dd><bdi>{f.value}</bdi></dd></div>)}</dl>}
           {order.notes && <p className="ld-help"><bdi>{order.notes}</bdi></p>}
+          {order.flags?.map(f => <p key={f} className="hb-flag" role="note">{h.t(`flag_${f}`)}</p>)}
           {nextStatuses(order.status).length > 0 && (
             <div className="ld-actions" role="group" aria-label={h.t('moveTo')}>
               {['delivered', 'completed'].includes(order.status) && onExchange && (
@@ -98,6 +104,17 @@ export function OrderDetail({ s, h, pack, business, orderId, timezone, onClose, 
             </div>
           )}
           {['delivered', 'completed'].includes(order.status) && onExchange && <p id="hb-exchange-help" className="ld-help">{h.t('exchangeHelp')}</p>}
+          {picking && <fieldset className="ld-fieldset"><legend>{h.t('pickToConfirm')}</legend>
+            {unitsNeeded(order).map(l => (
+              <div key={l.variantId}><p><bdi>{h.lineName(l)}</bdi> · {h.t('imeiNeeded', { count: l.qty - (l.serials?.length || 0), name: '' }).replace(/\s*(for|لـ)\s*$/, '')}</p>
+                <SerialPicker h={h} variantId={l.variantId} picked={picking[l.variantId] || []} onChange={list => setPicking(p => ({ ...p, [l.variantId]: list }))} /></div>
+            ))}
+            <div className="ld-actions">
+              <button type="button" className="ld-button ld-quiet" onClick={() => setPicking(null)}>{h.t('cancel')}</button>
+              <button type="button" className="ld-button ld-primary" disabled={!!busy || unitsNeeded(order).some(l => (picking[l.variantId] || []).length !== l.qty - (l.serials?.length || 0))}
+                onClick={() => move('confirmed', Object.entries(picking).map(([variantId, serials]) => ({ variantId, serials })))}>{h.t('confirmOrder')}</button>
+            </div>
+          </fieldset>}
           {error && <p className="ld-inline-error" role="alert">{error}</p>}
           <section className="hb-payments" aria-labelledby="hb-payments-title">
             <h3 id="hb-payments-title">{h.t('payments')}</h3>

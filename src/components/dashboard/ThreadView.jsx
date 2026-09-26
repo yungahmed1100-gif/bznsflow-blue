@@ -1,4 +1,4 @@
-import { ChatOrderButton } from '../hasib/ChatOrderButton';
+import { ChatOrders } from '../hasib/ChatOrders';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePolling } from '../../hooks/usePolling';
 import { dashboard, messaging } from '../../lib/dashboard/api';
@@ -71,7 +71,6 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
           <p><bdi dir="ltr" className="ld-num">{contact.channel==='instagram'?'Instagram':formatPhone(contact.number)}</bdi> <QualificationChip s={s} status={contact.status} />{contact.optout && <span className="ld-chip is-coral">{s.t('optedOut')}</span>}</p>
         </div>
         <div className="ld-thread-actions">
-          <ChatOrderButton conversationId={conversationId} />
           <label className="ld-switch">
             <input type="checkbox" role="switch" checked={takeover} disabled={busy === 'leave' || contact.optout} onChange={toggleLeave} aria-describedby="ld-leave-help" />
             <span className="ld-switch-track" aria-hidden="true" /><span>{s.t('leaveChat')}</span>
@@ -85,6 +84,7 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
           </details>
         </div>
         <p id="ld-leave-help" className="ld-help">{s.t('leaveChatHelp')}</p>
+        <ChatOrders s={s} conversationId={conversationId} />
       </header>
       <ol className="ld-messages" ref={scroller} tabIndex={0} aria-live="polite" aria-relevant="additions"
         onScroll={e => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }}>

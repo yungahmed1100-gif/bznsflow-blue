@@ -60,7 +60,7 @@ export default function LaylaDashboard({ lang = 'ar' }) {
     const search = new URLSearchParams({ tab: next, ...extra });
     setParams(search, { replace: false });
   };
-  const createOrderFromChat = useCallback(conversationId => setParams(new URLSearchParams({ tab: 'orders', fromChat: conversationId }), { replace: false }), [setParams]);
+  const refreshHasib = useCallback(() => hasibState.refresh({ quiet: true }), [hasibState.refresh]); // eslint-disable-line react-hooks/exhaustive-deps
   const data = overview.data;
   const unavailable = overview.error?.reason === 'dashboard_unavailable';
 
@@ -73,8 +73,8 @@ export default function LaylaDashboard({ lang = 'ar' }) {
         {data && <DashboardHeader s={s} data={data} onChange={() => overview.refresh({ quiet: true })} />}
         <a className="ld-lang" href={`${s.ar ? '/en' : ''}/layla/dashboard${params.toString() ? `?${params}` : ''}`} lang={s.ar ? 'en' : 'ar'}>{s.t('language')}</a>
       </header>
-      <HasibProvider lang={lang} overview={hasibOverview} onCreateOrderFromChat={createOrderFromChat}>
-      <DashboardNav s={s} tab={tab} onSelect={go} hasib={hasibOverview ? { modules: hasibTabs, h } : null} />
+      <HasibProvider lang={lang} overview={hasibOverview} business={data?.business?.name || ''} timezone={data?.timezone} onChanged={refreshHasib}>
+      <DashboardNav s={s} tab={tab} onSelect={go} hasib={hasibOverview ? { modules: hasibTabs, h, badges: { orders: hasibOverview.counts?.laylaWaiting || 0 } } : null} />
       <main id="ld-main" className="ld-main" tabIndex={-1} data-tab={tab}>
         {!ready || (overview.loading && !data) ? <p className="ld-state" role="status">{s.t('loading')}</p>
           : unavailable ? <div className="ld-state"><p>{s.t('dashboardUnavailable')}</p><a className="ld-button" href={setupPath(lang)}>{s.t('setup')}</a></div>
@@ -84,7 +84,7 @@ export default function LaylaDashboard({ lang = 'ar' }) {
             : tab === 'insights' ? <InsightsView s={s} h={h} overview={hasibOverview} onIndustryChanged={() => hasibState.refresh({ quiet: true })} />
             : tab === 'service' ? <ServiceView s={s} h={h} timezone={data.timezone} onChanged={() => hasibState.refresh({ quiet: true })} />
             : tab === 'expenses' ? <ExpensesView s={s} h={h} overview={hasibOverview} timezone={data.timezone} />
-            : tab === 'orders' ? <OrdersView s={s} h={h} overview={hasibOverview} business={data.business.name} timezone={data.timezone} fromChat={params.get('fromChat')} onConsumedChat={() => setParams(new URLSearchParams({ tab: 'orders' }), { replace: true })} />
+            : tab === 'orders' ? <OrdersView s={s} h={h} overview={hasibOverview} business={data.business.name} timezone={data.timezone} onChanged={refreshHasib} />
             : tab === 'stock' ? <StockView s={s} h={h} overview={hasibOverview} onChanged={() => hasibState.refresh({ quiet: true })} />
             : tab === 'channels' ? <ChannelConnections s={s} data={data} onChange={()=>overview.refresh({quiet:true})} />
             : tab === 'business' ? <BusinessDetails s={s} />

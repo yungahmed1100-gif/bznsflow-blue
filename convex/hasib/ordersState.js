@@ -2,12 +2,11 @@
 // stock moves only on the transitions the order machine defines.
 import { owned, encodeCursor, decodeCursor, afterCursor } from '../blueTenant.js';
 import { displayName, linkConversation, sectorFor } from '../blueContacts.js';
-import { isMinor, normalizeDigits } from './money.js';
-import { matchItem } from './matching.js';
+import { isMinor } from './money.js';
 import { orderTotals, paymentStatus, MAX_QTY } from './totals.js';
 import { canTransition, isStatus, stockEffect, deductsStock } from './orderMachine.js';
-import { ok, fail, clean, bounded, clampLimit, REQUEST_ID, byRequest, settingsFor, vatOf, nextNumber, sellableVariant, precheckStock, writeMove } from './shared.js';
-import { planOrderSerials, commitOrderSerials, transitionOrderSerials, averageCost, orderSerialRows, warrantyEnd } from './serialsState.js';
+import { ok, fail, bounded, clampLimit, REQUEST_ID, byRequest, settingsFor, vatOf, nextNumber, sellableVariant, precheckStock, writeMove } from './shared.js';
+import { planOrderSerials, commitOrderSerials, transitionOrderSerials, averageCost, orderSerialRows, warrantyEnd, reserveMissingSerials } from './serialsState.js';
 
 export const CHANNELS = ['whatsapp', 'instagram', 'walk_in', 'phone', 'website', 'other'];
 export const FULFILMENT = ['pickup', 'delivery', 'in_store'];
@@ -25,7 +24,7 @@ export async function publicOrder(ctx, o, { payments } = {}) {
     conversationId: o.conversationId || null, lines: o.lines, subtotalMinor: o.subtotalMinor, discountMinor: o.discountMinor, deliveryMinor: o.deliveryMinor,
     vatMinor: o.vatMinor, totalMinor: o.totalMinor, pricesIncludeVat: o.pricesIncludeVat, paidMinor: o.paidMinor, balanceMinor: o.totalMinor - o.paidMinor,
     paymentStatus: o.paymentStatus, fulfilment: o.fulfilment, customFields: o.customFields, notes: o.notes || '', stockShort: o.stockShort,
-    history: o.history, kind: o.kind || 'sale', version: o.version, createdAt: o.createdAt, updatedAt: o.updatedAt, ...(payments ? { payments } : {}) };
+    history: o.history, kind: o.kind || 'sale', source: o.source || 'owner', flags: o.flags || [], version: o.version, createdAt: o.createdAt, updatedAt: o.updatedAt, ...(payments ? { payments } : {}) };
 }
 
 /** Resolve requested lines to snapshot lines. Throws `{ reason }` on anything invalid. */
@@ -107,7 +106,7 @@ export async function createOrder(ctx, tenant, a, now, { internal = false } = {}
   try {
     lines = await resolveLines(ctx, accountId, a.lines);
     totals = orderTotals({ lines, deliveryFeeMinor: a.deliveryFeeMinor || 0, vat: vatOf(settings) });
-    serialPlan = await planOrderSerials(ctx, accountId, lines, (a.lines || []).map(l => l?.serials));
+    serialPlan = await planOrderSerials(ctx, accountId, lines, (a.lines || []).map(l => l?.serials), { require: a.confirm === true });
   } catch (e) { return fail(e.reason || 'invalid_order_lines'); }
   const status = a.confirm === true ? 'confirmed' : 'pending';
   let short = false;
@@ -129,7 +128,7 @@ export async function createOrder(ctx, tenant, a, now, { internal = false } = {}
     subtotalMinor: totals.subtotalMinor, discountMinor: totals.discountMinor, deliveryMinor: totals.deliveryMinor, vatMinor: totals.vatMinor, totalMinor: totals.totalMinor,
     pricesIncludeVat: settings.vatRegistered && settings.pricesIncludeVat, paidMinor: 0, paymentStatus: paymentStatus(totals.totalMinor, 0),
     fulfilment: input.fulfilment, customFields: input.customFields, ...(input.notes ? { notes: input.notes } : {}), stockShort: short,
-    history: [{ status, at: now }], ...(a.kind ? { kind: a.kind } : {}), version: 1, createdAt: now, updatedAt: now });
+    history: [{ status, at: now }], ...(a.kind ? { kind: a.kind } : {}), ...(internal && a.source ? { source: a.source } : {}), ...(internal && a.flags?.length ? { flags: a.flags } : {}), version: 1, createdAt: now, updatedAt: now });
   await commitOrderSerials(ctx, serialPlan, { orderId: id, sold, contactId: who.contact?._id, lines: snapshot, now });
   if (sold) await applyOrderStock(ctx, accountId, id, lines, -1, now);
   return ok(await publicOrder(ctx, await ctx.db.get(id)));
@@ -141,6 +140,9 @@ export async function changeStatus(ctx, accountId, a, now) {
   if (a.version !== order.version) return fail('order_conflict');
   if (!isStatus(a.to) || !canTransition(order.status, a.to)) return fail('invalid_transition');
   const effect = stockEffect(order.status, a.to);
+  if (effect < 0 && order.lines.some(l => l.serialized)) {
+    try { await reserveMissingSerials(ctx, order, a.lineSerials, now); } catch (e) { return fail(e.reason || 'serials_required'); }
+  }
   const settings = await settingsFor(ctx, accountId);
   let lines = order.lines, short = order.stockShort;
   if (effect) {
@@ -171,19 +173,20 @@ export async function changeStatus(ctx, accountId, a, now) {
  * Replace the lines of a pending order (repair quotes and parts). Payments already
  * taken stay; the balance is recomputed. Serialized units cannot be edited here.
  */
-export async function updatePendingOrder(ctx, accountId, order, rawLines, now, { serializedReason = 'serialized_not_editable' } = {}) {
+export async function updatePendingOrder(ctx, accountId, order, rawLines, now, { serializedReason = 'serialized_not_editable', allowSerializedDraft = false, fulfilment } = {}) {
   if (order.status !== 'pending') return fail('order_locked');
-  if (order.lines.some(l => l.serialized)) return fail(serializedReason);
+  // Units already reserved cannot be re-planned here; a draft without units can.
+  if (order.lines.some(l => l.serialized && (l.serials?.length || !allowSerializedDraft))) return fail(serializedReason);
   const settings = await settingsFor(ctx, accountId);
   let lines, totals;
   try {
     lines = await resolveLines(ctx, accountId, rawLines);
-    if (lines.some(l => l.serialized)) return fail(serializedReason);
+    if (!allowSerializedDraft && lines.some(l => l.serialized)) return fail(serializedReason);
     totals = orderTotals({ lines, deliveryFeeMinor: order.deliveryMinor, vat: vatOf(settings) });
   } catch (e) { return fail(e.reason || 'invalid_order_lines'); }
   const snapshot = totals.lines.map((l, i) => stripVariant({ ...lines[i], vatBps: l.vatBps, netMinor: l.netMinor, vatMinor: l.vatMinor, discountMinor: l.discountMinor }));
   await ctx.db.patch(order._id, { lines: snapshot, subtotalMinor: totals.subtotalMinor, discountMinor: totals.discountMinor, vatMinor: totals.vatMinor, totalMinor: totals.totalMinor,
-    paymentStatus: paymentStatus(totals.totalMinor, order.paidMinor), version: order.version + 1, updatedAt: now });
+    paymentStatus: paymentStatus(totals.totalMinor, order.paidMinor), ...(fulfilment ? { fulfilment } : {}), version: order.version + 1, updatedAt: now });
   return ok(await publicOrder(ctx, await ctx.db.get(order._id)));
 }
 
@@ -212,16 +215,17 @@ async function recordPayment(ctx, accountId, a, now) {
 
 async function listOrders(ctx, accountId, a) {
   const cursor = decodeCursor(a.cursor), limit = clampLimit(a.limit);
-  const status = isStatus(a.status) ? a.status : null;
+  const laylaWaiting = a.status === 'layla_waiting';
+  const status = laylaWaiting ? 'pending' : isStatus(a.status) ? a.status : null;
   const query = status
     ? ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => cursor ? q.eq('accountId', accountId).eq('status', status).lte('createdAt', cursor.at) : q.eq('accountId', accountId).eq('status', status))
     : ctx.db.query('hasibOrders').withIndex('by_account_created', q => cursor ? q.eq('accountId', accountId).lte('createdAt', cursor.at) : q.eq('accountId', accountId));
-  const rows = afterCursor(await query.order('desc').take(limit + 25), cursor, 'createdAt').slice(0, limit);
+  const rows = afterCursor(await query.order('desc').take(limit + 25), cursor, 'createdAt').filter(o => !laylaWaiting || o.source === 'layla').slice(0, limit);
   const items = [];
   for (const o of rows) {
     const p = await publicOrder(ctx, o);
     items.push({ id: p.id, number: p.number, status: p.status, channel: p.channel, contact: p.contact, customerName: p.customerName, totalMinor: p.totalMinor,
-      balanceMinor: p.balanceMinor, paymentStatus: p.paymentStatus, fulfilment: p.fulfilment, lineCount: p.lines.length, stockShort: p.stockShort, createdAt: p.createdAt });
+      balanceMinor: p.balanceMinor, paymentStatus: p.paymentStatus, fulfilment: p.fulfilment, lineCount: p.lines.length, stockShort: p.stockShort, source: p.source, kind: p.kind, createdAt: p.createdAt });
   }
   return ok({ items, cursor: rows.length === limit ? encodeCursor(rows.at(-1).createdAt, rows.at(-1)._id) : null });
 }
@@ -235,23 +239,14 @@ async function contactSummary(ctx, accountId, a) {
     lastOrderAt: rows[0]?.createdAt || null, recent: rows.slice(0, 10).map(o => ({ id: o._id, number: o.number, status: o.status, totalMinor: o.totalMinor, paymentStatus: o.paymentStatus, createdAt: o.createdAt })) });
 }
 
-/** Order prefill from what Layla already captured in the chat. Suggests; never creates. */
-async function chatPrefill(ctx, tenant, a, now) {
-  const person = await owned(ctx, a.conversationId, tenant.accountId, 'blueConversations');
+/** The orders that belong to one chat, newest first — shown in the chat header. */
+async function conversationOrders(ctx, accountId, a) {
+  const person = await owned(ctx, a.conversationId, accountId, 'blueConversations');
   if (!person) return fail('conversation_not_found');
-  const contact = await linkConversation(ctx, person, { sectorId: sectorFor(tenant.row), now, secret: tenant.secret });
-  const field = key => contact.fields.find(f => f.key === key)?.value || '';
-  const itemText = clean(field('item'), 80), qty = Math.min(MAX_QTY, Math.max(1, parseInt(normalizeDigits(field('quantity')), 10) || 1));
-  const how = field('fulfilment').toLowerCase(), area = clean(field('area') || field('location'), 80);
-  const type = /deliver|توصيل/.test(how) ? 'delivery' : /pick|استلام/.test(how) ? 'pickup' : area ? 'delivery' : 'pickup';
-  const lines = [];
-  if (itemText) {
-    const item = await matchItem(ctx, tenant.accountId, itemText);
-    const variant = item && (await ctx.db.query('hasibVariants').withIndex('by_item', q => q.eq('itemId', item._id)).take(50)).find(v => !v.archived);
-    if (variant) lines.push({ variantId: variant._id, itemId: item._id, nameAr: item.nameAr, nameEn: item.nameEn, qty, unitPriceMinor: variant.priceMinor, onHand: variant.onHand, serialized: !!item.serialized });
-  }
-  return ok({ contact: { id: contact._id, name: displayName(contact).name }, conversationId: person._id, channel: person.channel || 'whatsapp', lines, unmatched: lines.length ? '' : itemText,
-    fulfilment: { type, ...(type === 'delivery' && area ? { area } : {}) } });
+  const rows = (await ctx.db.query('hasibOrders').withIndex('by_conversation_status', q => q.eq('conversationId', person._id)).take(50))
+    .filter(o => o.accountId === accountId).sort((x, y) => y.createdAt - x.createdAt).slice(0, 5);
+  return ok({ items: rows.map(o => ({ id: o._id, number: o.number, status: o.status, source: o.source || 'owner', kind: o.kind || 'sale', lineCount: o.lines.length,
+    totalMinor: o.totalMinor, balanceMinor: o.totalMinor - o.paidMinor, paymentStatus: o.paymentStatus, createdAt: o.createdAt })) });
 }
 
 export async function executeOrders(ctx, tenant, a, now) {
@@ -265,6 +260,6 @@ export async function executeOrders(ctx, tenant, a, now) {
   }
   if (a.operation === 'payment_record') return recordPayment(ctx, accountId, a, now);
   if (a.operation === 'contact_summary') return contactSummary(ctx, accountId, a);
-  if (a.operation === 'chat_prefill') return chatPrefill(ctx, tenant, a, now);
+  if (a.operation === 'conversation_orders') return conversationOrders(ctx, accountId, a);
   return null;
 }

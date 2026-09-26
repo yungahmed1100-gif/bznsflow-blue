@@ -173,29 +173,6 @@ test('a cancelled order accepts refunds but no new money', async () => {
   assert.equal((await hasib(a, 'payment_record', { requestId: randomUUID(), orderId: o.id, amountMinor: -5000, method: 'cash' })).value.order.paidMinor, 0);
 });
 
-test('an order from a chat is prefilled from Layla’s captured fields and linked to the contact', async () => {
-  const { h, a, hasib } = await setup();
-  await abaya(hasib, a);
-  await h.inbound(a, { from: '96891111111', text: 'I want the black abaya', profileName: 'Mariam' });
-  const [conversation] = h.m.table('blueConversations').filter(r => r.accountId === a.accountId);
-  const [contact] = h.m.table('blueContacts').filter(r => r.accountId === a.accountId);
-  await h.m.db.patch(contact._id, { fields: [
-    { key: 'item', value: 'Black abaya', source: 'customer', confidence: 1, at: h.m.now() },
-    { key: 'quantity', value: '2', source: 'customer', confidence: 1, at: h.m.now() },
-    { key: 'fulfilment', value: 'delivery', source: 'customer', confidence: 1, at: h.m.now() },
-    { key: 'area', value: 'Al Khuwair', source: 'customer', confidence: 1, at: h.m.now() }] });
-  const p = (await hasib(a, 'chat_prefill', { conversationId: conversation._id })).value;
-  assert.equal(p.contact.name, 'Mariam');
-  assert.equal(p.lines[0].qty, 2);
-  assert.equal(p.lines[0].nameEn, 'Black abaya');
-  assert.deepEqual(p.fulfilment, { type: 'delivery', area: 'Al Khuwair' });
-  const o = (await hasib(a, 'order_create', { requestId: randomUUID(), channel: 'whatsapp', conversationId: conversation._id,
-    lines: [{ variantId: p.lines[0].variantId, qty: 2 }], fulfilment: p.fulfilment })).value;
-  assert.equal(o.contact.id, contact._id);
-  const summary = (await hasib(a, 'contact_summary', { contactId: contact._id })).value;
-  assert.deepEqual([summary.orderCount, summary.lifetimeMinor, summary.balanceMinor], [1, 50000, 50000]);
-});
-
 test('deleting a contact strips the customer from orders but keeps the amounts', async () => {
   const { h, a, hasib } = await setup();
   const { variantId } = await abaya(hasib, a);

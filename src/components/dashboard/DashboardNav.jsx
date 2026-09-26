@@ -29,6 +29,7 @@ export function DashboardNav({ s, tab, onSelect, hasib = null }) {
             <a href={`?tab=${id}`} aria-current={tab === id ? 'page' : undefined} onClick={e => { e.preventDefault(); onSelect(id); }}>
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d={path} fill="currentColor" /></svg>
               <span>{label(id)}</span>
+              {hasib?.badges?.[id] > 0 && <span className="ld-nav-badge" aria-label={hasib.h.t('laylaWaitingTile')}>{hasib.badges[id]}</span>}
             </a>
           </li>
         ))}

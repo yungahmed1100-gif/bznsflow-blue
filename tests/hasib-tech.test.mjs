@@ -70,7 +70,11 @@ test('selling a phone reserves, then sells its IMEI with warranty and its own co
   const { h, hasib } = await setup();
   const { variantId } = await phone(hasib, { warrantyMonths: 12 });
   await receive(hasib, variantId, ['111111111111111', '222222222222222'], 280000);
-  assert.equal((await hasib('order_create', { requestId: randomUUID(), channel: 'walk_in', fulfilment: { type: 'in_store' }, lines: [{ variantId, qty: 1 }] })).reason, 'serials_required');
+  // A confirmed sale needs its IMEIs; a pending draft may wait for them (Layla cannot pick units).
+  assert.equal((await hasib('order_create', { requestId: randomUUID(), channel: 'walk_in', confirm: true, fulfilment: { type: 'in_store' }, lines: [{ variantId, qty: 1 }] })).reason, 'serials_required');
+  const draft = (await hasib('order_create', { requestId: randomUUID(), channel: 'walk_in', fulfilment: { type: 'in_store' }, lines: [{ variantId, qty: 1 }] })).value;
+  assert.equal(draft.status, 'pending');
+  await hasib('order_status', { orderId: draft.id, to: 'cancelled', version: draft.version });
   assert.equal((await sell(hasib, variantId, ['999999999999999'])).reason, 'serial_unavailable');
   const pending = (await sell(hasib, variantId, ['111111111111111'])).value;
   assert.equal(serialRow(h, '111111111111111').status, 'reserved');

@@ -25,6 +25,7 @@ export const execute = internalMutation({
     to: v.optional(v.string()), version: v.optional(v.number()), amountMinor: v.optional(v.number()), method: v.optional(v.string()), reference: v.optional(v.string()),
     vat: v.optional(v.object({ registered: v.boolean(), rateBps: v.number(), pricesIncludeVat: v.boolean(), vatin: v.optional(v.string()) })),
     stockPolicy: v.optional(v.string()), packId: v.optional(v.string()),
+    lineSerials: v.optional(v.array(v.object({ variantId: v.string(), serials: v.array(v.string()) }))),
     serials: v.optional(v.array(v.string())), serial: v.optional(v.string()), costMinor: v.optional(v.number()), repairId: v.optional(v.string()), device: v.optional(v.string()), fault: v.optional(v.string()),
     accessories: v.optional(v.string()), quoteMinor: v.optional(v.number()), labourMinor: v.optional(v.number()), parts: v.optional(v.array(part)), dueAt: v.optional(v.number()),
     expenseId: v.optional(v.string()), category: v.optional(v.string()), vatMinor: v.optional(v.number()), vendor: v.optional(v.string()), paidOn: v.optional(v.string()), period: v.optional(v.string()),

@@ -47,6 +47,17 @@
 .hb-warranty.is-ended { border-color: var(--coral-mark); color: var(--coral); }
 .hb-change-industry { margin-inline-start: 8px; vertical-align: middle; }
 
+/* Layla's orders in the chat header and the nav badge */
+.hb-chat-orders { grid-column: 1 / -1; }
+.hb-chat-orders ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.hb-chat-order { display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--card); color: var(--ink); cursor: pointer; }
+.hb-chat-order:hover, .hb-chat-order:focus-visible { border-color: var(--ink); outline: none; }
+.ld-nav a { position: relative; }
+.ld-nav-badge { position: absolute; inset-block-start: 4px; inset-inline-end: 8px; min-inline-size: 18px; padding: 0 5px; border-radius: 999px; background: var(--coral); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.hb-layla-waiting { margin: 0; padding: 10px 14px; border-inline-start: 4px solid var(--blue); background: var(--card); border-radius: var(--radius); }
+.hb-layla-waiting.is-overdue { border-color: var(--coral); }
+.hb-flag { margin: 0; padding: 6px 10px; border-inline-start: 3px solid var(--yellow); background: var(--card); font-size: 13px; }
+
 /* Orders */
 .hb-order-table td:nth-child(5), .hb-order-table td:nth-child(6) { white-space: nowrap; }
 .hb-order-table .ld-row-open { font-weight: 700; }

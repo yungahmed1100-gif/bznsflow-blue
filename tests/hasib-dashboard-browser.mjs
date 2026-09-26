@@ -53,8 +53,7 @@ function api(state) {
       case 'items': return ok({ items: !body.search || /abaya|عباية|ab/i.test(body.search) ? [state.item] : [], cursor: null });
       case 'low_stock': return ok({ items: state.item.variants.filter(v => v.low).map(v => ({ ...v, itemId: state.item.id, nameAr: state.item.nameAr, nameEn: state.item.nameEn })) });
       case 'orders': return ok({ items: state.orders.map(o => ({ ...publicOrder(o), lineCount: o.lines.length })), cursor: null });
-      case 'chat_prefill': return ok({ contact: { id: 'k1', name: contact.name }, conversationId: 'c-k1', channel: 'whatsapp', unmatched: '', fulfilment: { type: 'delivery', area: 'Al Khuwair' },
-        lines: [{ variantId: 'v1', itemId: 'i1', nameAr: state.item.nameAr, nameEn: state.item.nameEn, qty: 1, unitPriceMinor: 25000, onHand: 1 }] });
+      case 'conversation_orders': return ok({ items: state.orders.filter(o => o.conversationId === body.conversationId).map(o => ({ id: o.id, number: o.number, status: o.status, source: o.source || 'owner', kind: 'sale', lineCount: o.lines.length, totalMinor: o.totalMinor, balanceMinor: o.totalMinor - o.paidMinor, paymentStatus: o.paymentStatus, createdAt: o.createdAt })) });
       case 'contact_summary': return ok({ orderCount: state.orders.length, lifetimeMinor: state.orders.reduce((n, o) => n + o.totalMinor, 0), balanceMinor: state.orders.reduce((n, o) => n + o.totalMinor - o.paidMinor, 0), lastOrderAt: null, recent: [] });
       case 'order_create': {
         const existing = state.orders.find(o => o.requestId === body.requestId);
@@ -155,19 +154,21 @@ try {
       await context.close();
     }
 
-    // Chat → order: the button in the thread opens a prefilled composer on the Orders tab.
+    // Chat: no create-order button; the orders Layla filed for this chat show in the header.
     for (const width of [1280, 375]) {
       const state = fixture();
+      state.orders.push({ id: 'o9', requestId: 'x', number: 9, status: 'pending', channel: 'whatsapp', source: 'layla', contact: { id: 'k1', name: contact.name }, customerName: '', conversationId: 'c-k1',
+        lines: [{ variantId: 'v1', name: 'عباية سوداء — 52 / Black', qty: 1, unitPriceMinor: 25000, discountMinor: 0, vatBps: 0, netMinor: 25000, vatMinor: 0, unitCostMinor: 0, tracked: true }],
+        subtotalMinor: 25000, discountMinor: 0, deliveryMinor: 0, vatMinor: 0, totalMinor: 25000, pricesIncludeVat: false, paidMinor: 0, paymentStatus: 'unpaid', fulfilment: { type: 'pickup' },
+        customFields: [], notes: '', stockShort: false, history: [{ status: 'pending', at: now }], version: 1, createdAt: now, updatedAt: now });
       const { page, context } = await openPage(browser, { width, lang, path: '/layla/dashboard?tab=chats&chat=c-k1', handler: api(state) });
-      await page.getByRole('button', { name: t.create }).click();
-      const dialog = page.getByRole('dialog');
-      await dialog.locator('.hb-totals').waitFor();
-      assert.ok(await dialog.getByText('Mariam Al Balushi').isVisible(), 'contact named in prefill'); count++;
-      assert.equal(await dialog.locator('input[value="Al Khuwair"]').count(), 1, 'delivery area prefilled'); count++;
-      await dialog.getByRole('button', { name: t.save }).click();
+      await page.locator('.hb-chat-order').first().waitFor();
+      assert.equal(await page.getByRole('button', { name: t.create }).count(), 0, 'no create-order button'); count++;
+      assert.match(await page.locator('.hb-chat-orders').textContent(), lang === 'ar' ? /من ليلى/ : /From Layla/); count++;
+      assert.equal(await noOverflow(page), true, `chat orders overflow ${lang} ${width}`); count++;
+      await page.locator('.hb-chat-order').first().click();
       await page.locator('.hb-detail').waitFor();
-      assert.equal(state.orders[0].conversationId, 'c-k1'); count++;
-      assert.equal(new URL(page.url()).searchParams.get('fromChat'), null, 'hand-off parameter consumed'); count++;
+      assert.deepEqual(await axe(page, '.ld-dialog'), [], `chat order axe ${lang} ${width}`); count++;
       await context.close();
     }
   }

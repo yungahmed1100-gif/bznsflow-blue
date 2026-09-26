@@ -23,6 +23,7 @@ const serialRow = (ctx, accountId, serial) => ctx.db.query('hasibSerials').withI
 
 /** Normalise a list and refuse duplicates inside it. Throws `{ reason }`. */
 function serialList(raw, expected) {
+  if (Array.isArray(raw) && !raw.length && expected > 0) throw { reason: 'serials_required' };
   if (!Array.isArray(raw) || raw.length !== expected) throw { reason: 'serials_mismatch' };
   const list = raw.map(normSerial);
   if (list.includes(null)) throw { reason: 'invalid_serial' };
@@ -70,12 +71,13 @@ export async function moveSerializedStock(ctx, { accountId, variant, a, note, no
  * Validate the IMEIs requested on order lines before anything is written.
  * Returns, per line index, the serial rows to reserve or sell. Throws `{ reason }`.
  */
-export async function planOrderSerials(ctx, accountId, lines, requested) {
+export async function planOrderSerials(ctx, accountId, lines, requested, { require = true } = {}) {
   const plan = new Map(), seen = new Set();
   for (const [i, line] of lines.entries()) {
     const raw = requested[i];
     if (!line.serialized) { if (raw?.length) throw { reason: 'invalid_order_lines' }; continue; }
-    if (!raw?.length) throw { reason: 'serials_required' };
+    // A pending draft (Layla's) may carry an IMEI product without units; they are picked on confirmation.
+    if (!raw?.length) { if (require) throw { reason: 'serials_required' }; continue; }
     const list = serialList(raw, line.qty);
     const rows = [];
     for (const serial of list) {
@@ -101,6 +103,27 @@ export async function commitOrderSerials(ctx, plan, { orderId, sold, contactId, 
         : { status: 'reserved', orderId, reservedAt: now, ...(contactId ? { contactId } : {}), updatedAt: now });
     }
   }
+}
+
+/**
+ * Confirming an order whose IMEI lines have too few reserved units: validate the
+ * owner's picks (`lineSerials`) and reserve them first. Throws `{ reason }`.
+ */
+export async function reserveMissingSerials(ctx, order, lineSerials, now) {
+  const reserved = (await ctx.db.query('hasibSerials').withIndex('by_order', q => q.eq('orderId', order._id)).take(500)).filter(r => r.accountId === order.accountId && r.status === 'reserved');
+  const picks = new Map((Array.isArray(lineSerials) ? lineSerials : []).map(p => [p?.variantId, p?.serials]));
+  const plan = [];
+  for (const line of order.lines.filter(l => l.serialized)) {
+    const missing = line.qty - reserved.filter(r => r.variantId === line.variantId).length;
+    if (missing <= 0) continue;
+    const list = serialList(picks.get(line.variantId) || [], missing);
+    for (const serial of list) {
+      const row = await serialRow(ctx, order.accountId, serial);
+      if (!row || row.variantId !== line.variantId || row.status !== 'in_stock') throw { reason: 'serial_unavailable' };
+      plan.push(row);
+    }
+  }
+  for (const row of plan) await ctx.db.patch(row._id, { status: 'reserved', orderId: order._id, reservedAt: now, ...(order.contactId ? { contactId: order.contactId } : {}), updatedAt: now });
 }
 
 export const orderSerialRows = (ctx, orderId) => ctx.db.query('hasibSerials').withIndex('by_order', q => q.eq('orderId', orderId)).take(500);

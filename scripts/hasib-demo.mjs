@@ -183,7 +183,7 @@ createServer(async (req, res) => {
     if (url.pathname === '/demo/inbound' && req.method === 'POST') {
       const { from = '96899000001', text = '', name } = await readJson(req);
       await call(executeMessaging, 'ingest', { integrationId: tenant.integration.id, events: [{ kind: 'message', id: `live-${randomUUID()}`, from: String(from).replace(/\D/g, '').slice(0, 15), at: Date.now(),
-        text: String(text).slice(0, 500), reply: 'Thanks!', intent: /price|how much|كم|سعر/i.test(text) ? 'price' : 'availability_request', handoff: false, ...(name ? { profileName: String(name).slice(0, 60) } : {}) }] }, Date.now());
+        text: String(text).slice(0, 500), reply: 'Thanks!', intent: /price|how much|كم|سعر/i.test(text) ? 'price' : /want|need|order|buy|أبغى|ابغى|أبي|ابي|أريد|اريد|اطلب/i.test(text) ? 'catalog_item' : 'availability_request', handoff: false, ...(name ? { profileName: String(name).slice(0, 60) } : {}) }] }, Date.now());
       return json(res, 200, { ok: true });
     }
     if (url.pathname.startsWith('/api/')) return json(res, 404, { ok: false, reason: 'not_in_demo' });

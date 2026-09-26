@@ -15,7 +15,7 @@ import { executeSerials } from './serialsState.js';
 import { executeRepairs } from './repairsState.js';
 
 export const HASIB_OPERATIONS = ['overview', 'settings_update', 'items', 'item_save', 'item_archive', 'stock_move', 'stock_moves', 'low_stock',
-  'order_create', 'order_status', 'orders', 'order', 'payment_record', 'contact_summary', 'chat_prefill', 'expense_create', 'expenses', 'expense_void', 'insights',
+  'order_create', 'order_status', 'orders', 'order', 'payment_record', 'contact_summary', 'conversation_orders', 'expense_create', 'expenses', 'expense_void', 'insights',
   'serials', 'serial_lookup', 'trade_in', 'repairs', 'repair', 'repair_create', 'repair_update', 'repair_status'];
 
 // Operations that belong to an optional module; a pack without that module refuses them.
@@ -67,10 +67,11 @@ export async function executeHasib(ctx, a, now = Date.now()) {
 
   if (a.operation === 'overview') {
     const settings = await settingsFor(ctx, tenant.accountId);
-    const pending = await ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => q.eq('accountId', tenant.accountId).eq('status', 'pending')).take(100);
+    const pending = await ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => q.eq('accountId', tenant.accountId).eq('status', 'pending')).take(200);
+    const layla = pending.filter(o => o.source === 'layla');
     const low = (await ctx.db.query('hasibVariants').withIndex('by_account_low', q => q.eq('accountId', tenant.accountId).eq('low', true)).take(100)).filter(v => !v.archived);
     return ok({ pack: { id: pack.id, archetype: pack.archetype, version: pack.version, variantOptions: pack.variantOptions, orderFields: pack.orderFields, expenseCategories: pack.expenseCategories },
-      plan, setupRequired: false, livePacks: livePackSummaries(), industries: industryCatalog(), modules: visibleModules(pack), settings: publicSettings(settings), counts: { pendingOrders: pending.length, lowStock: low.length } });
+      plan, setupRequired: false, livePacks: livePackSummaries(), industries: industryCatalog(), modules: visibleModules(pack), settings: publicSettings(settings), counts: { pendingOrders: pending.length, lowStock: low.length, laylaWaiting: layla.length, laylaOverdue: layla.filter(o => now - o.createdAt > 86400000).length } });
   }
   const module = moduleOf(a.operation);
   if (module && pack.modules[module] !== 'available') return fail('module_unavailable');

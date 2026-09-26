@@ -8,8 +8,8 @@ const HasibContext = createContext(null);
  * without threading props through them. `overview` is null when Hasib is off
  * for this account, and every consumer then renders nothing.
  */
-export function HasibProvider({ lang, overview, onCreateOrderFromChat, children }) {
-  const value = useMemo(() => overview ? { overview, h: createHasibStrings(lang), onCreateOrderFromChat } : null, [overview, lang, onCreateOrderFromChat]);
+export function HasibProvider({ lang, overview, business, timezone, onChanged, children }) {
+  const value = useMemo(() => overview ? { overview, h: createHasibStrings(lang), business, timezone, onChanged } : null, [overview, lang, business, timezone, onChanged]);
   return <HasibContext.Provider value={value}>{children}</HasibContext.Provider>;
 }
 export const useHasib = () => useContext(HasibContext);

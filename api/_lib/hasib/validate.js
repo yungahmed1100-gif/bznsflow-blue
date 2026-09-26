@@ -23,7 +23,7 @@ const item = i => i && typeof i === 'object' ? compact({ kind: str(i.kind, 20) |
   warrantyMonths: int(i.warrantyMonths), warrantyBy: str(i.warrantyBy, 10) }) : undefined;
 
 /** Actions whose id-bearing argument is required; a malformed id is refused rather than dropped. */
-const REQUIRED = { order: 'orderId', order_status: 'orderId', payment_record: 'orderId', item_archive: 'itemId', stock_moves: 'variantId', stock_move: 'variantId', contact_summary: 'contactId', chat_prefill: 'conversationId', expense_void: 'expenseId', serials: 'variantId', trade_in: 'variantId', repair: 'repairId', repair_update: 'repairId', repair_status: 'repairId' };
+const REQUIRED = { order: 'orderId', order_status: 'orderId', payment_record: 'orderId', item_archive: 'itemId', stock_moves: 'variantId', stock_move: 'variantId', contact_summary: 'contactId', conversation_orders: 'conversationId', expense_void: 'expenseId', serials: 'variantId', trade_in: 'variantId', repair: 'repairId', repair_update: 'repairId', repair_status: 'repairId' };
 const NEEDS_REQUEST = new Set(['order_create', 'payment_record', 'stock_move', 'expense_create', 'trade_in', 'repair_create']);
 
 const SHAPES = {
@@ -39,10 +39,11 @@ const SHAPES = {
     customerName: str(b.customerName, 80), lines: list(b.lines, 50, line) || [], deliveryFeeMinor: int(b.deliveryFeeMinor), notes: str(b.notes, 500),
     fulfilment: b.fulfilment && typeof b.fulfilment === 'object' ? compact({ type: str(b.fulfilment.type, 20) || '', area: str(b.fulfilment.area, 80), dueAt: int(b.fulfilment.dueAt) }) : { type: '' },
     customFields: list(b.customFields, 10, pair('key', 300)) }),
-  order_status: b => ({ orderId: id(b.orderId), to: str(b.to, 20), version: int(b.version) }),
+  order_status: b => ({ orderId: id(b.orderId), to: str(b.to, 20), version: int(b.version),
+    lineSerials: list(b.lineSerials, 50, p => compact({ variantId: id(p?.variantId) || '', serials: serialsOf(p?.serials) || [] })) }),
   payment_record: b => ({ requestId: uuid(b.requestId), orderId: id(b.orderId), amountMinor: int(b.amountMinor), method: str(b.method, 20), reference: str(b.reference, 80) }),
   contact_summary: b => ({ contactId: id(b.contactId) }),
-  chat_prefill: b => ({ conversationId: id(b.conversationId) }),
+  conversation_orders: b => ({ conversationId: id(b.conversationId) }),
   expense_create: b => ({ requestId: uuid(b.requestId), category: str(b.category, 40), amountMinor: int(b.amountMinor), vatMinor: int(b.vatMinor), vendor: str(b.vendor, 80),
     method: str(b.method, 20), paidOn: str(b.paidOn, 10), note: str(b.note, 200) }),
   expenses: b => ({ period: str(b.period, 12) }),

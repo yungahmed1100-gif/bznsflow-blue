@@ -30,7 +30,7 @@ function previewTotals(lines, feeMinor, settings) {
 }
 
 /** Pick the exact units (IMEIs) sold on a line: tap one in stock, or scan/type it. */
-function SerialPicker({ h, variantId, picked, onChange }) {
+export function SerialPicker({ h, variantId, picked, onChange }) {
   const [units, setUnits] = useState([]), [typed, setTyped] = useState(''), [miss, setMiss] = useState(false);
   useEffect(() => {
     let live = true;
@@ -89,7 +89,7 @@ function ItemPicker({ s, h, onPick }) {
 }
 
 /**
- * New order. `prefill` comes from `chat_prefill`; the owner always reviews it.
+ * New order. `prefill` carries the customer for an exchange; the owner always reviews it.
  * The request id is fixed for the life of the dialog so a double submit makes one order.
  */
 export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSaved }) {

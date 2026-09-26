@@ -64,6 +64,8 @@ export function InsightsView({ s, h, overview, onIndustryChanged }) {
               <p className={`hb-hero-value ${i.netProfitMinor < 0 ? 'is-negative' : ''}`}><Money h={h} minor={i.netProfitMinor} /></p>
               <p className="ld-help">{h.t('netProfitHelp')}</p>
             </section>
+            {overview.counts?.laylaWaiting > 0 && <p className={`hb-layla-waiting ${overview.counts.laylaOverdue ? 'is-overdue' : ''}`} role="status">
+              <strong>{h.t('laylaWaitingTile')}: {overview.counts.laylaWaiting}</strong>{overview.counts.laylaOverdue ? ` · ${h.t('laylaOverdue', { count: overview.counts.laylaOverdue })}` : ''}</p>}
             <dl className="hb-tiles">
               <Tile label={h.t('sales')} note={h.orders(i.sales.orders)}><Money h={h} minor={i.sales.totalMinor} /></Tile>
               <Tile label={h.t('grossProfit')}><Money h={h} minor={i.sales.grossProfitMinor} /></Tile>
