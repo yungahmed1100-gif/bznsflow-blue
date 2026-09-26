@@ -28,3 +28,6 @@ export const messaging = async (action, body = {}) => {
 export const messagingState = () => call('messaging');
 export const dashboardPath = lang => `${lang === 'ar' ? '' : '/en'}/layla/dashboard`;
 export const setupPath = (lang, next) => `${lang === 'ar' ? '' : '/en'}/layla/setup${next ? `?next=${next}` : ''}`;
+/** Hasib (orders, stock, payments) shares this client's session and CSRF token. */
+export const loadHasib = () => call('hasib');
+export const hasib = (action, body = {}, options) => call('hasib', { action, ...body }, options);

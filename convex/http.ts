@@ -59,6 +59,17 @@ http.route({path:'/blue-dashboard',method:'POST',handler:httpAction(async(ctx,re
     return new Response(JSON.stringify(result),{headers});
   } catch {return new Response(JSON.stringify({ok:false,reason:'dashboard_unavailable'}),{status:503,headers});}
 })});
+http.route({path:'/blue-hasib',method:'POST',handler:httpAction(async(ctx,request)=>{
+  if(!serviceAuthorized(request)) return new Response(null,{status:401});
+  const headers={'Content-Type':'application/json','Cache-Control':'no-store'};
+  try {
+    const raw=await request.text();if(raw.length>65536) return new Response(null,{status:413});
+    const args=JSON.parse(raw);
+    if(!/^[a-f0-9]{64}$/.test(args.sessionHash || '')) return new Response(null,{status:400});
+    const result=await ctx.runMutation((internal as any).blueHasib.execute,args);
+    return new Response(JSON.stringify(result),{headers});
+  } catch {return new Response(JSON.stringify({ok:false,reason:'hasib_unavailable'}),{status:503,headers});}
+})});
 http.route({path:'/blue-campaign',method:'POST',handler:httpAction(async(ctx,request)=>{
   if(!serviceAuthorized(request)) return new Response(null,{status:401});
   const headers={'Content-Type':'application/json','Cache-Control':'no-store'};

@@ -1,3 +1,4 @@
+import { ChatOrderButton } from '../hasib/ChatOrderButton';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePolling } from '../../hooks/usePolling';
 import { dashboard, messaging } from '../../lib/dashboard/api';
@@ -70,6 +71,7 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
           <p><bdi dir="ltr" className="ld-num">{contact.channel==='instagram'?'Instagram':formatPhone(contact.number)}</bdi> <QualificationChip s={s} status={contact.status} />{contact.optout && <span className="ld-chip is-coral">{s.t('optedOut')}</span>}</p>
         </div>
         <div className="ld-thread-actions">
+          <ChatOrderButton conversationId={conversationId} />
           <label className="ld-switch">
             <input type="checkbox" role="switch" checked={takeover} disabled={busy === 'leave' || contact.optout} onChange={toggleLeave} aria-describedby="ld-leave-help" />
             <span className="ld-switch-track" aria-hidden="true" /><span>{s.t('leaveChat')}</span>

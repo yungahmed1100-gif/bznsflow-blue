@@ -7,6 +7,7 @@ const ORDER_FIELD = {
   by_account_updated: 'updatedAt', by_conversation_at: 'at', by_account_at: 'at', by_account_state_activity: 'lastActivityAt', by_contact_at: 'at',
   by_account_created: 'createdAt', by_status_scheduled: 'scheduledAt', by_status_next: 'nextAttemptAt', by_account_synced: 'syncedAt', by_status_at: 'at',
   by_owner_status_order: 'sortOrder',
+  by_account_archived_updated: 'updatedAt', by_account_status_created: 'createdAt', by_contact_created: 'createdAt', by_variant_at: 'at', by_order_at: 'at',
 };
 
 export function convexMemory({ start = 1_800_000_000_000 } = {}) {

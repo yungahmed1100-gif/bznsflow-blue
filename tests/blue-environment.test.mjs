@@ -78,6 +78,8 @@ test('Dashboard and Broadcast gates are independent and Broadcast requires live 
   assert.doesNotThrow(()=>checkBlue({...base,BLUE_DASHBOARD_ENABLED:'true'}));
   assert.throws(()=>checkBlue({BLUE_DASHBOARD_ENABLED:'true'}),/dashboard requires/);
   assert.throws(()=>checkBlue({...base,BLUE_DASHBOARD_ENABLED:'true',BLUE_BROADCAST_ENABLED:'true'}),/broadcast requires/);
+  assert.throws(()=>checkBlue({...base,BLUE_HASIB_ENABLED:'true'}),/Hasib requires the dashboard/);
+  assert.doesNotThrow(()=>checkBlue({...base,BLUE_DASHBOARD_ENABLED:'true',BLUE_HASIB_ENABLED:'true'}));
   assert.throws(()=>checkBlue({...base,BLUE_BROADCAST_ENABLED:'true',BLUE_LIVE_MESSAGING_ENABLED:'true',BLUE_MESSAGING_WORKER_SECRET:'c'.repeat(64)}),/requires/);
   // With the dashboard gate off, the dashboard surface is unavailable and exposes nothing.
   const res=response();

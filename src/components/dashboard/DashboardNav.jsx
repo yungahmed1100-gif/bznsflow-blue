@@ -8,16 +8,24 @@ const ITEMS = [
   ['business', 'M4 7h16v12H4zM9 4h6v3H9zM4 11h16v2H4z'],
 ];
 
+// Hasib tabs appear only for modules the account's industry pack has made available.
+const HASIB_ITEMS = [
+  ['orders', 'M6 2h12l2 4v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6l2-4zm0 4h12l-1-2H7L6 6zm2 5v2h8v-2H8zm0 4v2h5v-2H8z'],
+  ['stock', 'M12 2 3 7v10l9 5 9-5V7l-9-5zm0 2.3L18.6 8 12 11.7 5.4 8 12 4.3zM5 9.7l6 3.4v6.6l-6-3.3V9.7zm8 10v-6.6l6-3.4v6.7l-6 3.3z'],
+];
+
 /** Fixed start-side rail on desktop; a top tab bar on phones. */
-export function DashboardNav({ s, tab, onSelect }) {
+export function DashboardNav({ s, tab, onSelect, hasib = null }) {
+  const items = [...ITEMS.slice(0, 3), ...HASIB_ITEMS.filter(([id]) => hasib?.modules.includes(id)), ...ITEMS.slice(3)];
+  const label = id => id === 'channels' ? (s.ar ? 'القنوات' : 'Channels') : hasib && HASIB_ITEMS.some(([x]) => x === id) ? hasib.h.t(id) : s.t(id);
   return (
     <nav className="ld-nav" aria-label={s.t('nav')}>
       <ul>
-        {ITEMS.map(([id, path]) => (
+        {items.map(([id, path]) => (
           <li key={id}>
             <a href={`?tab=${id}`} aria-current={tab === id ? 'page' : undefined} onClick={e => { e.preventDefault(); onSelect(id); }}>
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d={path} fill="currentColor" /></svg>
-              <span>{id==='channels'?(s.ar?'القنوات':'Channels'):s.t(id)}</span>
+              <span>{label(id)}</span>
             </a>
           </li>
         ))}

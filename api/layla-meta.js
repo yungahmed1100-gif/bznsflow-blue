@@ -2,6 +2,7 @@ import { createInstagramApi } from './_lib/layla/instagram.js';
 import { randomUUID } from 'node:crypto';
 import { createMessagingApi } from './_lib/layla/blue-messaging.js';
 import { createDashboardApi } from './_lib/layla/dashboard-api.js';
+import { createHasibApi } from './_lib/hasib/hasib-api.js';
 import { settings, PilotError } from './_lib/layla/config.js';
 import { owner } from './_lib/layla/owner.js';
 import { readBody, send, sendPilotError } from './_lib/http.js';
@@ -96,6 +97,7 @@ export default function blueHandler(req, res) {
   if (surface === 'messaging') return createMessagingApi()(req,res);
   // Owner dashboard shares this function to stay inside the Vercel function quota.
   if (surface === 'dashboard') return createDashboardApi()(req,res);
+  if (surface === 'hasib') return createHasibApi()(req,res);
   if (surface === 'customer-status') {
     if (req.method !== 'GET') return send(res,405,{ok:false,reason:'method'});
     return send(res,200,{ok:true,available:customerAvailable()},{vary:'Cookie'});

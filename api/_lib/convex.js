@@ -82,6 +82,7 @@ export const reviewStore = convexStore({ route: 'blue-review', fallback: 'review
 export const catalogStore = convexStore({ route: 'blue-catalog', fallback: 'catalog_unavailable' });
 export const blueAuthStore = convexStore({ route: 'blue-auth', fallback: 'account_unavailable', timeout: 6000, reasons: AUTH_REASONS });
 export const dashboardStore = convexStore({ route: 'blue-dashboard', fallback: 'dashboard_unavailable', status: signInAware });
+export const hasibStore = convexStore({ route: 'blue-hasib', fallback: 'hasib_unavailable', status: signInAware });
 export const campaignStore = convexStore({ route: 'blue-campaign', fallback: 'campaign_unavailable', timeout: 6000, status: signInAware });
 export const messagingStore = convexStore({ route: 'blue-messaging', fallback: 'messaging_unavailable', timeout: 6000 });
 

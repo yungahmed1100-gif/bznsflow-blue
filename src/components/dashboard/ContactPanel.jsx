@@ -1,3 +1,4 @@
+import { ContactOrders } from '../hasib/ContactOrders';
 import React, { useState } from 'react';
 import { dashboard } from '../../lib/dashboard/api';
 import { formatPhone } from '../../lib/dashboard/phone';
@@ -22,6 +23,7 @@ export function ContactPanel({ s, contact, pack, timezone, onSaved, onDeleted, o
   return (
     <form className="ld-contact-panel" onSubmit={save}>
       <p className="ld-contact-summary"><bdi dir="ltr" className="ld-num">{contact.channel==='instagram'?'Instagram':formatPhone(contact.number)}</bdi> · {s.t(`source_${contact.source}`)} · {s.t('lastActivity')}: {formatDateTime(contact.lastActivityAt, s.lang, timezone)}</p>
+      <ContactOrders contactId={contact.id} />
       <dl className="ld-names">
         {[['customerName', 'name_customer'], ['profileName', 'name_whatsapp']].map(([key, label]) => contact[key] ? <div key={key}><dt>{s.t(label)}</dt><dd><bdi>{contact[key]}</bdi></dd></div> : null)}
       </dl>

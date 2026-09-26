@@ -1,0 +1,84 @@
+/* Hasib — orders and stock inside the Layla dashboard. Reuses the dashboard's
+   tokens (--paper, --ink, --rule, --green…) declared on .ld and .ld-dialog; no
+   new palette. Logical properties only, so Arabic mirrors without overrides. */
+
+.ld-chip.is-blue { box-shadow: inset calc(3px * var(--x-sign)) 0 0 var(--blue); color: var(--ink); }
+
+/* Money and quantities stay left-to-right and aligned in both languages. */
+.hb-money, .hb-qty { font-variant-numeric: tabular-nums; text-align: end; }
+.hb-money { inline-size: 9ch; }
+.hb-qty { inline-size: 6ch; }
+.ld-table input:not([type=checkbox]) { inline-size: 100%; min-inline-size: 6ch; font: inherit; padding: 6px 8px; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--card); }
+.ld-table input.hb-money, .ld-table input.hb-qty { inline-size: auto; }
+.ld-table input[aria-invalid=true], .ld-field input[aria-invalid=true] { border-color: var(--coral); box-shadow: 0 0 0 1px var(--coral); }
+
+/* A checkbox in a toolbar is not a text field: keep it 18px even under the phone rule that stretches toolbar inputs. */
+.ld-toolbar .ld-check { margin-block: 0; align-items: center; white-space: nowrap; }
+.ld-toolbar .ld-check input { flex: none; inline-size: 18px; min-inline-size: 0; margin-block-start: 0; }
+.hb-currency { margin-inline-start: .3em; }
+
+/* Orders */
+.hb-order-table td:nth-child(5), .hb-order-table td:nth-child(6) { white-space: nowrap; }
+.hb-order-table .ld-row-open { font-weight: 700; }
+
+/* Composer */
+.hb-composer, .hb-editor, .hb-move { display: grid; gap: 12px; }
+.hb-picker { position: relative; }
+.hb-picker .ld-search, .hb-picker input { inline-size: 100%; }
+.hb-picker-list { list-style: none; margin: 4px 0 0; padding: 0; border: 1px solid var(--ink); border-radius: var(--radius); background: var(--card); max-block-size: 260px; overflow-y: auto; }
+.hb-picker-list li + li { border-block-start: 1px solid var(--rule); }
+.hb-picker-list li.ld-help { padding: 10px 12px; }
+.hb-picker-list button { display: flex; justify-content: space-between; gap: 12px; inline-size: 100%; padding: 10px 12px; font: inherit; text-align: start; background: transparent; border: 0; cursor: pointer; color: var(--ink); }
+.hb-picker-list button:hover, .hb-picker-list button:focus-visible { background: var(--paper-ruled); outline: none; }
+.hb-lines td:first-child { min-inline-size: 16ch; }
+.hb-lines .ld-chip { margin-inline-start: 6px; }
+.hb-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
+.hb-row .ld-field { margin-block: 0; }
+.ld-segmented label { position: relative; }
+.ld-segmented label + label { border-inline-start: 1px solid var(--ink); }
+.ld-segmented input[type=radio] { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.ld-segmented label span { display: block; padding: 8px 14px; font-size: 13px; font-weight: 600; }
+.ld-segmented input:checked + span { background: var(--ink); color: var(--paper); }
+.ld-segmented input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: -3px; }
+
+/* Totals read like the foot of a receipt: ruled, numbers aligned to the end. */
+.hb-totals { display: grid; gap: 4px; margin: 0; padding: 12px 0 0; border-block-start: 1px solid var(--rule-strong); max-inline-size: 360px; margin-inline-start: auto; inline-size: 100%; }
+.hb-totals > div { display: flex; justify-content: space-between; gap: 16px; }
+.hb-totals dt { color: var(--ink-2); }
+.hb-totals dd { margin: 0; }
+.hb-totals .hb-grand { font-weight: 700; font-size: 16px; padding-block-start: 4px; border-block-start: 1px solid var(--rule); }
+.hb-totals .hb-grand dt { color: var(--ink); }
+
+/* Detail */
+.hb-detail { display: grid; gap: 16px; }
+.hb-detail-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0; }
+.hb-payments { border-block-start: 1px solid var(--rule-strong); padding-block-start: 12px; }
+.hb-payments h3, .hb-payment h3, .hb-contact-orders h3 { font-size: 14px; margin: 0 0 8px; }
+.hb-payment { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); align-items: end; gap: 0 12px; margin-block-start: 12px; padding: 12px; background: var(--paper-ruled); border-radius: var(--radius); }
+.hb-payment h3, .hb-payment .ld-inline-error { grid-column: 1 / -1; }
+.hb-payment .ld-button { margin-block: 10px; }
+.hb-history summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+.hb-history ol { margin: 8px 0 0; padding-inline-start: 20px; font-size: 13px; color: var(--ink-2); }
+
+/* Stock */
+.hb-stock-table th[scope=rowgroup] { font-weight: 600; background: transparent; }
+.hb-stock-table tr.hb-sub td { border-block-start: 0; }
+.hb-stock-table .ld-chip { margin-inline-start: 6px; }
+.hb-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 16px; }
+.hb-variants td { min-inline-size: 8ch; }
+
+/* Contact panel */
+.hb-contact-orders { padding: 12px; margin-block: 8px 12px; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--card); }
+.hb-contact-orders p { margin: 0 0 6px; font-size: 13px; }
+.hb-contact-orders .ld-list { margin: 0; font-size: 13px; }
+
+@media (max-width: 768px) {
+  .hb-totals { max-inline-size: none; }
+  .hb-money, .hb-qty { inline-size: 100%; }
+  .hb-lines td, .hb-variants td { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .hb-stock-table th[scope=rowgroup] { display: block; padding-block-start: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hb-picker-list button { transition: none; }
+}

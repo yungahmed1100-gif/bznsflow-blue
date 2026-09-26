@@ -150,3 +150,11 @@ Run `npm run convex:setup` for a local deployment. The existing Supabase auth
 adapter remains active until a separate Blue Convex cloud deployment is
 provisioned and the reviewed export is imported; this keeps the review build
 available while the migration is verified.
+
+## Hasib — orders and stock (Blue, in build)
+
+`/layla/dashboard?tab=orders|stock` when `BLUE_HASIB_ENABLED=true` and the durable
+`blueHasib:setEnabled` gate is on. Read the [Hasib engineering pack](docs/hasib-engineering.md)
+before changing it. Tests: `npm run test:hasib`; browser: `node tests/hasib-dashboard-browser.mjs <dev-url>`.
+Not deployed; not a shipping product.
+

@@ -1,6 +1,7 @@
 // Tenant contact records, shared by messaging ingest, the dashboard and campaigns.
 // Every helper takes an explicit accountId; nothing here trusts a client id.
 import { numberHash } from './hash.js';
+import { anonymizeContactOrders } from './hasib/contactLink.js';
 import { extractQualification, mergeFields, planQuestions, qualificationStatus, sectorIdFor, validateFieldValue } from '../config/layla-qualification.js';
 
 export const DAY = 86400000;
@@ -161,6 +162,7 @@ export async function deleteContact(ctx, contact, now) {
     const unclaimed = ['pending', 'queued'].includes(job.status);
     await ctx.db.patch(job._id, { waId: undefined, name: undefined, parameters: [], ...(unclaimed ? { status: 'blocked', reason: 'contact_deleted' } : {}), updatedAt: now });
   }
+  await anonymizeContactOrders(ctx, contact, now);
   await ctx.db.patch(contact._id, { state: 'deleted', key: `deleted:${contact._id}`, waId: undefined, igId:undefined, igAccount:undefined, countryIso: undefined, ownerName: undefined, customerName: undefined,
     profileName: undefined, fields: [], asked: undefined, askCounts: undefined, qualificationOverride: undefined, searchText: undefined,
     consent: { status: contact.optout ? 'revoked' : 'unknown' }, deletedAt: now, updatedAt: now });

@@ -18,6 +18,8 @@ export function checkBlue(env, project) {
   if (env.BLUE_DASHBOARD_ENABLED === 'true' && (env.CONVEX_CLOUD_URL !== cloud || !/^[a-f0-9]{64}$/i.test(env.BLUE_REVIEW_SERVICE_SECRET || '') || env.BLUE_ACCOUNT_SAVE_ENABLED !== 'true')) throw Error('Blue dashboard requires isolated account storage');
   // Broadcast sends real template messages: it needs the dashboard, live messaging and the worker.
   if (env.BLUE_BROADCAST_ENABLED === 'true' && (env.BLUE_DASHBOARD_ENABLED !== 'true' || env.BLUE_LIVE_MESSAGING_ENABLED !== 'true' || !/^[a-f0-9]{64}$/i.test(env.BLUE_MESSAGING_WORKER_SECRET || ''))) throw Error('Blue broadcast requires the dashboard, live messaging and dedicated worker credentials');
+  // Hasib lives inside the dashboard and shares its storage and session boundary.
+  if (env.BLUE_HASIB_ENABLED === 'true' && env.BLUE_DASHBOARD_ENABLED !== 'true') throw Error('Blue Hasib requires the dashboard');
   if (env.LAYLA_META_KILL_SWITCH === 'false' || env.LAYLA_OPEN_TEST_ENABLED === 'true') throw Error('Blue live controls must remain disabled');
 }
 
