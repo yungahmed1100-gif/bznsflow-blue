@@ -151,7 +151,7 @@ test('leave-this-chat blocks queued bot replies, resume never replays them, and 
   const item = (await h.dashboard('conversations', { sessionHash: a.sessionHash })).value.items[0];
   assert.equal(item.windowOpenUntil, person.lastInbound + 86400000);
   h.m.advance(86400001);
-  assert.equal((await h.messaging('manual_reply', { sessionHash: a.sessionHash, conversationId: person._id, text: 'Late reply', requestId: randomUUID() })).reason, 'reply_not_allowed');
+  assert.equal((await h.messaging('manual_reply', { sessionHash: a.sessionHash, conversationId: person._id, text: 'Late reply', requestId: randomUUID() })).reason, 'window_closed');
 });
 
 const response = () => ({ headers: {}, getHeader(k) { return this.headers[k]; }, setHeader(k, v) { this.headers[k] = v; }, status(n) { this.statusCode = n; }, end(v) { this.body = JSON.parse(v); } });

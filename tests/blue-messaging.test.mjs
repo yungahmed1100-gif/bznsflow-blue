@@ -82,7 +82,7 @@ test('opt-out beats a custom FAQ and prevents manual and automatic replies',asyn
   const m=await setup();await m.inbound('stop',{intent:'optout',reply:null});
   await m.inbound('again');assert.equal(m.outgoing().length,0);
   const person=[...m.rows.values()].find(r=>r.table==='blueConversations');
-  assert.equal((await m.call('manual_reply',{sessionHash:m.sessionHash,conversationId:person._id,text:'hello',requestId:randomUUID()})).reason,'reply_not_allowed');
+  assert.equal((await m.call('manual_reply',{sessionHash:m.sessionHash,conversationId:person._id,text:'hello',requestId:randomUUID()})).reason,'contact_opted_out');
 });
 test('handoff sends one acknowledgement then waits for the team',async()=>{
   const m=await setup();await m.inbound('human',{intent:'human',handoff:true});await m.inbound('more');

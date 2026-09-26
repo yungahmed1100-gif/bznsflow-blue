@@ -44,6 +44,14 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     const row=await find('blueReviewSessions','by_hash','sessionHash',control.sessionHash);
     return rowForIntegration(ctx,row,control.integrationId,now);
   }
+  /** A job's connection: through Layla's control when there is one, else through the owning account (owner replies never need Layla). */
+  async function rowForJob(job, control) {
+    if (control) return rowForControl(control);
+    if (!job?.manual) return null;
+    const account=await ctx.db.get(job.accountId);
+    const row=account?.draftHash && await find('blueReviewSessions','by_hash','sessionHash',account.draftHash);
+    return row ? rowForIntegration(ctx,row,job.integrationId,now) : null;
+  }
   const ready = row => messagingReady(row, now);
   async function queue(row, person, text, key, manual = false, handoff = false) {
     const pending = await ctx.db.query('blueMessages').withIndex('by_integration_status',q=>q.eq('integrationId',row.integration.id).eq('status','queued')).take(100);
@@ -120,7 +128,12 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
         await ctx.db.patch(person._id,{takeover:false,updatedAt:now,version:(person.version || 0)+1});
       } else if(a.operation==='takeover') {await stopQueued(row.integration.id,person._id,'human_takeover');await ctx.db.patch(person._id,{takeover:true,updatedAt:now,version:(person.version || 0)+1});}
       else {
-        if(!enabled || !ready(row) || !control || person.optout || now-person.lastInbound>=DAY) return fail('reply_not_allowed');
+        // The owner's own reply never depends on Layla (paused, taken over or never activated);
+        // it needs a ready connection, a customer who has not opted out and the 24h window.
+        if(!enabled) return fail('messaging_paused_by_operator');
+        if(!ready(row)) return fail('connection_not_ready');
+        if(person.optout) return fail('contact_opted_out');
+        if(now-person.lastInbound>=DAY) return fail('window_closed');
         if(typeof a.text!=='string' || !a.text.trim() || a.text.length>1000 || !/^[a-f0-9-]{36}$/.test(a.requestId || '')) return fail('invalid_text');
         const key=`manual:${row.integration.id}:${a.requestId}`;
         if(!await message(key)) {
@@ -235,7 +248,7 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     if(!job || job.status!=='queued') return ok(null);
     const inflight=await ctx.db.query('blueMessages').withIndex('by_integration_status',q=>q.eq('integrationId',job.integrationId).eq('status','attempting')).take(1);
     if(inflight.length) return ok(null);
-    const control=await controls(job.integrationId), row=await rowForControl(control), person=await ctx.db.get(job.conversationId);
+    const control=await controls(job.integrationId), row=await rowForJob(job,control), person=await ctx.db.get(job.conversationId);
     if(job.profileVersion!==(row?.profileVersion || 1) || job.conversationVersion!==(person?.version || 0)) {await ctx.db.patch(job._id,{status:'blocked',reason:'conversation_or_profile_changed'});return ok(null);}
     const reason=!enabled?'global_paused':!ready(row)?'activation_not_ready':!control?.active && !job.manual?'owner_paused':person?.optout?'contact_opted_out':person?.takeover && !job.manual && !job.handoff?'human_takeover':!person || now-person.lastInbound>=DAY || now-job.at>=DAY?'window_expired':null;
     if(reason) {await ctx.db.patch(job._id,{status:'blocked',reason});return ok(null);}
@@ -248,8 +261,8 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     return ok({jobId:job._id,intent:a.intent,number:person.number,text:job.text,integration:row.integration,sessionHash:row.sessionHash,profileVersion:row.profileVersion || 1});
   }
   if(a.operation==='send_gate') {
-    const job=await ctx.db.get(a.jobId), control=job && await controls(job.integrationId), row=await rowForControl(control), person=job && await ctx.db.get(job.conversationId);
-    return ok(!!(job?.status==='attempting' && job.intent===a.intent && job.profileVersion===(row?.profileVersion || 1) && job.conversationVersion===(person?.version || 0) && enabled && ready(row) && (control.active || job.manual) && !person?.optout && (!person?.takeover || job.manual || job.handoff) && now-person.lastInbound<DAY));
+    const job=await ctx.db.get(a.jobId), control=job && await controls(job.integrationId), row=await rowForJob(job,control), person=job && await ctx.db.get(job.conversationId);
+    return ok(!!(job?.status==='attempting' && job.intent===a.intent && job.profileVersion===(row?.profileVersion || 1) && job.conversationVersion===(person?.version || 0) && enabled && ready(row) && (control?.active || job.manual) && !person?.optout && (!person?.takeover || job.manual || job.handoff) && now-person.lastInbound<DAY));
   }
   if(a.operation==='result') {
     const job=await ctx.db.get(a.jobId);
