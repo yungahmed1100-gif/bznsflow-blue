@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { hasib } from '../../lib/dashboard/api';
 import { parseAmount, formatMinor } from '../../../convex/hasib/money.js';
 import { Dialog } from '../dashboard/Dialog';
+import { photoProblem, preparePhoto, uploadPhoto, PHOTO_TYPES } from '../../lib/hasib/photo.js';
 
 const blankVariant = keys => ({ key: crypto.randomUUID(), sku: '', options: Object.fromEntries(keys.map(k => [k, ''])), price: '', cost: '', reorderPoint: '2', openingStock: '0' });
 const fromVariant = (v, keys) => ({ key: v.id, variantId: v.id, sku: v.sku, options: Object.fromEntries(keys.map(k => [k, v.options.find(o => o.key === k)?.value || ''])),
@@ -29,9 +30,31 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
   const [rows, setRows] = useState(() => item ? item.variants.map(v => fromVariant(v, keys)) : [blankVariant(keys)]);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [confirmArchive, setConfirmArchive] = useState(false);
   const [requestId] = useState(() => crypto.randomUUID());
+  // photo.id is undefined until the owner changes it; '' means removed.
+  const [photo, setPhoto] = useState(() => ({ url: item?.photoUrl || null, id: undefined, uploading: false }));
   const variants = toVariants(rows);
   const setRow = (key, patch) => setRows(rs => rs.map(r => r.key === key ? { ...r, ...patch } : r));
   const valid = variants && (form.nameAr.trim() || form.nameEn.trim());
+
+  const pickPhoto = async e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const problem = photoProblem(file);
+    if (problem) { setError(h.reason(problem)); return; }
+    setError(''); setPhoto(p => ({ ...p, uploading: true }));
+    try {
+      const blob = await preparePhoto(file);
+      const { url } = await hasib('photo_upload_url');
+      // The server checks the file's real bytes and ties it to this shop before it can be saved.
+      const { photoId: id } = await hasib('photo_register', { storageId: await uploadPhoto(url, blob) });
+      setPhoto(p => { if (p.url?.startsWith('blob:')) URL.revokeObjectURL(p.url); return { url: URL.createObjectURL(blob), id, uploading: false }; });
+    } catch (err) {
+      setPhoto(p => ({ ...p, uploading: false }));
+      setError(h.reason(err.reason) || h.reason('photo_upload_failed'));
+    }
+  };
+  const removePhoto = () => setPhoto(p => { if (p.url?.startsWith('blob:')) URL.revokeObjectURL(p.url); return { url: null, id: '', uploading: false }; });
 
   const save = async e => {
     e.preventDefault();
@@ -41,7 +64,8 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
       const serialized = serialsModule && form.kind === 'product' && form.trackStock && form.serialized;
       const warrantyMonths = Math.min(60, Math.max(0, parseInt(form.warrantyMonths, 10) || 0));
       const itemBody = { kind: form.kind, nameAr: form.nameAr.trim(), nameEn: form.nameEn.trim(), category: form.category.trim(), unit: form.unit, trackStock: form.trackStock,
-        ...(serialized ? { serialized: true } : {}), ...(warrantyMonths && form.warrantyBy !== 'none' ? { warrantyMonths, warrantyBy: form.warrantyBy } : {}) };
+        ...(serialized ? { serialized: true } : {}), ...(warrantyMonths && form.warrantyBy !== 'none' ? { warrantyMonths, warrantyBy: form.warrantyBy } : {}),
+        ...(photo.id !== undefined ? { photoId: photo.id } : {}) };
       const saved = await hasib('item_save', { ...(item ? { itemId: item.id } : { requestId }), item: itemBody, variants: serialized ? variants.map(({ openingStock, ...v }) => v) : variants });
       onSaved(saved);
     } catch (err) { setError(h.reason(err.reason) || s.reason(err.reason)); setBusy(false); }
@@ -57,6 +81,19 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
           <label className="ld-field">{h.t('kind')}<select value={form.kind} onChange={e => setForm({ ...form, kind: e.target.value, trackStock: e.target.value === 'product' && form.trackStock })}>
             {['product', 'service'].map(k => <option key={k} value={k}>{h.t(`kind_${k}`)}</option>)}</select></label>
         </div>
+        {form.kind === 'product' && (
+          <div className="hb-photo-field">
+            <div className="hb-photo-frame">{photo.url ? <img src={photo.url} alt={h.t('photo')} width="96" height="96" /> : <span className="ld-help">{h.t('noPhoto')}</span>}</div>
+            <div className="hb-photo-actions">
+              <label className={`ld-button ld-quiet${photo.uploading ? ' is-disabled' : ''}`}>
+                {photo.uploading ? h.t('uploadingPhoto') : photo.url ? h.t('changePhoto') : h.t('addPhoto')}
+                <input type="file" accept={PHOTO_TYPES.join(',')} className="ld-visually-hidden" disabled={photo.uploading} onChange={pickPhoto} />
+              </label>
+              {photo.url && !photo.uploading && <button type="button" className="ld-button ld-quiet ld-danger" onClick={removePhoto}>{h.t('removePhoto')}</button>}
+              <p className="ld-help">{h.t('photoHelp')}</p>
+            </div>
+          </div>
+        )}
         {form.kind === 'product' && <label className="ld-check"><input type="checkbox" checked={form.trackStock} onChange={e => setForm({ ...form, trackStock: e.target.checked })} /> {h.t('trackStock')}</label>}
         {serialsModule && form.kind === 'product' && form.trackStock && (
           <div className="hb-grid-2">
@@ -98,7 +135,7 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
             ? <button type="button" className="ld-button ld-danger" disabled={busy} onClick={() => onArchive(item)}>{h.t('archive')}</button>
             : <button type="button" className="ld-button ld-quiet ld-danger" onClick={() => setConfirmArchive(true)}>{h.t('archive')}</button>)}
           <button type="button" className="ld-button ld-quiet" onClick={confirmArchive ? () => setConfirmArchive(false) : onClose}>{h.t('cancel')}</button>
-          <button type="submit" className="ld-button ld-primary" disabled={busy}>{busy ? h.t('saving') : h.t('save')}</button>
+          <button type="submit" className="ld-button ld-primary" disabled={busy || photo.uploading}>{busy ? h.t('saving') : h.t('save')}</button>
         </div>
       </form>
     </Dialog>

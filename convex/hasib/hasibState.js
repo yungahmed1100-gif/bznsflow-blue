@@ -1,6 +1,7 @@
 // Hasib entry point: gate, tenant, then one of the feature executors.
 // The tenant is always resolved from the verified session hash; ids in the
 // request are re-checked against it by `owned()` inside each executor.
+import { registerPhoto } from './photosState.js';
 import { resolveTenant } from '../blueTenant.js';
 import { visibleModules, isLivePack, livePackSummaries, industryCatalog } from '../../config/hasib-packs.js';
 import { STOCK_POLICIES } from './stock.js';
@@ -16,10 +17,11 @@ import { executeRepairs } from './repairsState.js';
 
 export const HASIB_OPERATIONS = ['overview', 'settings_update', 'items', 'item_save', 'item_archive', 'stock_move', 'stock_moves', 'low_stock',
   'order_create', 'order_status', 'orders', 'order', 'payment_record', 'contact_summary', 'conversation_orders', 'expense_create', 'expenses', 'expense_void', 'insights',
-  'serials', 'serial_lookup', 'trade_in', 'repairs', 'repair', 'repair_create', 'repair_update', 'repair_status'];
+  'photo_upload_url', 'photo_register', 'serials', 'serial_lookup', 'trade_in', 'repairs', 'repair', 'repair_create', 'repair_update', 'repair_status'];
 
 // Operations that belong to an optional module; a pack without that module refuses them.
 const MODULE_OPS = { serials: ['serials', 'serial_lookup'], tradeIns: ['trade_in'], repairs: ['repairs', 'repair', 'repair_create', 'repair_update', 'repair_status'] };
+const DAY = 86400000, PHOTO_UPLOADS_PER_DAY = 50;
 const moduleOf = op => Object.keys(MODULE_OPS).find(m => MODULE_OPS[m].includes(op));
 
 export { hasibEnabled };
@@ -76,6 +78,15 @@ export async function executeHasib(ctx, a, now = Date.now()) {
     return ok({ pack: { id: pack.id, archetype: pack.archetype, version: pack.version, variantOptions: pack.variantOptions, orderFields: pack.orderFields, expenseCategories: pack.expenseCategories },
       plan, setupRequired: false, livePacks: livePackSummaries(), industries: industryCatalog(), modules: visibleModules(pack), settings: publicSettings(settings), counts: { pendingOrders: pending.length, lowStock: low.length, laylaWaiting: layla.length, laylaOverdue: layla.filter(o => now - o.createdAt > 86400000).length } });
   }
+  // Photos go straight from the owner's browser to Convex storage; the id is checked when the product is saved.
+  if (a.operation === 'photo_upload_url') {
+    const key = `hasib-photo:${tenant.accountId}:${Math.floor(now / DAY)}`;
+    const rate = await ctx.db.query('blueMessageRates').withIndex('by_key', q => q.eq('key', key)).unique();
+    if (rate?.count >= PHOTO_UPLOADS_PER_DAY) return fail('photo_limit');
+    if (rate) await ctx.db.patch(rate._id, { count: rate.count + 1 }); else await ctx.db.insert('blueMessageRates', { key, count: 1, expiresAt: now + 2 * DAY });
+    return ok({ url: await ctx.storage.generateUploadUrl() });
+  }
+  if (a.operation === 'photo_register') return registerPhoto(ctx, tenant.accountId, a, now);
   const module = moduleOf(a.operation);
   if (module && pack.modules[module] !== 'available') return fail('module_unavailable');
   const result = (await executeCatalog(ctx, tenant, a, now)) || (await executeOrders(ctx, tenant, a, now))

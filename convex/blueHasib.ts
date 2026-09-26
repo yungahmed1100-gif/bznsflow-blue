@@ -2,6 +2,7 @@ import { internalMutation } from './_generated/server';
 import { v, type Value } from 'convex/values';
 import { executeHasib, HASIB_OPERATIONS } from './hasib/hasibState.js';
 import { grantPlan as grant, revokePlan as revoke } from './hasib/plans.js';
+import { sweepOrphanPhotos } from './hasib/catalogState.js';
 
 type Result = Promise<{ ok: boolean; value?: Value; reason?: string }>;
 const option = v.object({ key: v.string(), value: v.string() });
@@ -16,7 +17,7 @@ export const execute = internalMutation({
     sessionHash: v.string(), requestId: v.optional(v.string()), cursor: v.optional(v.string()), limit: v.optional(v.number()), search: v.optional(v.string()), status: v.optional(v.string()),
     itemId: v.optional(v.string()), variantId: v.optional(v.string()), orderId: v.optional(v.string()), contactId: v.optional(v.string()), conversationId: v.optional(v.string()),
     item: v.optional(v.object({ kind: v.string(), nameAr: v.string(), nameEn: v.string(), category: v.string(), unit: v.string(), trackStock: v.boolean(), catalogEntryKey: v.optional(v.string()),
-      serialized: v.optional(v.boolean()), warrantyMonths: v.optional(v.number()), warrantyBy: v.optional(v.string()) })),
+      serialized: v.optional(v.boolean()), warrantyMonths: v.optional(v.number()), warrantyBy: v.optional(v.string()), photoId: v.optional(v.string()) })),
     variants: v.optional(v.array(variant)),
     delta: v.optional(v.number()), reason: v.optional(v.string()), unitCostMinor: v.optional(v.number()), note: v.optional(v.string()),
     channel: v.optional(v.string()), lines: v.optional(v.array(line)), deliveryFeeMinor: v.optional(v.number()), confirm: v.optional(v.boolean()),
@@ -25,6 +26,7 @@ export const execute = internalMutation({
     to: v.optional(v.string()), version: v.optional(v.number()), amountMinor: v.optional(v.number()), method: v.optional(v.string()), reference: v.optional(v.string()),
     vat: v.optional(v.object({ registered: v.boolean(), rateBps: v.number(), pricesIncludeVat: v.boolean(), vatin: v.optional(v.string()) })),
     stockPolicy: v.optional(v.string()), packId: v.optional(v.string()),
+    storageId: v.optional(v.string()), photoCheck: v.optional(v.union(v.literal('ok'), v.literal('bad'), v.literal('missing'))),
     lineSerials: v.optional(v.array(v.object({ variantId: v.string(), serials: v.array(v.string()) }))),
     serials: v.optional(v.array(v.string())), serial: v.optional(v.string()), costMinor: v.optional(v.number()), repairId: v.optional(v.string()), device: v.optional(v.string()), fault: v.optional(v.string()),
     accessories: v.optional(v.string()), quoteMinor: v.optional(v.number()), labourMinor: v.optional(v.number()), parts: v.optional(v.array(part)), dueAt: v.optional(v.number()),
@@ -47,3 +49,6 @@ export const grantPlan = internalMutation({ args: { email: v.string(), plan: v.s
 /** Operator: end an account's Hasib plan. Its orders, stock and expenses are kept. */
 export const revokePlan = internalMutation({ args: { email: v.string() }, handler: (ctx, args) => revoke(ctx, args, Date.now()) });
 
+
+/** Hourly: remove photo uploads that were never attached to a product. */
+export const sweepPhotos = internalMutation({ args: {}, handler: (ctx) => sweepOrphanPhotos(ctx, Date.now()) });

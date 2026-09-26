@@ -56,9 +56,9 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     return row ? rowForIntegration(ctx,row,job.integrationId,now) : null;
   }
   const ready = row => messagingReady(row, now);
-  async function queue(row, person, text, key, manual = false, handoff = false) {
+  async function queue(row, person, text, key, manual = false, handoff = false, media = undefined) {
     const pending = await ctx.db.query('blueMessages').withIndex('by_integration_status',q=>q.eq('integrationId',row.integration.id).eq('status','queued')).take(100);
-    const record = {key,integrationId:row.integration.id,accountId:row.accountId,conversationId:person._id,conversationVersion:person.version || 0,profileVersion:row.profileVersion || 1,direction:'out',text,at:now,expiresAt:now+MESSAGE_RETENTION_MS,textExpiresAt:now+TEXT_RETENTION_MS,status:pending.length>=100?'blocked':'queued',manual,handoff,...(pending.length>=100?{reason:'queue_limit'}:{})};
+    const record = {key,integrationId:row.integration.id,accountId:row.accountId,conversationId:person._id,conversationVersion:person.version || 0,profileVersion:row.profileVersion || 1,direction:'out',text,at:now,expiresAt:now+MESSAGE_RETENTION_MS,textExpiresAt:now+TEXT_RETENTION_MS,status:pending.length>=100?'blocked':'queued',manual,handoff,...(media?{media}:{}),...(pending.length>=100?{reason:'queue_limit'}:{})};
     const id=await ctx.db.insert('blueMessages',record);
     if(record.status==='queued') await schedule(id);
     return id;
@@ -248,6 +248,11 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
       const lead=commerce?.facts ? (GENERIC_INTENTS.has(e.intent) ? [commerce.facts] : [e.reply,commerce.facts]) : [e.reply];
       const reply=[...lead,commerce?.ack,applied.plan.text].filter(Boolean).join('\n\n').slice(0,MAX_REPLY_LENGTH);
       await queue(row,{...person,version},reply,`reply:${a.integrationId}:${e.id}`,false,!!e.handoff);
+      // The product photo follows the answer, once per product per chat each day.
+      if(commerce?.photo) {
+        const recent=await ctx.db.query('blueMessages').withIndex('by_conversation_at',q=>q.eq('conversationId',person._id).gte('at',now-DAY)).take(200);
+        if(!recent.some(m=>m.media?.storageId===commerce.photo.storageId)) await queue(row,{...person,version},commerce.photo.caption,`photo:${a.integrationId}:${e.id}`,false,!!e.handoff,{kind:'image',storageId:commerce.photo.storageId});
+      }
       await recordQuestions(ctx,applied.contact,applied.plan.text && reply.endsWith(applied.plan.text)?applied.plan.keys:[],now);
     }
     return ok(null);
@@ -267,7 +272,9 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
       if(r) await ctx.db.patch(r._id,{count:r.count+1});else await ctx.db.insert('blueMessageRates',{key,count:1,expiresAt});
     }
     await ctx.db.patch(job._id,{status:'attempting',intent:a.intent,attemptAt:now});
-    return ok({jobId:job._id,intent:a.intent,number:person.number,text:job.text,integration:row.integration,sessionHash:row.sessionHash,profileVersion:row.profileVersion || 1});
+    const imageUrl=job.media ? await ctx.storage.getUrl(job.media.storageId) : null;
+    if(job.media && !imageUrl) {await ctx.db.patch(job._id,{status:'blocked',reason:'photo_missing'});return ok(null);}
+    return ok({jobId:job._id,intent:a.intent,number:person.number,text:job.text,integration:row.integration,sessionHash:row.sessionHash,profileVersion:row.profileVersion || 1,...(imageUrl?{imageUrl}:{})});
   }
   if(a.operation==='send_gate') {
     const job=await ctx.db.get(a.jobId), control=job && await controls(job.integrationId), row=await rowForJob(job,control), person=job && await ctx.db.get(job.conversationId);

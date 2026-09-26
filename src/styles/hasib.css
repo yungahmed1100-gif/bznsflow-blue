@@ -64,6 +64,16 @@
 
 /* Composer */
 .hb-composer, .hb-editor, .hb-move { display: grid; gap: 12px; }
+/* Product photo */
+.hb-photo-field { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.hb-photo-frame { inline-size: 96px; block-size: 96px; flex: none; display: grid; place-items: center; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--paper-ruled); overflow: hidden; text-align: center; }
+.hb-photo-frame img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+.hb-photo-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1 1 220px; }
+.hb-photo-actions .ld-help { flex-basis: 100%; margin: 0; }
+.hb-photo-actions label { cursor: pointer; }
+.hb-photo-actions label:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }
+.hb-photo-actions label.is-disabled { opacity: .6; cursor: progress; }
+.hb-thumb { inline-size: 40px; block-size: 40px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--rule); vertical-align: middle; margin-inline-end: 8px; }
 .hb-picker { position: relative; }
 .hb-picker .ld-search, .hb-picker input { inline-size: 100%; }
 .hb-picker-list { list-style: none; margin: 4px 0 0; padding: 0; border: 1px solid var(--ink); border-radius: var(--radius); background: var(--card); max-block-size: 260px; overflow-y: auto; }

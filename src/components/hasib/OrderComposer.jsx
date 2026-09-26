@@ -78,7 +78,7 @@ function ItemPicker({ s, h, onPick }) {
           {!results.length && <li className="ld-help">{h.t('noItemsFound')}</li>}
           {results.flatMap(item => item.variants.map(v => (
             <li key={v.id}><button type="button" onClick={() => { onPick(item, v); setText(''); setResults([]); }}>
-              <span><bdi>{h.name(item)}</bdi>{v.options.length ? ` — ${v.options.map(o => o.value).join(' / ')}` : ''}</span>
+              <span>{item.photoUrl && <img className="hb-thumb" src={item.photoUrl} alt="" width="40" height="40" loading="lazy" />}<bdi>{h.name(item)}</bdi>{v.options.length ? ` — ${v.options.map(o => o.value).join(' / ')}` : ''}</span>
               <span className="ld-help"><Money h={h} minor={v.priceMinor} />{item.trackStock ? ` · ${h.t('onHand', { count: v.onHand })}` : ''}</span>
             </button></li>
           )))}

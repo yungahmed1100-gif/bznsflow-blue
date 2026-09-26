@@ -6,6 +6,9 @@ import { MOVE_REASONS } from './stock.js';
 import { ok, fail, clean, bounded, clampLimit, REQUEST_ID, byRequest, isLow, precheckStock, writeMove, settingsFor } from './shared.js';
 import { moveSerializedStock, WARRANTY_BY } from './serialsState.js';
 import { syncCatalogEntry } from './stockSync.js';
+import { checkPhoto, releaseRegistration, withPhoto, sweepOrphanPhotos } from './photosState.js';
+
+export { withPhoto, sweepOrphanPhotos };
 
 const MAX_VARIANTS = 50, MAX_OPTIONS = 3, MAX_DELTA = 100_000;
 const CLIENT_REASONS = { stock_in: 1, return: 1, adjustment: 0, damage: -1 };
@@ -69,16 +72,25 @@ async function saveItem(ctx, accountId, pack, a, now) {
   } else {
     if (!REQUEST_ID.test(a.requestId || '')) return fail('invalid_request');
     const replay = await byRequest(ctx, 'hasibItems', accountId, a.requestId);
-    if (replay) return ok({ item: publicItem(replay, await variantsOf(ctx, replay._id)), variants: (await variantsOf(ctx, replay._id)).map(publicVariant) });
+    if (replay) return ok({ item: await withPhoto(ctx, publicItem(replay, await variantsOf(ctx, replay._id)), replay), variants: (await variantsOf(ctx, replay._id)).map(publicVariant) });
   }
+  // Photo: undefined leaves it, '' removes it, an id must pass the checks.
+  const photoIn = a.item?.photoId;
+  let photoId;
+  if (typeof photoIn === 'string' && photoIn) { photoId = await checkPhoto(ctx, accountId, photoIn, existing); if (!photoId) return fail('invalid_photo'); }
   // Validate every variant before the first write.
   const current = existing ? await variantsOf(ctx, existing._id) : [];
   for (const v of variants) {
     if (v.variantId && !current.some(c => c._id === v.variantId)) return fail('variant_not_found');
     if (await skuTaken(ctx, accountId, v.sku, v.variantId)) return fail('duplicate_sku');
   }
-  const itemId = existing ? existing._id : await ctx.db.insert('hasibItems', { accountId, requestId: a.requestId, ...item, archived: false, searchText: '', createdAt: now, updatedAt: now });
-  if (existing) await ctx.db.patch(itemId, { ...item, updatedAt: now });
+  const itemId = existing ? existing._id : await ctx.db.insert('hasibItems', { accountId, requestId: a.requestId, ...item, ...(photoId ? { photoId } : {}), archived: false, searchText: '', createdAt: now, updatedAt: now });
+  if (existing) {
+    const photoChange = photoIn === undefined ? {} : { photoId: photoId || undefined };
+    await ctx.db.patch(itemId, { ...item, ...photoChange, updatedAt: now });
+    if (photoIn !== undefined && existing.photoId && existing.photoId !== photoId) await ctx.storage.delete(existing.photoId);
+  }
+  if (photoId) await releaseRegistration(ctx, photoId);
   for (const v of variants) {
     const fields = { sku: v.sku, options: v.options, priceMinor: v.priceMinor, costMinor: v.costMinor, reorderPoint: v.reorderPoint, updatedAt: now };
     if (v.variantId) {
@@ -93,7 +105,8 @@ async function saveItem(ctx, accountId, pack, a, now) {
   await ctx.db.patch(itemId, { searchText: searchText(item, saved) });
   // Layla learns the product at once: one catalog entry, kept in step with stock.
   await syncCatalogEntry(ctx, await ctx.db.get(itemId), saved, now);
-  return ok({ item: publicItem({ ...item, _id: itemId, updatedAt: now }, saved), variants: saved.filter(v => !v.archived).map(publicVariant) });
+  const stored = await ctx.db.get(itemId);
+  return ok({ item: await withPhoto(ctx, publicItem(stored, saved), stored), variants: saved.filter(v => !v.archived).map(publicVariant) });
 }
 
 async function listItems(ctx, accountId, a) {
@@ -110,7 +123,7 @@ async function listItems(ctx, accountId, a) {
     if (rows.length === limit) next = encodeCursor(rows.at(-1).updatedAt, rows.at(-1)._id);
   }
   const items = [];
-  for (const item of rows) items.push(publicItem(item, await variantsOf(ctx, item._id)));
+  for (const item of rows) items.push(await withPhoto(ctx, publicItem(item, await variantsOf(ctx, item._id)), item));
   return ok({ items, cursor: next });
 }
 

@@ -19,6 +19,14 @@ import { runCampaignSend, runCampaignStart } from './campaign-worker.js';
 // re-exported here because this module is where their callers look.
 export { messagingStore, instagramSendResult };
 
+// A claimed job becomes one provider message: a product photo (with its name as
+// the caption on WhatsApp) or plain text. Instagram image attachments take no caption.
+export function whatsappPayload(job) {
+  const body=job.imageUrl ? {type:'image',image:{link:job.imageUrl,caption:job.text}} : {type:'text',text:{preview_url:false,body:job.text}};
+  return {messaging_product:'whatsapp',recipient_type:'individual',to:job.number,...body,biz_opaque_callback_data:job.intent};
+}
+export const instagramMessage=job=>job.imageUrl ? {attachment:{type:'image',payload:{url:job.imageUrl}}} : {text:job.text};
+
 export function liveAnswer(text,profile,catalog=[]) {
   const intent=classify(text);
   if(intent==='optout') return {intent,reply:null,handoff:false};
@@ -221,10 +229,10 @@ export function createBlueWorker({env=process.env,fetcher=fetch,store=messagingS
         try {
           let result;
           if(isInstagram) {
-            const {status,payload}=await postInstagramMessage({c:igConfig,integration:job.integration,recipient:job.number,text:job.text,token,fetcher});
+            const {status,payload}=await postInstagramMessage({c:igConfig,integration:job.integration,recipient:job.number,message:instagramMessage(job),token,fetcher});
             result=instagramSendResult(status,payload,job.number);
           } else {
-            const response=await fetcher(`https://graph.facebook.com/v25.0/${job.integration.phone}/messages`,{method:'POST',redirect:'error',signal:AbortSignal.timeout(10000),headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({messaging_product:'whatsapp',recipient_type:'individual',to:job.number,type:'text',text:{preview_url:false,body:job.text},biz_opaque_callback_data:job.intent})});
+            const response=await fetcher(`https://graph.facebook.com/v25.0/${job.integration.phone}/messages`,{method:'POST',redirect:'error',signal:AbortSignal.timeout(10000),headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(whatsappPayload(job))});
             result=providerResult(response.status,await response.json().catch(()=>null));
           }
           outcome={status:result.status,...(result.providerId?{providerId:result.providerId}:{}),...(result.error?{reason:result.error}:{}),...(result.errorCode?{errorCode:result.errorCode}:{})};

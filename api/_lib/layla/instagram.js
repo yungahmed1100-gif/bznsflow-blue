@@ -110,8 +110,8 @@ export const subscribeInstagram=(c,igAccount,token,fetcher)=>instagramGraph(c,`$
 // The Send API call itself. It returns Meta's raw answer and lets a network
 // failure throw: after a send has started, only the caller can decide the
 // outcome is unknown rather than failed.
-export async function postInstagramMessage({c,integration,recipient,text,token,fetcher=fetch}) {
-  const response=await fetcher(`https://graph.instagram.com/${c.version}/${integration.igAccount}/messages`,{method:'POST',redirect:'error',signal:AbortSignal.timeout(10000),headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({recipient:{id:recipient},message:{text}})});
+export async function postInstagramMessage({c,integration,recipient,text,message=text===undefined?undefined:{text},token,fetcher=fetch}) {
+  const response=await fetcher(`https://graph.instagram.com/${c.version}/${integration.igAccount}/messages`,{method:'POST',redirect:'error',signal:AbortSignal.timeout(10000),headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({recipient:{id:recipient},message})});
   return {status:response.status,payload:await response.json().catch(()=>null)};
 }
 // Meta's messaging error codes (Messenger Platform error reference), mapped to

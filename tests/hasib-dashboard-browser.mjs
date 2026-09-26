@@ -37,7 +37,7 @@ function api(state) {
   const hasibOverview = () => state.needsSetup && !state.chosen ? { setupRequired: true, livePacks, modules: [], settings: { currency: 'OMR', vatRegistered: false, vatRateBps: 500, pricesIncludeVat: false, vatin: '', stockPolicy: 'warn' } } : ({ setupRequired: false, livePacks, pack: packRetail, modules: ['orders', 'stock'], settings: { currency: 'OMR', vatRegistered: false, vatRateBps: 500, pricesIncludeVat: false, vatin: '', stockPolicy: 'warn' },
     counts: { pendingOrders: state.orders.filter(o => o.status === 'pending').length, lowStock: state.item.variants.filter(v => v.low).length } });
   return async (surface, method, body) => {
-    state.calls.push({ surface, method, action: body?.action });
+    state.calls.push({ surface, method, action: body?.action, item: body?.item });
     const ok = value => ({ status: 200, json: { ok: true, csrfToken: CSRF, ...value } });
     if (surface === 'dashboard' && method === 'GET') return { status: 200, json: overview };
     if (surface === 'messaging') return ok({ available: true, active: true, reason: '', limits: { usedToday: 3 } });
@@ -76,6 +76,8 @@ function api(state) {
         return ok({ order: publicOrder(o) });
       }
       case 'settings_update': if (body.packId !== 'retail') return { status: 409, json: { ok: false, reason: 'pack_not_live' } }; state.chosen = true; return ok({ settings: {} });
+      case 'photo_upload_url': return ok({ url: `${BASE}/upload-test` });
+      case 'photo_register': return ok({ photoId: body.storageId });
       case 'item_save': return ok({ item: state.item, variants: state.item.variants });
       case 'stock_move': { const v = state.item.variants[0]; v.onHand += body.delta; v.low = v.onHand <= v.reorderPoint; return ok({ variant: v }); }
       default: return { status: 400, json: { ok: false, reason: 'invalid_action' } };
@@ -93,6 +95,7 @@ async function openPage(browser, { width, lang = 'en', path, handler }) {
       const response = await handler(url.searchParams.get('surface'), route.request().method(), route.request().postDataJSON());
       return route.fulfill({ status: response.status, json: response.json });
     }
+    if (url.pathname === '/upload-test') return route.fulfill({ status: 200, json: { storageId: 'kg_photo1' } });
     if (url.pathname.startsWith('/api/')) return route.fulfill({ status: 404, json: { ok: false } });
     return route.continue();
   });
@@ -194,6 +197,31 @@ try {
     assert.equal(await page.locator('.ld').getAttribute('dir'), 'rtl'); count++;
     const nav = await page.locator('.ld-nav').boundingBox();
     assert.ok(nav.x > 640, 'rail on the right in RTL'); count++;
+    await context.close();
+  }
+  // Product photo: thumbnail in Stock, upload from the editor, saved with the product.
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  for (const [lang, width] of [['en', 1280], ['ar', 375]]) {
+    const state = fixture();
+    state.item = { ...state.item, photoUrl: `data:image/png;base64,${PNG.toString('base64')}` };
+    const { page, context } = await openPage(browser, { width, lang, path: '/layla/dashboard?tab=stock', handler: api(state) });
+    await page.locator('.hb-stock-table img.hb-thumb').first().waitFor();
+    count++;
+    await page.locator('.hb-stock-table .ld-row-open').first().click();
+    const editor = page.getByRole('dialog');
+    await editor.getByText(lang === 'ar' ? 'تغيير الصورة' : 'Change photo').waitFor();
+    assert.equal(await editor.locator('.hb-photo-frame img').count(), 1, `current photo shown (${lang})`); count++;
+    await editor.locator('input[type=file]').setInputFiles({ name: 'abaya.png', mimeType: 'image/png', buffer: PNG });
+    await page.waitForFunction(() => document.querySelector('.hb-photo-frame img')?.src.startsWith('blob:'));
+    assert.deepEqual(await axe(page, '[role=dialog]'), [], `photo editor axe ${lang}`); count++;
+    await page.screenshot({ path: `${OUT}/photo-editor-${lang}-${width}.png` });
+    await editor.locator('input[type=file]').setInputFiles({ name: 'notes.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4') });
+    await editor.getByRole('alert').filter({ hasText: lang === 'ar' ? 'JPG أو PNG أو WebP' : 'JPG, PNG or WebP' }).waitFor();
+    count++;
+    await editor.getByRole('button', { name: lang === 'ar' ? 'حفظ' : 'Save', exact: true }).click();
+    await editor.waitFor({ state: 'detached' });
+    assert.equal(state.calls.find(c => c.action === 'item_save')?.item?.photoId, 'kg_photo1', `photo saved with the product (${lang})`); count++;
+    assert.equal(await noOverflow(page), true); count++;
     await context.close();
   }
   console.log(`hasib dashboard browser: ${count} assertions passed`);

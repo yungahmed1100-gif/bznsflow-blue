@@ -102,7 +102,7 @@ async function labelled(ctx, order, text) {
 }
 
 /**
- * One commerce turn. Returns `{ facts, ack }` (either may be null), or null when
+ * One commerce turn. Returns `{ photo, facts, ack }` (any may be null), or null when
  * Hasib is off for the account or the message names no stock product.
  */
 export async function commerceTurn(ctx, { row, person, contact, text, intent, now, secret }) {
@@ -120,12 +120,14 @@ export async function commerceTurn(ctx, { row, person, contact, text, intent, no
   const variants = (await ctx.db.query('hasibVariants').withIndex('by_item', q => q.eq('itemId', item._id)).take(50)).filter(v => !v.archived);
   if (!variants.length) return null;
   const facts = stockLine(item, variants, text);
+  // The product photo goes with the answer; ingest sends it once per chat.
+  const photo = item.photoId ? { storageId: item.photoId, caption: nameOf(item, isArabic(text)) } : null;
   if (contact) await recordDemand(ctx, { accountId, contact, conversationId: person._id, updates: [{ key: 'item', value: item.nameEn || item.nameAr }], intent: 'catalog_item', at: now });
 
-  if (item.kind !== 'product') return { facts, ack: null };
+  if (item.kind !== 'product') return { photo, facts, ack: null };
   const said = parseInt(normalizeDigits(field('quantity') || ''), 10);
   const qty = Number.isSafeInteger(said) && said > 0 ? Math.min(said, MAX_QTY) : BUYING.test(text) ? 1 : 0;
-  if (!qty) return { facts, ack: null };
+  if (!qty) return { photo, facts, ack: null };
   const { variant, confirmed } = pickVariant(variants, text);
   const type = ['delivery', 'pickup'].includes(field('fulfilment')) ? field('fulfilment') : undefined, area = field('area');
   const chatOrders = (await ctx.db.query('hasibOrders').withIndex('by_conversation_status', q => q.eq('conversationId', person._id)).take(50))
@@ -135,7 +137,7 @@ export async function commerceTurn(ctx, { row, person, contact, text, intent, no
   const settled = chatOrders.find(o => OPEN_CONFIRMED.includes(o.status) && now - o.createdAt < DAY && o.lines.some(l => l.itemId === item._id));
   if (settled) {
     await ctx.db.patch(settled._id, { flags: [...new Set([...(settled.flags || []), 'change_requested'])], updatedAt: now });
-    return { facts: null, ack: null };
+    return { photo, facts: null, ack: null };
   }
 
   let orderId, fresh = false;
@@ -166,7 +168,7 @@ export async function commerceTurn(ctx, { row, person, contact, text, intent, no
     fresh = true;
   }
   const result = await confirmOrFlag(ctx, tenant, orderId, now);
-  if (result.confirmed) return { facts: null, ack: confirmation(await labelled(ctx, result.order, text), text) };
+  if (result.confirmed) return { photo, facts: null, ack: confirmation(await labelled(ctx, result.order, text), text) };
   const order = await ctx.db.get(orderId);
-  return { facts, ack: fresh ? acknowledgement(order.number, text) : null };
+  return { photo, facts, ack: fresh ? acknowledgement(order.number, text) : null };
 }

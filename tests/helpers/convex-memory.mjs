@@ -56,9 +56,27 @@ export function convexMemory({ start = 1_800_000_000_000 } = {}) {
     async delete(id) { rows.delete(id); },
     normalizeId(table, id) { return String(id).startsWith(`${table}_`) ? id : null; },
   };
-  const ctx = { db, scheduler: { runAfter: async (delay, fn, args) => { scheduled.push(args); } } };
-  return { ctx, db, rows, scheduled, table: name => matching(name), now: () => time, advance: ms => { time += ms; return time; } };
+  // Convex file storage stand-in: files are `_storage_N` ids with system metadata.
+  const files = new Map(), deleted = [];
+  db.system = { get: async id => (files.has(id) ? { _id: id, ...files.get(id) } : null), normalizeId: (table, id) => db.normalizeId(table, id),
+    // Only `_storage` by creation time, which is all Hasib reads.
+    query: () => {
+      const filters = [];
+      const range = { gt: (k, v) => (filters.push(f => f[k] > v), range), gte: (k, v) => (filters.push(f => f[k] >= v), range), lt: (k, v) => (filters.push(f => f[k] < v), range), lte: (k, v) => (filters.push(f => f[k] <= v), range) };
+      const api = { withIndex: (_index, fn) => (fn?.(range), api), take: async n => [...files].map(([id, f]) => ({ _id: id, ...f })).filter(f => filters.every(x => x(f))).sort((a, b) => a._creationTime - b._creationTime).slice(0, n) };
+      return api;
+    } };
+  const storage = {
+    generateUploadUrl: async () => `https://upload.test/${++seq}`,
+    getUrl: async id => (files.has(id) ? `https://files.test/${id}` : null),
+    get: async id => (files.has(id) ? new Blob([files.get(id).bytes || JPEG_HEAD]) : null),
+    delete: async id => { files.delete(id); deleted.push(id); },
+  };
+  const putFile = ({ contentType = 'image/jpeg', size = 1000, bytes } = {}) => { const id = `_storage_${++seq}`; files.set(id, { contentType, size, bytes, _creationTime: time }); return id; };
+  const ctx = { db, storage, scheduler: { runAfter: async (delay, fn, args) => { scheduled.push(args); } } };
+  return { ctx, db, rows, scheduled, putFile, deletedFiles: deleted, table: name => matching(name), now: () => time, advance: ms => { time += ms; return time; } };
 }
 
+const JPEG_HEAD = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1]);
 export const SECRET = '9'.repeat(64);
 export const APP = '1388038082832745';

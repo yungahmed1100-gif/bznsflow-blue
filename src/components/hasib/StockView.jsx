@@ -44,6 +44,7 @@ export function StockView({ s, h, overview, onChanged }) {
                 {items.flatMap(item => item.variants.map((v, i) => (
                   <tr key={v.id} className={i ? 'hb-sub' : ''}>
                     {i === 0 && <th scope="rowgroup" rowSpan={item.variants.length}>
+                      {item.photoUrl && <img className="hb-thumb" src={item.photoUrl} alt="" width="40" height="40" loading="lazy" />}
                       {item.partial ? <bdi>{h.name(item)}</bdi> : <button type="button" className="ld-row-open" onClick={() => setEditing({ item })}><bdi>{h.name(item)}</bdi></button>}
                       {item.category && <span className="ld-help"> · <bdi>{item.category}</bdi></span>}{item.serialized && <span className="ld-chip">{h.t('serializedChip')}</span>}
                     </th>}

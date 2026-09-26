@@ -20,7 +20,7 @@ const variant = v => compact({ variantId: id(v?.variantId), sku: str(v?.sku, 40)
   costMinor: int(v?.costMinor), reorderPoint: int(v?.reorderPoint), openingStock: int(v?.openingStock) });
 const item = i => i && typeof i === 'object' ? compact({ kind: str(i.kind, 20) || '', nameAr: str(i.nameAr, 120) ?? '', nameEn: str(i.nameEn, 120) ?? '', category: str(i.category, 60) ?? '',
   unit: str(i.unit, 20) || 'piece', trackStock: bool(i.trackStock), catalogEntryKey: uuid(i.catalogEntryKey), serialized: bool(i.serialized) || undefined,
-  warrantyMonths: int(i.warrantyMonths), warrantyBy: str(i.warrantyBy, 10) }) : undefined;
+  warrantyMonths: int(i.warrantyMonths), warrantyBy: str(i.warrantyBy, 10), photoId: typeof i.photoId === 'string' && /^[A-Za-z0-9_-]{0,64}$/.test(i.photoId) ? i.photoId : undefined }) : undefined;
 
 /** Actions whose id-bearing argument is required; a malformed id is refused rather than dropped. */
 const REQUIRED = { order: 'orderId', order_status: 'orderId', payment_record: 'orderId', item_archive: 'itemId', stock_moves: 'variantId', stock_move: 'variantId', contact_summary: 'contactId', conversation_orders: 'conversationId', expense_void: 'expenseId', serials: 'variantId', trade_in: 'variantId', repair: 'repairId', repair_update: 'repairId', repair_status: 'repairId' };
@@ -49,6 +49,8 @@ const SHAPES = {
   expenses: b => ({ period: str(b.period, 12) }),
   expense_void: b => ({ expenseId: id(b.expenseId) }),
   insights: b => ({ period: str(b.period, 12) }),
+  photo_upload_url: () => ({}),
+  photo_register: b => ({ storageId: typeof b.storageId === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(b.storageId) ? b.storageId : '' }),
   serials: b => ({ variantId: id(b.variantId), status: str(b.status, 20) }),
   serial_lookup: b => ({ serial: str(b.serial, 40) }),
   trade_in: b => ({ requestId: uuid(b.requestId), variantId: id(b.variantId), serial: str(b.serial, 40), costMinor: int(b.costMinor), method: str(b.method, 20),

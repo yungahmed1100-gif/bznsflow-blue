@@ -1,3 +1,4 @@
+import { checkPhotoBytes } from './hasib/photoBytes.js';
 import { httpRouter } from 'convex/server';
 import { httpAction } from './_generated/server';
 import { internal } from './_generated/api';
@@ -66,6 +67,9 @@ http.route({path:'/blue-hasib',method:'POST',handler:httpAction(async(ctx,reques
     const raw=await request.text();if(raw.length>65536) return new Response(null,{status:413});
     const args=JSON.parse(raw);
     if(!/^[a-f0-9]{64}$/.test(args.sessionHash || '')) return new Response(null,{status:400});
+    // Only this route may say whether an uploaded photo's bytes are a real image.
+    delete args.photoCheck;
+    if(args.operation==='photo_register') args.photoCheck=await checkPhotoBytes(ctx,args.storageId);
     const result=await ctx.runMutation((internal as any).blueHasib.execute,args);
     return new Response(JSON.stringify(result),{headers});
   } catch {return new Response(JSON.stringify({ok:false,reason:'hasib_unavailable'}),{status:503,headers});}

@@ -38,6 +38,18 @@ seven-day text retention and thirty-day metadata retention. (Superseded locally
 - Convex schedules the worker and sweeps queued work every minute. One send
   attempt per business may be in flight. Active connections are rechecked at
   five-minute intervals and before each send. Provider failures pause automation.
+- Product photos (Hasib, Ascend): the only outbound media. When a customer asks
+  about a stock product that has a photo, ingest queues one extra image job after
+  Layla's text, once per chat and photo per 24h. `claim` resolves the stored
+  photo to a public Convex storage URL (blocked `photo_missing` if deleted); the
+  worker sends WhatsApp `type:image` with the product name as caption, or an
+  Instagram image attachment. Same claim/send_gate/rate/receipt rules as text.
+  Owners upload JPG/PNG/WebP ≤5 MB straight to Convex storage (50 upload
+  addresses per shop per day). The `/blue-hasib` HTTP route then reads the file's
+  real bytes (JPEG/PNG/WebP signature, size) and the shop registers it
+  (`photo_register`); a failing file is deleted at once, and only the same shop's
+  registered file can be attached to a product. Unregistered uploads are swept
+  after an hour, registered-but-unsaved ones after a day.
 - Defaults: ten sends/minute and 100/day per business, 500/day globally, 100
   queued replies/business. Manual replies share the limits and require a recent
   incoming message. Opted-out contacts cannot receive manual replies.
