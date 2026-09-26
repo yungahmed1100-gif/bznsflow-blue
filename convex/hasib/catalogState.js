@@ -4,6 +4,7 @@ import { owned, encodeCursor, decodeCursor, afterCursor } from '../blueTenant.js
 import { isMinor } from './money.js';
 import { MOVE_REASONS } from './stock.js';
 import { ok, fail, clean, bounded, clampLimit, REQUEST_ID, byRequest, isLow, precheckStock, writeMove, settingsFor } from './shared.js';
+import { moveSerializedStock, WARRANTY_BY } from './serialsState.js';
 
 const MAX_VARIANTS = 50, MAX_OPTIONS = 3, MAX_DELTA = 100_000;
 const CLIENT_REASONS = { stock_in: 1, return: 1, adjustment: 0, damage: -1 };
@@ -11,17 +12,24 @@ const KINDS = ['product', 'service'];
 
 export const publicVariant = v => ({ id: v._id, sku: v.sku, options: v.options, priceMinor: v.priceMinor, costMinor: v.costMinor, onHand: v.onHand, reorderPoint: v.reorderPoint, low: v.low });
 export const publicItem = (item, variants) => ({ id: item._id, kind: item.kind, nameAr: item.nameAr, nameEn: item.nameEn, category: item.category, unit: item.unit,
-  trackStock: item.trackStock, catalogEntryKey: item.catalogEntryKey || null, variants: variants.filter(v => !v.archived).map(publicVariant), updatedAt: item.updatedAt });
+  trackStock: item.trackStock, serialized: !!item.serialized, warrantyMonths: item.warrantyMonths || 0, warrantyBy: item.warrantyBy || 'none',
+  catalogEntryKey: item.catalogEntryKey || null, variants: variants.filter(v => !v.archived).map(publicVariant), updatedAt: item.updatedAt });
 
 const variantsOf = (ctx, itemId) => ctx.db.query('hasibVariants').withIndex('by_item', q => q.eq('itemId', itemId)).take(MAX_VARIANTS + 10);
 
-function itemInput(raw) {
+function itemInput(raw, pack) {
   if (!raw || !KINDS.includes(raw.kind)) return null;
+  // Serial/IMEI tracking is a tech-store capability; it needs a stocked product.
+  const serialized = raw.serialized === true;
+  if (serialized && (pack.modules.serials !== 'available' || raw.kind !== 'product' || raw.trackStock !== true)) return null;
+  const warrantyMonths = raw.warrantyMonths ?? 0, warrantyBy = raw.warrantyBy ?? 'none';
+  if (!Number.isSafeInteger(warrantyMonths) || warrantyMonths < 0 || warrantyMonths > 60 || !WARRANTY_BY.includes(warrantyBy)) return null;
   const nameAr = bounded(raw.nameAr ?? '', 120), nameEn = bounded(raw.nameEn ?? '', 120), category = bounded(raw.category ?? '', 60), unit = bounded(raw.unit ?? 'piece', 20);
   if ([nameAr, nameEn, category, unit].includes(null) || !(nameAr || nameEn) || typeof raw.trackStock !== 'boolean') return null;
   const catalogEntryKey = raw.catalogEntryKey ? (/^[a-f0-9-]{36}$/.test(raw.catalogEntryKey) ? raw.catalogEntryKey : null) : undefined;
   if (catalogEntryKey === null) return null;
-  return { kind: raw.kind, nameAr, nameEn, category, unit: unit || 'piece', trackStock: raw.kind === 'product' && raw.trackStock, ...(catalogEntryKey ? { catalogEntryKey } : {}) };
+  return { kind: raw.kind, nameAr, nameEn, category, unit: unit || 'piece', trackStock: raw.kind === 'product' && raw.trackStock, ...(catalogEntryKey ? { catalogEntryKey } : {}),
+    ...(serialized ? { serialized: true } : {}), ...(warrantyMonths ? { warrantyMonths, warrantyBy } : {}) };
 }
 function variantInput(raw) {
   const sku = bounded(raw?.sku ?? '', 40);
@@ -41,10 +49,12 @@ async function skuTaken(ctx, accountId, sku, exceptId) {
   return rows.some(r => r._id !== exceptId && !r.archived);
 }
 
-async function saveItem(ctx, accountId, a, now) {
-  const item = itemInput(a.item);
+async function saveItem(ctx, accountId, pack, a, now) {
+  let item = itemInput(a.item, pack);
   const variants = Array.isArray(a.variants) && a.variants.length && a.variants.length <= MAX_VARIANTS ? a.variants.map(variantInput) : null;
   if (!item || !variants || variants.includes(null)) return fail('invalid_item');
+  // Serialized units arrive with their IMEIs through a stock receipt, never as a bare opening quantity.
+  if (item.serialized && variants.some(v => v.openingStock > 0)) return fail('invalid_item');
   const skus = variants.map(v => v.sku).filter(Boolean);
   if (new Set(skus).size !== skus.length) return fail('duplicate_sku');
 
@@ -52,6 +62,9 @@ async function saveItem(ctx, accountId, a, now) {
   if (a.itemId) {
     existing = await owned(ctx, a.itemId, accountId, 'hasibItems');
     if (!existing || existing.archived) return fail('item_not_found');
+    // Serial tracking is fixed at creation so on-hand and serial rows can never disagree.
+    item = { ...item, serialized: existing.serialized || undefined };
+    if (!item.serialized) delete item.serialized;
   } else {
     if (!REQUEST_ID.test(a.requestId || '')) return fail('invalid_request');
     const replay = await byRequest(ctx, 'hasibItems', accountId, a.requestId);
@@ -110,6 +123,8 @@ async function moveStock(ctx, accountId, a, now) {
   if (a.unitCostMinor !== undefined && (!isMinor(a.unitCostMinor) || a.reason !== 'stock_in')) return fail('invalid_stock_move');
   const note = bounded(a.note ?? '', 200);
   if (note === null) return fail('invalid_stock_move');
+  const item = await ctx.db.get(variant.itemId);
+  if (item?.serialized) return (await moveSerializedStock(ctx, { accountId, variant, a, note, now })) || ok({ variant: publicVariant(await ctx.db.get(variant._id)) });
   const settings = await settingsFor(ctx, accountId);
   const check = precheckStock([{ variant, delta }], settings.stockPolicy);
   if (!check.ok) return fail(check.reason);
@@ -120,7 +135,7 @@ async function moveStock(ctx, accountId, a, now) {
 export async function executeCatalog(ctx, tenant, a, now) {
   const { accountId } = tenant;
   if (a.operation === 'items') return listItems(ctx, accountId, a);
-  if (a.operation === 'item_save') return saveItem(ctx, accountId, a, now);
+  if (a.operation === 'item_save') return saveItem(ctx, accountId, tenant.pack, a, now);
   if (a.operation === 'item_archive') {
     const item = await owned(ctx, a.itemId, accountId, 'hasibItems');
     if (!item || item.archived) return fail('item_not_found');

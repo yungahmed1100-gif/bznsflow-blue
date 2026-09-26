@@ -7,6 +7,7 @@ import { matchItem } from './matching.js';
 import { orderTotals, paymentStatus, MAX_QTY } from './totals.js';
 import { canTransition, isStatus, stockEffect, deductsStock } from './orderMachine.js';
 import { ok, fail, clean, bounded, clampLimit, REQUEST_ID, byRequest, settingsFor, vatOf, nextNumber, sellableVariant, precheckStock, writeMove } from './shared.js';
+import { planOrderSerials, commitOrderSerials, transitionOrderSerials, averageCost, orderSerialRows, warrantyEnd } from './serialsState.js';
 
 export const CHANNELS = ['whatsapp', 'instagram', 'walk_in', 'phone', 'website', 'other'];
 export const FULFILMENT = ['pickup', 'delivery', 'in_store'];
@@ -24,7 +25,7 @@ export async function publicOrder(ctx, o, { payments } = {}) {
     conversationId: o.conversationId || null, lines: o.lines, subtotalMinor: o.subtotalMinor, discountMinor: o.discountMinor, deliveryMinor: o.deliveryMinor,
     vatMinor: o.vatMinor, totalMinor: o.totalMinor, pricesIncludeVat: o.pricesIncludeVat, paidMinor: o.paidMinor, balanceMinor: o.totalMinor - o.paidMinor,
     paymentStatus: o.paymentStatus, fulfilment: o.fulfilment, customFields: o.customFields, notes: o.notes || '', stockShort: o.stockShort,
-    history: o.history, version: o.version, createdAt: o.createdAt, updatedAt: o.updatedAt, ...(payments ? { payments } : {}) };
+    history: o.history, kind: o.kind || 'sale', version: o.version, createdAt: o.createdAt, updatedAt: o.updatedAt, ...(payments ? { payments } : {}) };
 }
 
 /** Resolve requested lines to snapshot lines. Throws `{ reason }` on anything invalid. */
@@ -41,7 +42,8 @@ async function resolveLines(ctx, accountId, raw) {
       const { variant, item } = found;
       const label = variant.options.map(o => o.value).join(' / ');
       lines.push({ variantId: variant._id, itemId: item._id, name: [item.nameAr || item.nameEn, label].filter(Boolean).join(' — ').slice(0, 160), sku: variant.sku || undefined,
-        qty: l.qty, unitPriceMinor: l.unitPriceMinor ?? variant.priceMinor, discountMinor: l.discountMinor || 0, unitCostMinor: variant.costMinor, tracked: item.trackStock, variant });
+        qty: l.qty, unitPriceMinor: l.unitPriceMinor ?? variant.priceMinor, discountMinor: l.discountMinor || 0, unitCostMinor: variant.costMinor, tracked: item.trackStock, variant,
+        ...(item.serialized ? { serialized: true, warrantyMonths: item.warrantyMonths || 0, warrantyBy: item.warrantyBy || 'none' } : {}) });
     } else {
       const name = bounded(l.name ?? '', 120);
       if (!name || l.unitPriceMinor === undefined) throw { reason: 'invalid_order_lines' };
@@ -51,6 +53,9 @@ async function resolveLines(ctx, accountId, raw) {
   return lines;
 }
 const stripVariant = ({ variant, ...line }) => line;
+/** Warranty and cost for a serialized line once its units are known. */
+const serialLine = (line, rows, sold, now) => ({ ...line, serials: rows.map(r => r.serial), unitCostMinor: averageCost(rows),
+  ...(sold && line.warrantyMonths ? { warrantyUntil: warrantyEnd(now, line.warrantyMonths) } : {}) });
 const stockChanges = (lines, sign) => lines.filter(l => l.tracked && l.variant).map(l => ({ variant: l.variant, delta: sign * l.qty }));
 
 async function applyOrderStock(ctx, accountId, order, lines, sign, now) {
@@ -87,9 +92,9 @@ async function contactFor(ctx, tenant, a) {
   return {};
 }
 
-async function createOrder(ctx, tenant, a, now) {
+export async function createOrder(ctx, tenant, a, now, { internal = false } = {}) {
   const { accountId } = tenant;
-  if (!REQUEST_ID.test(a.requestId || '')) return fail('invalid_request');
+  if (!internal && !REQUEST_ID.test(a.requestId || '')) return fail('invalid_request');
   const replay = await byRequest(ctx, 'hasibOrders', accountId, a.requestId);
   if (replay) return ok(await publicOrder(ctx, replay));
   const input = orderInput(a, tenant.pack);
@@ -97,10 +102,11 @@ async function createOrder(ctx, tenant, a, now) {
   const who = await contactFor(ctx, tenant, a);
   if (who.error) return fail(who.error);
   const settings = await settingsFor(ctx, accountId);
-  let lines, totals;
+  let lines, totals, serialPlan;
   try {
     lines = await resolveLines(ctx, accountId, a.lines);
     totals = orderTotals({ lines, deliveryFeeMinor: a.deliveryFeeMinor || 0, vat: vatOf(settings) });
+    serialPlan = await planOrderSerials(ctx, accountId, lines, (a.lines || []).map(l => l?.serials));
   } catch (e) { return fail(e.reason || 'invalid_order_lines'); }
   const status = a.confirm === true ? 'confirmed' : 'pending';
   let short = false;
@@ -111,19 +117,24 @@ async function createOrder(ctx, tenant, a, now) {
   }
   // Every check has passed; from here on the mutation writes.
   if (who.person) who.contact = await linkConversation(ctx, who.person, { sectorId: sectorFor(tenant.row), now, secret: tenant.secret });
-  const snapshot = totals.lines.map((l, i) => stripVariant({ ...lines[i], vatBps: l.vatBps, netMinor: l.netMinor, vatMinor: l.vatMinor, discountMinor: l.discountMinor }));
+  const sold = deductsStock(status);
+  const snapshot = totals.lines.map((l, i) => {
+    const line = stripVariant({ ...lines[i], vatBps: l.vatBps, netMinor: l.netMinor, vatMinor: l.vatMinor, discountMinor: l.discountMinor });
+    return serialPlan.has(i) ? serialLine(line, serialPlan.get(i), sold, now) : line;
+  });
   const number = await nextNumber(ctx, accountId, 'order');
   const id = await ctx.db.insert('hasibOrders', { accountId, number, requestId: a.requestId, ...(who.contact ? { contactId: who.contact._id } : {}), ...(who.conversationId ? { conversationId: who.conversationId } : {}),
     ...(input.customerName ? { customerName: input.customerName } : {}), channel: input.channel, status, lines: snapshot,
     subtotalMinor: totals.subtotalMinor, discountMinor: totals.discountMinor, deliveryMinor: totals.deliveryMinor, vatMinor: totals.vatMinor, totalMinor: totals.totalMinor,
     pricesIncludeVat: settings.vatRegistered && settings.pricesIncludeVat, paidMinor: 0, paymentStatus: paymentStatus(totals.totalMinor, 0),
     fulfilment: input.fulfilment, customFields: input.customFields, ...(input.notes ? { notes: input.notes } : {}), stockShort: short,
-    history: [{ status, at: now }], version: 1, createdAt: now, updatedAt: now });
-  if (deductsStock(status)) await applyOrderStock(ctx, accountId, id, lines, -1, now);
+    history: [{ status, at: now }], ...(a.kind ? { kind: a.kind } : {}), version: 1, createdAt: now, updatedAt: now });
+  await commitOrderSerials(ctx, serialPlan, { orderId: id, sold, contactId: who.contact?._id, lines: snapshot, now });
+  if (sold) await applyOrderStock(ctx, accountId, id, lines, -1, now);
   return ok(await publicOrder(ctx, await ctx.db.get(id)));
 }
 
-async function changeStatus(ctx, accountId, a, now) {
+export async function changeStatus(ctx, accountId, a, now) {
   const order = await owned(ctx, a.orderId, accountId, 'hasibOrders');
   if (!order) return fail('order_not_found');
   if (a.version !== order.version) return fail('order_conflict');
@@ -138,16 +149,44 @@ async function changeStatus(ctx, accountId, a, now) {
       const check = precheckStock(stockChanges(current, -1), settings.stockPolicy);
       if (!check.ok) return fail(check.reason);
       short = check.short;
-      // Cost of goods is fixed when stock actually leaves.
-      lines = current.map(l => stripVariant(l.variant ? { ...l, unitCostMinor: l.variant.costMinor } : l));
+      // Cost of goods is fixed when stock actually leaves; a serialized unit carries its own cost.
+      const units = (await orderSerialRows(ctx, order._id)).filter(r => r.accountId === accountId && r.status === 'reserved');
+      lines = current.map(l => {
+        if (l.serialized) return serialLine(stripVariant(l), units.filter(r => r.variantId === l.variantId), true, now);
+        return stripVariant(l.variant ? { ...l, unitCostMinor: l.variant.costMinor } : l);
+      });
     }
     await applyOrderStock(ctx, accountId, order._id, order.lines, effect, now);
+  }
+  if (order.lines.some(l => l.serialized)) {
+    await transitionOrderSerials(ctx, order, { to: a.to, effect, now });
+    if (effect > 0 || a.to === 'cancelled') lines = lines.map(({ warrantyUntil, ...l }) => (l.serialized ? l : { ...l, ...(warrantyUntil ? { warrantyUntil } : {}) }));
   }
   await ctx.db.patch(order._id, { status: a.to, lines, stockShort: short, history: [...order.history, { status: a.to, at: now }].slice(-HISTORY), version: order.version + 1, updatedAt: now });
   return ok(await publicOrder(ctx, await ctx.db.get(order._id)));
 }
 
-async function paymentsOf(ctx, orderId) {
+/**
+ * Replace the lines of a pending order (repair quotes and parts). Payments already
+ * taken stay; the balance is recomputed. Serialized units cannot be edited here.
+ */
+export async function updatePendingOrder(ctx, accountId, order, rawLines, now, { serializedReason = 'serialized_not_editable' } = {}) {
+  if (order.status !== 'pending') return fail('order_locked');
+  if (order.lines.some(l => l.serialized)) return fail(serializedReason);
+  const settings = await settingsFor(ctx, accountId);
+  let lines, totals;
+  try {
+    lines = await resolveLines(ctx, accountId, rawLines);
+    if (lines.some(l => l.serialized)) return fail(serializedReason);
+    totals = orderTotals({ lines, deliveryFeeMinor: order.deliveryMinor, vat: vatOf(settings) });
+  } catch (e) { return fail(e.reason || 'invalid_order_lines'); }
+  const snapshot = totals.lines.map((l, i) => stripVariant({ ...lines[i], vatBps: l.vatBps, netMinor: l.netMinor, vatMinor: l.vatMinor, discountMinor: l.discountMinor }));
+  await ctx.db.patch(order._id, { lines: snapshot, subtotalMinor: totals.subtotalMinor, discountMinor: totals.discountMinor, vatMinor: totals.vatMinor, totalMinor: totals.totalMinor,
+    paymentStatus: paymentStatus(totals.totalMinor, order.paidMinor), version: order.version + 1, updatedAt: now });
+  return ok(await publicOrder(ctx, await ctx.db.get(order._id)));
+}
+
+export async function paymentsOf(ctx, orderId) {
   return (await ctx.db.query('hasibPayments').withIndex('by_order_at', q => q.eq('orderId', orderId)).take(100))
     .map(p => ({ id: p._id, amountMinor: p.amountMinor, method: p.method, reference: p.reference || '', at: p.at }));
 }

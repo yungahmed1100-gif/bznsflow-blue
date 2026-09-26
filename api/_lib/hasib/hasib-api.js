@@ -11,7 +11,7 @@ import { dashboardAvailable } from '../layla/dashboard-api.js';
 import { hasibArgs } from './validate.js';
 
 const HOST = 'bznsflow-blue.vercel.app', ORIGIN = `https://${HOST}`;
-const LIMITS = { item_save: 40000, order_create: 40000 };
+const LIMITS = { item_save: 40000, order_create: 40000, stock_move: 16000, repair_update: 12000 };
 const DEFAULT_BODY_LIMIT = 6000;
 
 export const hasibAvailable = (env = process.env) => dashboardAvailable(env) && env.BLUE_HASIB_ENABLED === 'true';

@@ -123,6 +123,18 @@ async function cashIn(ctx, accountId, range) {
   return [...byMethod].map(([method, amountMinor]) => ({ method, amountMinor })).sort((a, b) => b.amountMinor - a.amountMinor);
 }
 
+/** Trade-ins are inventory bought from customers: shown on their own, never as operating cost. */
+async function tradeInsIn(ctx, accountId, range) {
+  const rows = await ctx.db.query('hasibTradeIns').withIndex('by_account_at', q => q.eq('accountId', accountId).gte('at', range.from).lt('at', range.to)).take(ORDER_LIMIT);
+  return { count: rows.length, totalMinor: rows.reduce((n, r) => n + r.costMinor, 0) };
+}
+/** Workshop load right now, and tickets collected in the period. */
+async function repairsSummary(ctx, accountId, range) {
+  const recent = await ctx.db.query('hasibRepairs').withIndex('by_account_created', q => q.eq('accountId', accountId)).order('desc').take(500);
+  return { open: recent.filter(r => !['ready', 'collected', 'cancelled'].includes(r.status)).length, ready: recent.filter(r => r.status === 'ready').length,
+    collected: recent.filter(r => r.status === 'collected' && r.history.some(h => h.status === 'collected' && h.at >= range.from && h.at < range.to)).length };
+}
+
 export async function executeInsights(ctx, tenant, a, now) {
   if (a.operation !== 'insights') return null;
   const { accountId } = tenant;
@@ -152,6 +164,8 @@ export async function executeInsights(ctx, tenant, a, now) {
     customers: await customers(ctx, accountId, sales, range.from),
     stock: await stockSummary(ctx, accountId),
     demand: pack.modules.demand === 'available' ? await demandReport(ctx, accountId, range) : null,
+    tradeIns: pack.modules.tradeIns === 'available' ? await tradeInsIn(ctx, accountId, range) : null,
+    repairs: pack.modules.repairs === 'available' ? await repairsSummary(ctx, accountId, range) : null,
     truncated: orders.truncated || expenses.truncated,
   });
 }

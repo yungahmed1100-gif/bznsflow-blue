@@ -3,6 +3,12 @@ import { removeDemandFor } from './demandState.js';
 // amounts stay; anything that identifies the person is removed.
 export async function anonymizeContactOrders(ctx, contact, now) {
   await removeDemandFor(ctx, contact._id);
+  // Repairs and trade-ins keep the device and amounts; the person's typed name goes.
+  for (const table of ['hasibRepairs', 'hasibTradeIns']) {
+    for (const r of await ctx.db.query(table).withIndex('by_contact', q => q.eq('contactId', contact._id)).take(500)) {
+      if (r.accountId === contact.accountId) await ctx.db.patch(r._id, { customerName: undefined, ...(table === 'hasibRepairs' ? { conversationId: undefined } : {}) });
+    }
+  }
   const rows = await ctx.db.query('hasibOrders').withIndex('by_contact_created', q => q.eq('contactId', contact._id)).take(2000);
   for (const o of rows) {
     if (o.accountId !== contact.accountId) continue;

@@ -13,22 +13,25 @@ const list = (v, max, fn) => Array.isArray(v) ? v.slice(0, max).map(fn) : undefi
 const pair = (k, n) => o => ({ key: str(o?.key, 40) || '', value: str(o?.value, n) || '' });
 const compact = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
 
-const line = l => compact({ variantId: id(l?.variantId), name: str(l?.name, 120), qty: int(l?.qty) ?? 0, unitPriceMinor: int(l?.unitPriceMinor), discountMinor: int(l?.discountMinor) });
+const serialsOf = v => list(v, 100, x => str(x, 40) || '');
+const line = l => compact({ variantId: id(l?.variantId), name: str(l?.name, 120), qty: int(l?.qty) ?? 0, unitPriceMinor: int(l?.unitPriceMinor), discountMinor: int(l?.discountMinor), serials: serialsOf(l?.serials) });
+const part = p => compact({ variantId: id(p?.variantId) || '', qty: int(p?.qty) ?? 0, unitPriceMinor: int(p?.unitPriceMinor) });
 const variant = v => compact({ variantId: id(v?.variantId), sku: str(v?.sku, 40) ?? '', options: list(v?.options, 3, pair('key', 40)) || [], priceMinor: int(v?.priceMinor) ?? -1,
   costMinor: int(v?.costMinor), reorderPoint: int(v?.reorderPoint), openingStock: int(v?.openingStock) });
 const item = i => i && typeof i === 'object' ? compact({ kind: str(i.kind, 20) || '', nameAr: str(i.nameAr, 120) ?? '', nameEn: str(i.nameEn, 120) ?? '', category: str(i.category, 60) ?? '',
-  unit: str(i.unit, 20) || 'piece', trackStock: bool(i.trackStock), catalogEntryKey: uuid(i.catalogEntryKey) }) : undefined;
+  unit: str(i.unit, 20) || 'piece', trackStock: bool(i.trackStock), catalogEntryKey: uuid(i.catalogEntryKey), serialized: bool(i.serialized) || undefined,
+  warrantyMonths: int(i.warrantyMonths), warrantyBy: str(i.warrantyBy, 10) }) : undefined;
 
 /** Actions whose id-bearing argument is required; a malformed id is refused rather than dropped. */
-const REQUIRED = { order: 'orderId', order_status: 'orderId', payment_record: 'orderId', item_archive: 'itemId', stock_moves: 'variantId', stock_move: 'variantId', contact_summary: 'contactId', chat_prefill: 'conversationId', expense_void: 'expenseId' };
-const NEEDS_REQUEST = new Set(['order_create', 'payment_record', 'stock_move', 'expense_create']);
+const REQUIRED = { order: 'orderId', order_status: 'orderId', payment_record: 'orderId', item_archive: 'itemId', stock_moves: 'variantId', stock_move: 'variantId', contact_summary: 'contactId', chat_prefill: 'conversationId', expense_void: 'expenseId', serials: 'variantId', trade_in: 'variantId', repair: 'repairId', repair_update: 'repairId', repair_status: 'repairId' };
+const NEEDS_REQUEST = new Set(['order_create', 'payment_record', 'stock_move', 'expense_create', 'trade_in', 'repair_create']);
 
 const SHAPES = {
   items: b => ({ search: str(b.search, 80), cursor: str(b.cursor, 100), limit: int(b.limit) }),
   low_stock: () => ({}),
   item_save: b => ({ requestId: uuid(b.requestId), itemId: id(b.itemId), item: item(b.item), variants: list(b.variants, 50, variant) }),
   item_archive: b => ({ itemId: id(b.itemId) }),
-  stock_move: b => ({ requestId: uuid(b.requestId), variantId: id(b.variantId), delta: int(b.delta), reason: str(b.reason, 20), unitCostMinor: int(b.unitCostMinor), note: str(b.note, 200) }),
+  stock_move: b => ({ requestId: uuid(b.requestId), variantId: id(b.variantId), delta: int(b.delta), reason: str(b.reason, 20), unitCostMinor: int(b.unitCostMinor), note: str(b.note, 200), serials: serialsOf(b.serials) }),
   stock_moves: b => ({ variantId: id(b.variantId), cursor: str(b.cursor, 100), limit: int(b.limit) }),
   orders: b => ({ status: str(b.status, 20), cursor: str(b.cursor, 100), limit: int(b.limit) }),
   order: b => ({ orderId: id(b.orderId) }),
@@ -45,6 +48,16 @@ const SHAPES = {
   expenses: b => ({ period: str(b.period, 12) }),
   expense_void: b => ({ expenseId: id(b.expenseId) }),
   insights: b => ({ period: str(b.period, 12) }),
+  serials: b => ({ variantId: id(b.variantId), status: str(b.status, 20) }),
+  serial_lookup: b => ({ serial: str(b.serial, 40) }),
+  trade_in: b => ({ requestId: uuid(b.requestId), variantId: id(b.variantId), serial: str(b.serial, 40), costMinor: int(b.costMinor), method: str(b.method, 20),
+    contactId: id(b.contactId), customerName: str(b.customerName, 80), note: str(b.note, 200) }),
+  repairs: b => ({ status: str(b.status, 20), cursor: str(b.cursor, 100), limit: int(b.limit) }),
+  repair: b => ({ repairId: id(b.repairId) }),
+  repair_create: b => ({ requestId: uuid(b.requestId), device: str(b.device, 80), serial: str(b.serial, 40), fault: str(b.fault, 500), accessories: str(b.accessories, 200),
+    contactId: id(b.contactId), conversationId: id(b.conversationId), customerName: str(b.customerName, 80), quoteMinor: int(b.quoteMinor), dueAt: int(b.dueAt) }),
+  repair_update: b => ({ repairId: id(b.repairId), version: int(b.version), labourMinor: int(b.labourMinor), fault: str(b.fault, 500), parts: list(b.parts, 20, part) }),
+  repair_status: b => ({ repairId: id(b.repairId), to: str(b.to, 20), version: int(b.version) }),
   settings_update: b => ({ stockPolicy: str(b.stockPolicy, 10), packId: str(b.packId, 30),
     vat: b.vat && typeof b.vat === 'object' ? compact({ registered: bool(b.vat.registered), rateBps: int(b.vat.rateBps) ?? -1, pricesIncludeVat: bool(b.vat.pricesIncludeVat), vatin: str(b.vat.vatin, 20) }) : undefined }),
 };

@@ -11,9 +11,16 @@ import { executeOrders } from './ordersState.js';
 import { executeExpenses } from './expensesState.js';
 import { executeInsights } from './insightsState.js';
 import { planFor, HASIB_PLANS } from './plans.js';
+import { executeSerials } from './serialsState.js';
+import { executeRepairs } from './repairsState.js';
 
 export const HASIB_OPERATIONS = ['overview', 'settings_update', 'items', 'item_save', 'item_archive', 'stock_move', 'stock_moves', 'low_stock',
-  'order_create', 'order_status', 'orders', 'order', 'payment_record', 'contact_summary', 'chat_prefill', 'expense_create', 'expenses', 'expense_void', 'insights'];
+  'order_create', 'order_status', 'orders', 'order', 'payment_record', 'contact_summary', 'chat_prefill', 'expense_create', 'expenses', 'expense_void', 'insights',
+  'serials', 'serial_lookup', 'trade_in', 'repairs', 'repair', 'repair_create', 'repair_update', 'repair_status'];
+
+// Operations that belong to an optional module; a pack without that module refuses them.
+const MODULE_OPS = { serials: ['serials', 'serial_lookup'], tradeIns: ['trade_in'], repairs: ['repairs', 'repair', 'repair_create', 'repair_update', 'repair_status'] };
+const moduleOf = op => Object.keys(MODULE_OPS).find(m => MODULE_OPS[m].includes(op));
 
 export { hasibEnabled };
 
@@ -65,7 +72,10 @@ export async function executeHasib(ctx, a, now = Date.now()) {
     return ok({ pack: { id: pack.id, archetype: pack.archetype, version: pack.version, variantOptions: pack.variantOptions, orderFields: pack.orderFields, expenseCategories: pack.expenseCategories },
       plan, setupRequired: false, livePacks: livePackSummaries(), modules: visibleModules(pack), settings: publicSettings(settings), counts: { pendingOrders: pending.length, lowStock: low.length } });
   }
+  const module = moduleOf(a.operation);
+  if (module && pack.modules[module] !== 'available') return fail('module_unavailable');
   const result = (await executeCatalog(ctx, tenant, a, now)) || (await executeOrders(ctx, tenant, a, now))
-    || (await executeExpenses(ctx, tenant, a, now)) || (await executeInsights(ctx, tenant, a, now));
+    || (await executeExpenses(ctx, tenant, a, now)) || (await executeInsights(ctx, tenant, a, now))
+    || (await executeSerials(ctx, tenant, a, now)) || (await executeRepairs(ctx, tenant, a, now));
   return result || fail('invalid_action');
 }

@@ -13,7 +13,7 @@ export default defineSchema({
   // Plan grants: Hasib opens only for Ascend/Apex accounts. Operator-managed, never deletes data.
   blueEntitlements: defineTable({accountId:v.id('accounts'),plan:v.string(),status:v.string(),grantedAt:v.number(),revokedAt:v.optional(v.number()),note:v.optional(v.string())}).index('by_account',['accountId']),
   hasibCounters: defineTable({accountId:v.id('accounts'),kind:v.string(),next:v.number()}).index('by_account_kind',['accountId','kind']),
-  hasibItems: defineTable({accountId:v.id('accounts'),requestId:v.optional(v.string()),kind:v.union(v.literal('product'),v.literal('service')),nameAr:v.string(),nameEn:v.string(),category:v.string(),unit:v.string(),catalogEntryKey:v.optional(v.string()),trackStock:v.boolean(),archived:v.boolean(),searchText:v.string(),createdAt:v.number(),updatedAt:v.number()})
+  hasibItems: defineTable({accountId:v.id('accounts'),requestId:v.optional(v.string()),kind:v.union(v.literal('product'),v.literal('service')),nameAr:v.string(),nameEn:v.string(),category:v.string(),unit:v.string(),catalogEntryKey:v.optional(v.string()),trackStock:v.boolean(),serialized:v.optional(v.boolean()),warrantyMonths:v.optional(v.number()),warrantyBy:v.optional(v.string()),archived:v.boolean(),searchText:v.string(),createdAt:v.number(),updatedAt:v.number()})
     .index('by_account_archived_updated',['accountId','archived','updatedAt']).index('by_account_request',['accountId','requestId'])
     .searchIndex('search_items',{searchField:'searchText',filterFields:['accountId','archived']}),
   hasibVariants: defineTable({accountId:v.id('accounts'),itemId:v.id('hasibItems'),sku:v.string(),options:v.array(v.object({key:v.string(),value:v.string()})),priceMinor:v.number(),costMinor:v.number(),onHand:v.number(),reorderPoint:v.number(),low:v.boolean(),archived:v.boolean(),updatedAt:v.number()})
@@ -22,16 +22,31 @@ export default defineSchema({
   hasibStockMoves: defineTable({accountId:v.id('accounts'),variantId:v.id('hasibVariants'),delta:v.number(),reason:v.string(),refType:v.optional(v.string()),refId:v.optional(v.string()),unitCostMinor:v.optional(v.number()),note:v.optional(v.string()),onHandAfter:v.number(),requestId:v.optional(v.string()),at:v.number()})
     .index('by_variant_at',['variantId','at']).index('by_account_request',['accountId','requestId']),
   hasibOrders: defineTable({accountId:v.id('accounts'),number:v.number(),requestId:v.string(),contactId:v.optional(v.id('blueContacts')),conversationId:v.optional(v.id('blueConversations')),customerName:v.optional(v.string()),
-    channel:v.string(),status:v.string(),lines:v.array(v.object({variantId:v.optional(v.id('hasibVariants')),itemId:v.optional(v.id('hasibItems')),name:v.string(),sku:v.optional(v.string()),qty:v.number(),unitPriceMinor:v.number(),discountMinor:v.number(),vatBps:v.number(),netMinor:v.number(),vatMinor:v.number(),unitCostMinor:v.number(),tracked:v.boolean()})),
+    channel:v.string(),status:v.string(),lines:v.array(v.object({variantId:v.optional(v.id('hasibVariants')),itemId:v.optional(v.id('hasibItems')),name:v.string(),sku:v.optional(v.string()),qty:v.number(),unitPriceMinor:v.number(),discountMinor:v.number(),vatBps:v.number(),netMinor:v.number(),vatMinor:v.number(),unitCostMinor:v.number(),tracked:v.boolean(),serialized:v.optional(v.boolean()),serials:v.optional(v.array(v.string())),warrantyMonths:v.optional(v.number()),warrantyBy:v.optional(v.string()),warrantyUntil:v.optional(v.number())})),
     subtotalMinor:v.number(),discountMinor:v.number(),deliveryMinor:v.number(),vatMinor:v.number(),totalMinor:v.number(),pricesIncludeVat:v.boolean(),paidMinor:v.number(),paymentStatus:v.string(),
     fulfilment:v.object({type:v.string(),area:v.optional(v.string()),dueAt:v.optional(v.number())}),customFields:v.array(v.object({key:v.string(),value:v.string()})),notes:v.optional(v.string()),stockShort:v.boolean(),
-    history:v.array(v.object({status:v.string(),at:v.number()})),version:v.number(),createdAt:v.number(),updatedAt:v.number()})
+    history:v.array(v.object({status:v.string(),at:v.number()})),kind:v.optional(v.string()),version:v.number(),createdAt:v.number(),updatedAt:v.number()})
     .index('by_account_created',['accountId','createdAt']).index('by_account_status_created',['accountId','status','createdAt']).index('by_account_request',['accountId','requestId']).index('by_contact_created',['contactId','createdAt']),
   hasibExpenses: defineTable({accountId:v.id('accounts'),requestId:v.string(),number:v.number(),category:v.string(),amountMinor:v.number(),vatMinor:v.number(),vendor:v.optional(v.string()),method:v.string(),paidOn:v.string(),paidAt:v.number(),note:v.optional(v.string()),voided:v.boolean(),voidedAt:v.optional(v.number()),createdAt:v.number()})
     .index('by_account_paid',['accountId','paidAt']).index('by_account_request',['accountId','requestId']),
   // A customer asked Layla about a product. PII-free: contact id only; removed when the contact is deleted.
   hasibDemandSignals: defineTable({accountId:v.id('accounts'),contactId:v.id('blueContacts'),conversationId:v.optional(v.id('blueConversations')),itemId:v.optional(v.id('hasibItems')),text:v.string(),key:v.string(),kind:v.string(),outOfStock:v.boolean(),at:v.number()})
     .index('by_account_at',['accountId','at']).index('by_contact_at',['contactId','at']),
+  // One row per physical unit (IMEI/serial). For a serialized variant, onHand always equals rows in_stock.
+  hasibSerials: defineTable({accountId:v.id('accounts'),variantId:v.id('hasibVariants'),itemId:v.id('hasibItems'),serial:v.string(),status:v.string(),source:v.string(),costMinor:v.number(),
+    orderId:v.optional(v.id('hasibOrders')),contactId:v.optional(v.id('blueContacts')),reservedAt:v.optional(v.number()),soldAt:v.optional(v.number()),warrantyUntil:v.optional(v.number()),warrantyBy:v.optional(v.string()),
+    note:v.optional(v.string()),receivedAt:v.number(),updatedAt:v.number()})
+    .index('by_account_serial',['accountId','serial']).index('by_variant_status',['variantId','status']).index('by_order',['orderId']),
+  hasibTradeIns: defineTable({accountId:v.id('accounts'),requestId:v.string(),number:v.number(),variantId:v.id('hasibVariants'),serial:v.string(),costMinor:v.number(),method:v.string(),
+    contactId:v.optional(v.id('blueContacts')),customerName:v.optional(v.string()),note:v.optional(v.string()),at:v.number()})
+    .index('by_account_at',['accountId','at']).index('by_account_request',['accountId','requestId']).index('by_contact',['contactId']),
+  // Repair tickets carry the workshop status; their money, parts and deposit live on a linked order.
+  hasibRepairs: defineTable({accountId:v.id('accounts'),requestId:v.string(),number:v.number(),orderId:v.id('hasibOrders'),contactId:v.optional(v.id('blueContacts')),conversationId:v.optional(v.id('blueConversations')),
+    customerName:v.optional(v.string()),device:v.string(),serial:v.optional(v.string()),fault:v.string(),accessories:v.optional(v.string()),status:v.string(),underWarranty:v.boolean(),warrantyBy:v.optional(v.string()),
+    labourMinor:v.number(),parts:v.array(v.object({variantId:v.id('hasibVariants'),qty:v.number(),unitPriceMinor:v.optional(v.number())})),dueAt:v.optional(v.number()),
+    history:v.array(v.object({status:v.string(),at:v.number()})),version:v.number(),createdAt:v.number(),updatedAt:v.number()})
+    .index('by_account_created',['accountId','createdAt']).index('by_account_status_created',['accountId','status','createdAt']).index('by_account_request',['accountId','requestId'])
+    .index('by_account_serial',['accountId','serial']).index('by_contact',['contactId']),
   // Signed amounts: refunds are negative. Recorded only — BznsFlow never holds funds.
   hasibPayments: defineTable({accountId:v.id('accounts'),orderId:v.id('hasibOrders'),requestId:v.string(),amountMinor:v.number(),method:v.string(),reference:v.optional(v.string()),at:v.number()})
     .index('by_order_at',['orderId','at']).index('by_account_request',['accountId','requestId']).index('by_account_at',['accountId','at']),

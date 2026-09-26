@@ -20,8 +20,8 @@ async function setup(sector) {
 }
 const layllaSector = (h, t) => h.m.table('blueReviewSessions').find(r => r._id === t.rowId).profile.sector;
 
-test('retail is the only live pack for now', () => {
-  assert.deepEqual(HASIB_LIVE_PACKS, ['retail']);
+test('only the finished packs are live', () => {
+  assert.deepEqual(HASIB_LIVE_PACKS, ['retail', 'retail-tech']);
   assert.equal(isLivePack('retail'), true);
   assert.equal(isLivePack('dental'), false);
   assert.equal(isLivePack('nope'), false);
@@ -32,7 +32,7 @@ test('a business whose Layla sector is not live sees setup, and nothing else wor
   const o = (await hasib('overview')).value;
   assert.equal(o.setupRequired, true);
   assert.deepEqual(o.modules, []);
-  assert.deepEqual(o.livePacks.map(p => p.id), ['retail']);
+  assert.deepEqual(o.livePacks.map(p => p.id), ['retail', 'retail-tech']);
   assert.ok(o.livePacks[0].en && o.livePacks[0].ar);
   for (const [op, args] of [['items', {}], ['orders', {}], ['insights', { period: 'today' }], ['expenses', { period: 'month' }],
     ['order_create', { requestId: randomUUID(), channel: 'walk_in', fulfilment: { type: 'in_store' }, lines: [{ name: 'x', qty: 1, unitPriceMinor: 1 }] }]]) {

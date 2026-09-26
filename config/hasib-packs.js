@@ -11,7 +11,7 @@ const t = (key, en, ar) => ({ key, en, ar });
 
 // Demand needs Layla to capture an `item`, which only catalog sectors do; it is switched on per archetype below.
 const CORE = { orders: 'available', stock: 'available', expenses: 'available', insights: 'available', demand: 'planned', digest: 'planned' };
-const OFF = { appointments: 'off', plans: 'off', recipes: 'off', batches: 'off', jobCards: 'off', enrolments: 'off', quotes: 'off' };
+const OFF = { appointments: 'off', plans: 'off', recipes: 'off', batches: 'off', jobCards: 'off', enrolments: 'off', quotes: 'off', serials: 'off', repairs: 'off', tradeIns: 'off' };
 
 const EXPENSES = [
   t('rent', 'Rent', 'الإيجار'), t('salaries', 'Salaries', 'الرواتب'), t('stock_purchase', 'Stock purchases', 'مشتريات البضاعة'),
@@ -60,9 +60,17 @@ function build(id, archetype) {
     expenseCategories: own.expenseCategories || base.expenseCategories });
 }
 
+// Hasib-only packs: industries finer than Layla's sectors, chosen in Hasib's industry setting.
+const TECH = Object.freeze({ id: 'retail-tech', archetype: 'catalog', version: HASIB_PACK_VERSION,
+  modules: { ...ARCHETYPE.catalog.modules, serials: 'available', repairs: 'available', tradeIns: 'available' },
+  variantOptions: [t('model', 'Model', 'الموديل'), t('storage', 'Storage', 'السعة'), t('colour', 'Colour', 'اللون'), t('condition', 'Condition', 'الحالة')],
+  orderFields: [],
+  expenseCategories: extra(t('repair_parts', 'Repair parts', 'قطع غيار الصيانة'), t('warranty_claims', 'Warranty claims and shipping', 'مطالبات الضمان والشحن')) });
+
 export const HASIB_PACKS = Object.freeze({
   ...Object.fromEntries(Object.values(SECTOR_PACKS).map(p => [p.id, build(p.id, p.archetype)])),
   other: build('other', 'catalog'),
+  'retail-tech': TECH,
 });
 
 export function hasibPack(sectorId) { return HASIB_PACKS[sectorId] || HASIB_PACKS.other; }
@@ -72,8 +80,8 @@ export const visibleModules = pack => Object.entries(pack.modules).filter(([, v]
 
 // Sectors ship one at a time. A pack opens Hasib only once its setup, tests and
 // acceptance evidence exist; the others stay hidden even though they are configured.
-export const HASIB_LIVE_PACKS = Object.freeze(['retail']);
-const LIVE_LABELS = { retail: { en: 'Retail and fashion', ar: 'التجزئة والأزياء' } };
+export const HASIB_LIVE_PACKS = Object.freeze(['retail', 'retail-tech']);
+const LIVE_LABELS = { retail: { en: 'Retail and fashion', ar: 'التجزئة والأزياء' }, 'retail-tech': { en: 'Electronics and phone store', ar: 'متجر الإلكترونيات والهواتف' } };
 export const isLivePack = id => HASIB_LIVE_PACKS.includes(id);
 export const livePackSummaries = () => HASIB_LIVE_PACKS.map(id => ({ id, ...LIVE_LABELS[id] }));
 

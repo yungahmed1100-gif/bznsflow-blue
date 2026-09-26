@@ -126,5 +126,5 @@ test('every Layla sector has a valid Hasib pack; retail is the first full pack',
   assert.equal(hasibPack('dental').modules.appointments, 'planned');
   assert.equal(hasibPack('real-estate').modules.stock, 'available');
   assert.equal(hasibPack('unknown-sector').id, 'other');
-  assert.equal(Object.keys(HASIB_PACKS).length, PRIMARY_SECTOR_IDS.length + 1);
+  assert.equal(Object.keys(HASIB_PACKS).length, PRIMARY_SECTOR_IDS.length + 2, 'sector packs + other + retail-tech');
 });
