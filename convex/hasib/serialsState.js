@@ -19,7 +19,7 @@ export function normSerial(value) {
 /** 12 months = 365 days from the sale; shorter or longer terms scale the same way. */
 export const warrantyEnd = (soldAt, months) => soldAt + Math.round((months * 365 * DAY) / 12);
 
-const serialRow = (ctx, accountId, serial) => ctx.db.query('hasibSerials').withIndex('by_account_serial', q => q.eq('accountId', accountId).eq('serial', serial)).unique();
+export const serialRow = (ctx, accountId, serial) => ctx.db.query('hasibSerials').withIndex('by_account_serial', q => q.eq('accountId', accountId).eq('serial', serial)).unique();
 
 /** Normalise a list and refuse duplicates inside it. Throws `{ reason }`. */
 function serialList(raw, expected) {

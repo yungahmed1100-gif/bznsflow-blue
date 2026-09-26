@@ -22,8 +22,12 @@ const item = i => i && typeof i === 'object' ? compact({ kind: str(i.kind, 20) |
   unit: str(i.unit, 20) || 'piece', trackStock: bool(i.trackStock), catalogEntryKey: uuid(i.catalogEntryKey), serialized: bool(i.serialized) || undefined,
   warrantyMonths: int(i.warrantyMonths), warrantyBy: str(i.warrantyBy, 10), photoId: typeof i.photoId === 'string' && /^[A-Za-z0-9_-]{0,64}$/.test(i.photoId) ? i.photoId : undefined }) : undefined;
 
+const importVariant = v => compact({ sku: str(v?.sku, 40) ?? '', options: list(v?.options, 3, pair('key', 40)) || [], priceMinor: int(v?.priceMinor) ?? -1, costMinor: int(v?.costMinor),
+  reorderPoint: int(v?.reorderPoint), quantity: int(v?.quantity), serials: list(v?.serials, 200, x => str(x, 40) || '') });
+const importProduct = p => ({ requestId: uuid(p?.requestId) || '', item: item(p?.item) || {}, variants: list(p?.variants, 50, importVariant) || [] });
+
 /** Actions whose id-bearing argument is required; a malformed id is refused rather than dropped. */
-const REQUIRED = { order: 'orderId', order_status: 'orderId', payment_record: 'orderId', item_archive: 'itemId', stock_moves: 'variantId', stock_move: 'variantId', contact_summary: 'contactId', conversation_orders: 'conversationId', expense_void: 'expenseId', serials: 'variantId', trade_in: 'variantId', repair: 'repairId', repair_update: 'repairId', repair_status: 'repairId' };
+const REQUIRED = { item_photo: 'itemId', order: 'orderId', order_status: 'orderId', payment_record: 'orderId', item_archive: 'itemId', stock_moves: 'variantId', stock_move: 'variantId', contact_summary: 'contactId', conversation_orders: 'conversationId', expense_void: 'expenseId', serials: 'variantId', trade_in: 'variantId', repair: 'repairId', repair_update: 'repairId', repair_status: 'repairId' };
 const NEEDS_REQUEST = new Set(['order_create', 'payment_record', 'stock_move', 'expense_create', 'trade_in', 'repair_create']);
 
 const SHAPES = {
@@ -31,6 +35,8 @@ const SHAPES = {
   low_stock: () => ({}),
   item_save: b => ({ requestId: uuid(b.requestId), itemId: id(b.itemId), item: item(b.item), variants: list(b.variants, 50, variant) }),
   item_archive: b => ({ itemId: id(b.itemId) }),
+  item_photo: b => ({ itemId: id(b.itemId), photoId: typeof b.photoId === 'string' && /^[A-Za-z0-9_-]{0,64}$/.test(b.photoId) ? b.photoId : undefined }),
+  items_import: b => ({ products: list(b.products, 25, importProduct) || [] }),
   stock_move: b => ({ requestId: uuid(b.requestId), variantId: id(b.variantId), delta: int(b.delta), reason: str(b.reason, 20), unitCostMinor: int(b.unitCostMinor), note: str(b.note, 200), serials: serialsOf(b.serials) }),
   stock_moves: b => ({ variantId: id(b.variantId), cursor: str(b.cursor, 100), limit: int(b.limit) }),
   orders: b => ({ status: str(b.status, 20), cursor: str(b.cursor, 100), limit: int(b.limit) }),

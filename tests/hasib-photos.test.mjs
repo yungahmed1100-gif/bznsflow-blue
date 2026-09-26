@@ -98,7 +98,7 @@ test('provider payloads: WhatsApp image with caption, Instagram image attachment
 
 test('upload addresses are capped per shop per day', async () => {
   const { h, hasib, other } = await setup();
-  for (let i = 0; i < 50; i++) assert.ok((await hasib('photo_upload_url')).ok);
+  for (let i = 0; i < 300; i++) assert.ok((await hasib('photo_upload_url')).ok);
   assert.equal((await hasib('photo_upload_url')).reason, 'photo_limit');
   assert.ok((await other('photo_upload_url')).ok, 'another shop is unaffected');
   h.m.advance(86400000);
@@ -145,4 +145,17 @@ test('the API never forwards a client’s own photo check', async () => {
   const { hasibArgs } = await import('../api/_lib/hasib/validate.js');
   assert.deepEqual(hasibArgs('photo_register', { storageId: 'kg2abc', photoCheck: 'ok' }), { storageId: 'kg2abc' });
   assert.equal(hasibArgs('item_save', { requestId: randomUUID(), item: { kind: 'product', nameAr: '', nameEn: 'A', category: '', unit: 'piece', trackStock: true, photoId: 'x"; drop' }, variants: [] }).item.photoId, undefined);
+});
+
+test('item_photo sets or clears just the photo of one of the shop’s products', async () => {
+  const { h, hasib, other, upload } = await setup();
+  const saved = (await hasib('item_save', item(undefined))).value;
+  const first = await upload(), second = await upload();
+  assert.equal((await hasib('item_photo', { itemId: saved.item.id, photoId: first })).value.item.photoUrl, `https://files.test/${first}`);
+  assert.equal((await hasib('item_photo', { itemId: saved.item.id, photoId: second })).value.item.photoUrl, `https://files.test/${second}`);
+  assert.deepEqual(h.m.deletedFiles, [first]);
+  assert.equal((await other('item_photo', { itemId: saved.item.id, photoId: '' })).reason, 'item_not_found', 'not another shop’s product');
+  assert.equal((await hasib('item_photo', { itemId: saved.item.id, photoId: h.m.putFile() })).reason, 'invalid_photo');
+  assert.equal((await hasib('item_photo', { itemId: saved.item.id, photoId: '' })).value.item.photoUrl, null);
+  assert.equal(h.m.table('blueCatalogEntries').length > 0, true);
 });

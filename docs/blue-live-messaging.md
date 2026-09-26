@@ -44,7 +44,7 @@ seven-day text retention and thirty-day metadata retention. (Superseded locally
   photo to a public Convex storage URL (blocked `photo_missing` if deleted); the
   worker sends WhatsApp `type:image` with the product name as caption, or an
   Instagram image attachment. Same claim/send_gate/rate/receipt rules as text.
-  Owners upload JPG/PNG/WebP ≤5 MB straight to Convex storage (50 upload
+  Owners upload JPG/PNG/WebP ≤5 MB straight to Convex storage (300 upload
   addresses per shop per day). The `/blue-hasib` HTTP route then reads the file's
   real bytes (JPEG/PNG/WebP signature, size) and the shop registers it
   (`photo_register`); a failing file is deleted at once, and only the same shop's

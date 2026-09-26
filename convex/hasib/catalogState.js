@@ -19,7 +19,7 @@ export const publicItem = (item, variants) => ({ id: item._id, kind: item.kind, 
   trackStock: item.trackStock, serialized: !!item.serialized, warrantyMonths: item.warrantyMonths || 0, warrantyBy: item.warrantyBy || 'none',
   catalogEntryKey: item.catalogEntryKey || null, variants: variants.filter(v => !v.archived).map(publicVariant), updatedAt: item.updatedAt });
 
-const variantsOf = (ctx, itemId) => ctx.db.query('hasibVariants').withIndex('by_item', q => q.eq('itemId', itemId)).take(MAX_VARIANTS + 10);
+export const variantsOf = (ctx, itemId) => ctx.db.query('hasibVariants').withIndex('by_item', q => q.eq('itemId', itemId)).take(MAX_VARIANTS + 10);
 
 function itemInput(raw, pack) {
   if (!raw || !KINDS.includes(raw.kind)) return null;
@@ -53,7 +53,7 @@ async function skuTaken(ctx, accountId, sku, exceptId) {
   return rows.some(r => r._id !== exceptId && !r.archived);
 }
 
-async function saveItem(ctx, accountId, pack, a, now) {
+export async function saveItem(ctx, accountId, pack, a, now) {
   let item = itemInput(a.item, pack);
   const variants = Array.isArray(a.variants) && a.variants.length && a.variants.length <= MAX_VARIANTS ? a.variants.map(variantInput) : null;
   if (!item || !variants || variants.includes(null)) return fail('invalid_item');
@@ -159,6 +159,17 @@ export async function executeCatalog(ctx, tenant, a, now) {
     for (const v of await variantsOf(ctx, item._id)) await ctx.db.patch(v._id, { archived: true, low: false, updatedAt: now });
     await syncCatalogEntry(ctx, await ctx.db.get(item._id), [], now);
     return ok({ archived: true });
+  }
+  if (a.operation === 'item_photo') {
+    const item = await owned(ctx, a.itemId, accountId, 'hasibItems');
+    if (!item || item.archived) return fail('item_not_found');
+    const photoId = a.photoId ? await checkPhoto(ctx, accountId, a.photoId, item) : undefined;
+    if (a.photoId && !photoId) return fail('invalid_photo');
+    await ctx.db.patch(item._id, { photoId, updatedAt: now });
+    if (item.photoId && item.photoId !== photoId) await ctx.storage.delete(item.photoId);
+    if (photoId) await releaseRegistration(ctx, photoId);
+    const stored = await ctx.db.get(item._id), variants = await variantsOf(ctx, item._id);
+    return ok({ item: await withPhoto(ctx, publicItem(stored, variants), stored) });
   }
   if (a.operation === 'stock_move') return moveStock(ctx, accountId, a, now);
   if (a.operation === 'stock_moves') {

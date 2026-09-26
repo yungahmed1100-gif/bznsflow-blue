@@ -3,12 +3,13 @@ import { usePolling, useDebounced } from '../../hooks/usePolling';
 import { hasib } from '../../lib/dashboard/api';
 import { ItemEditor } from './ItemEditor';
 import { StockMoveDialog } from './StockMoveDialog';
+import { StockImporter } from './StockImporter';
 import { Money } from './Badges';
 
 /** Products and variants with on-hand, alert level and one-tap adjustments. */
 export function StockView({ s, h, overview, onChanged }) {
   const [search, setSearch] = useState(''), [lowOnly, setLowOnly] = useState(false);
-  const [editing, setEditing] = useState(null), [moving, setMoving] = useState(null), [notice, setNotice] = useState('');
+  const [editing, setEditing] = useState(null), [moving, setMoving] = useState(null), [notice, setNotice] = useState(''), [importing, setImporting] = useState(false);
   const query = useDebounced(search.trim(), 300);
   const list = usePolling(() => lowOnly ? hasib('low_stock') : hasib('items', query ? { search: query } : {}), [query, lowOnly], { interval: 30000 });
   const refresh = () => { list.refresh({ quiet: true }); onChanged(); };
@@ -29,6 +30,7 @@ export function StockView({ s, h, overview, onChanged }) {
           {!lowOnly && <label className="ld-search"><span className="ld-visually-hidden">{h.t('searchItems')}</span>
             <input type="search" value={search} placeholder={h.t('searchItems')} onChange={e => setSearch(e.target.value)} /></label>}
           <label className="ld-check"><input type="checkbox" checked={lowOnly} onChange={e => setLowOnly(e.target.checked)} /> {h.t('lowStockOnly')}{overview.counts.lowStock ? ` (${overview.counts.lowStock})` : ''}</label>
+          <button type="button" className="ld-button" onClick={() => setImporting(true)}>{h.t('importStock')}</button>
           <button type="button" className="ld-button ld-primary" onClick={() => setEditing({ item: null })}>{h.t('addProduct')}</button>
         </div>
       </div>
@@ -59,6 +61,7 @@ export function StockView({ s, h, overview, onChanged }) {
           </div>
         )}
       {editing && <ItemEditor s={s} h={h} pack={overview.pack} item={editing.item} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} onArchive={archive} />}
+      {importing && <StockImporter s={s} h={h} pack={overview.pack} onClose={() => setImporting(false)} onImported={refresh} />}
       {moving && <StockMoveDialog s={s} h={h} item={moving.item} variant={moving.variant} onClose={() => setMoving(null)} onSaved={() => { setMoving(null); refresh(); }} />}
     </div>
   );

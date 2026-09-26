@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { hasib } from '../../lib/dashboard/api';
 import { parseAmount, formatMinor } from '../../../convex/hasib/money.js';
 import { Dialog } from '../dashboard/Dialog';
-import { photoProblem, preparePhoto, uploadPhoto, PHOTO_TYPES } from '../../lib/hasib/photo.js';
+import { photoProblem, uploadProductPhoto, PHOTO_TYPES } from '../../lib/hasib/photo.js';
 
 const blankVariant = keys => ({ key: crypto.randomUUID(), sku: '', options: Object.fromEntries(keys.map(k => [k, ''])), price: '', cost: '', reorderPoint: '2', openingStock: '0' });
 const fromVariant = (v, keys) => ({ key: v.id, variantId: v.id, sku: v.sku, options: Object.fromEntries(keys.map(k => [k, v.options.find(o => o.key === k)?.value || ''])),
@@ -44,11 +44,9 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
     if (problem) { setError(h.reason(problem)); return; }
     setError(''); setPhoto(p => ({ ...p, uploading: true }));
     try {
-      const blob = await preparePhoto(file);
-      const { url } = await hasib('photo_upload_url');
       // The server checks the file's real bytes and ties it to this shop before it can be saved.
-      const { photoId: id } = await hasib('photo_register', { storageId: await uploadPhoto(url, blob) });
-      setPhoto(p => { if (p.url?.startsWith('blob:')) URL.revokeObjectURL(p.url); return { url: URL.createObjectURL(blob), id, uploading: false }; });
+      const { photoId: id, preview } = await uploadProductPhoto(hasib, file);
+      setPhoto(p => { if (p.url?.startsWith('blob:')) URL.revokeObjectURL(p.url); return { url: URL.createObjectURL(preview), id, uploading: false }; });
     } catch (err) {
       setPhoto(p => ({ ...p, uploading: false }));
       setError(h.reason(err.reason) || h.reason('photo_upload_failed'));

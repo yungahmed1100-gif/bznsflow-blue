@@ -36,3 +36,17 @@ export async function uploadPhoto(url, blob, fetcher = fetch) {
   if (!body?.storageId) throw Object.assign(new Error('photo_upload_failed'), { reason: 'photo_upload_failed' });
   return body.storageId;
 }
+
+/**
+ * Shrink, upload, and have the server check and register a product photo.
+ * @param {(action: string, body?: object) => Promise<any>} hasib the Hasib API client
+ * @returns {Promise<{ photoId: string, preview: Blob }>}
+ */
+export async function uploadProductPhoto(hasib, file) {
+  const problem = photoProblem(file);
+  if (problem) throw Object.assign(new Error(problem), { reason: problem });
+  const prepared = await preparePhoto(file);
+  const { url } = await hasib('photo_upload_url');
+  const { photoId } = await hasib('photo_register', { storageId: await uploadPhoto(url, prepared) });
+  return { photoId, preview: prepared };
+}

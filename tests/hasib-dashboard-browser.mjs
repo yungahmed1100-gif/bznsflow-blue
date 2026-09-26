@@ -37,7 +37,7 @@ function api(state) {
   const hasibOverview = () => state.needsSetup && !state.chosen ? { setupRequired: true, livePacks, modules: [], settings: { currency: 'OMR', vatRegistered: false, vatRateBps: 500, pricesIncludeVat: false, vatin: '', stockPolicy: 'warn' } } : ({ setupRequired: false, livePacks, pack: packRetail, modules: ['orders', 'stock'], settings: { currency: 'OMR', vatRegistered: false, vatRateBps: 500, pricesIncludeVat: false, vatin: '', stockPolicy: 'warn' },
     counts: { pendingOrders: state.orders.filter(o => o.status === 'pending').length, lowStock: state.item.variants.filter(v => v.low).length } });
   return async (surface, method, body) => {
-    state.calls.push({ surface, method, action: body?.action, item: body?.item });
+    state.calls.push({ surface, method, action: body?.action, item: body?.item, products: body?.products });
     const ok = value => ({ status: 200, json: { ok: true, csrfToken: CSRF, ...value } });
     if (surface === 'dashboard' && method === 'GET') return { status: 200, json: overview };
     if (surface === 'messaging') return ok({ available: true, active: true, reason: '', limits: { usedToday: 3 } });
@@ -76,6 +76,7 @@ function api(state) {
         return ok({ order: publicOrder(o) });
       }
       case 'settings_update': if (body.packId !== 'retail') return { status: 409, json: { ok: false, reason: 'pack_not_live' } }; state.chosen = true; return ok({ settings: {} });
+      case 'items_import': state.imports = (state.imports || []).concat([body.products]); return ok({ results: body.products.map((p, index) => ({ index, status: 'created', itemId: `imp${index}` })), created: body.products.length, updated: 0, failed: 0 });
       case 'photo_upload_url': return ok({ url: `${BASE}/upload-test` });
       case 'photo_register': return ok({ photoId: body.storageId });
       case 'item_save': return ok({ item: state.item, variants: state.item.variants });
@@ -222,6 +223,30 @@ try {
     await editor.waitFor({ state: 'detached' });
     assert.equal(state.calls.find(c => c.action === 'item_save')?.item?.photoId, 'kg_photo1', `photo saved with the product (${lang})`); count++;
     assert.equal(await noOverflow(page), true); count++;
+    await context.close();
+  }
+  // Import from a file: pick a CSV, check the columns and products, save, see the summary.
+  const CSV = 'Stock list September\n\nProduct,Size,Selling price,Qty,SKU\nBlack abaya,52,25.000,3,AB-52\nBlack abaya,56,25.000,2,AB-56\nKaftan,,18.5,,\nShayla,,,4,\n';
+  for (const [lang, width] of [['en', 1280], ['ar', 375]]) {
+    const state = fixture();
+    const { page, context } = await openPage(browser, { width, lang, path: '/layla/dashboard?tab=stock', handler: api(state) });
+    await page.getByRole('button', { name: lang === 'ar' ? 'استيراد من ملف' : 'Import from a file' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.locator('input[type=file]').setInputFiles({ name: 'stock.csv', mimeType: 'text/csv', buffer: Buffer.from(CSV) });
+    await dialog.locator('.hb-import-table').waitFor();
+    assert.match(await dialog.locator('.hb-import-summary').textContent(), lang === 'ar' ? /المنتجات: 2 · الخيارات: 3 · في المخزون: 5/ : /Products: 2 · Options: 3 · In stock: 5/, `summary (${lang})`); count++;
+    assert.match(await dialog.locator('.hb-import-issues').textContent(), lang === 'ar' ? /السطر 5: السعر غير موجود/ : /Line 5: the price is missing/, 'the bad line is explained'); count++;
+    assert.equal(await dialog.locator('select').first().inputValue(), '0', 'the product column was recognised'); count++;
+    assert.deepEqual(await axe(page, '[role=dialog]'), [], `importer axe ${lang}`); count++;
+    assert.equal(await noOverflow(page), true, `importer no overflow ${lang} ${width}`); count++;
+    await page.screenshot({ path: `${OUT}/import-review-${lang}-${width}.png` });
+    await dialog.getByRole('button', { name: lang === 'ar' ? 'إضافة المنتجات (2)' : 'Add products (2)' }).click();
+    await dialog.locator('.hb-import-summary').filter({ hasText: lang === 'ar' ? 'جديد 2' : '2 new' }).waitFor();
+    const sent = state.calls.find(c => c.action === 'items_import').products;
+    assert.deepEqual(sent.map(p => [p.item.nameEn, p.variants.map(v => [v.sku, v.priceMinor, v.quantity ?? null])]), [['Black abaya', [['AB-52', 25000, 3], ['AB-56', 25000, 2]]], ['Kaftan', [['', 18500, null]]]]); count++;
+    await page.screenshot({ path: `${OUT}/import-done-${lang}-${width}.png` });
+    await dialog.getByRole('button', { name: lang === 'ar' ? 'تم' : 'Done', exact: true }).click();
+    await dialog.waitFor({ state: 'detached' });
     await context.close();
   }
   console.log(`hasib dashboard browser: ${count} assertions passed`);

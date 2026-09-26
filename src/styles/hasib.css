@@ -175,3 +175,18 @@
 @media (prefers-reduced-motion: reduce) {
   .hb-picker-list button { transition: none; }
 }
+
+/* Stock import */
+.hb-importer { display: grid; gap: 16px; }
+.hb-grid-3 { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.hb-more summary { cursor: pointer; font-weight: 700; padding-block: 12px; }
+.hb-more summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.hb-import-pick { justify-content: flex-start; align-items: center; }
+.hb-import-pick label { cursor: pointer; }
+.hb-import-pick label:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }
+.hb-import-summary { font-weight: 700; margin: 0; }
+.hb-import-table th[scope=row] { display: flex; align-items: center; gap: 0; font-weight: 600; }
+.hb-import-issues { border-inline-start: 4px solid var(--coral); padding-inline-start: 12px; }
+.hb-import-issues p { margin: 0 0 4px; font-weight: 700; }
+.hb-import-issues ul { margin: 0; padding-inline-start: 20px; }
+.hb-import-progress progress { inline-size: 100%; block-size: 12px; accent-color: var(--blue); }
