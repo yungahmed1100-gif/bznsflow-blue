@@ -166,7 +166,10 @@ never written (commit `a51d0c2`).
 | Checks on https://bznsflow-blue.vercel.app | passed | unsigned `GET ?surface=hasib` → 401 `sign_in_required`; foreign-origin POST → 403 `origin`; `/layla/dashboard` → 200; dashboard API still 401 unsigned |
 | Green unchanged | passed | `bznsflow-main` production `dpl_GKSMjpoKhpdZTFHsGqVGVopYK5Nz` before and after |
 
-**Current state:** live on Blue for signed-in owners. The retail pack is the only live pack; other sectors see the industry picker.
+**Current state:** live on Blue, **per plan**. Hasib opens only for accounts holding an active Ascend or Apex grant in `blueEntitlements` (commit `4c03fe8`); everyone else sees Layla only. Retail is the only live pack.
+
+- **Grants:** `npx convex run blueHasib:grantPlan '{"email":"…","plan":"ascend","packId":"retail"}'`; end one with `blueHasib:revokePlan '{"email":"…"}'`. Revoking keeps the business records.
+- **2026-09-26:** on Ahmed's request, `ahmed@bznsflowai.com` was granted **Ascend** with the retail pack. On live Blue, the overview for that account returns plan `ascend`, pack `retail`, no setup step, modules orders/stock/expenses/insights/demand, and variant options size/length/colour. Layla's sector for the account stays "Technology & software".
 
 **To switch it on:** run `npx convex run blueHasib:setEnabled '{"enabled":true}'` in this repo. **To switch off:** the same command with `false`. For a full rollback, also set `BLUE_HASIB_ENABLED=false` and run `npm run deploy:blue`, or roll back to `dpl_FANGbGk9T9jnbfgTXvp52a7EQwtp`. No data is deleted.
 

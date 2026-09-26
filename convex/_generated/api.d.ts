@@ -41,6 +41,7 @@ import type * as hasib_money from "../hasib/money.js";
 import type * as hasib_orderMachine from "../hasib/orderMachine.js";
 import type * as hasib_ordersState from "../hasib/ordersState.js";
 import type * as hasib_period from "../hasib/period.js";
+import type * as hasib_plans from "../hasib/plans.js";
 import type * as hasib_shared from "../hasib/shared.js";
 import type * as hasib_stock from "../hasib/stock.js";
 import type * as hasib_totals from "../hasib/totals.js";
@@ -90,6 +91,7 @@ declare const fullApi: ApiFromModules<{
   "hasib/orderMachine": typeof hasib_orderMachine;
   "hasib/ordersState": typeof hasib_ordersState;
   "hasib/period": typeof hasib_period;
+  "hasib/plans": typeof hasib_plans;
   "hasib/shared": typeof hasib_shared;
   "hasib/stock": typeof hasib_stock;
   "hasib/totals": typeof hasib_totals;
