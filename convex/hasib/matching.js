@@ -1,7 +1,9 @@
 // Matching free text (what a customer asked for, what Layla captured) to one of
 // the business's own products. Conservative on purpose: an exact or contained
 // name, never "one word in common", so a black shayla never counts as a black abaya.
-const norm = s => String(s || '').toLocaleLowerCase().replace(/[ًٌٍَُِّْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/\s+/g, ' ').trim();
+// Punctuation is ignored, so "iPhone 13 (used)" and "iPhone 13 used" are the same product name.
+const norm = s => String(s || '').toLocaleLowerCase().replace(/[ًٌٍَُِّْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
+  .replace(/[()\[\]{}\-_.,/|:;'"«»،]+/g, ' ').replace(/\s+/g, ' ').trim();
 
 export function nameMatches(item, text) {
   const t = norm(text);

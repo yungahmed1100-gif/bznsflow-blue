@@ -14,6 +14,7 @@ const HASIB_ITEMS = [
   ['orders', 'M6 2h12l2 4v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6l2-4zm0 4h12l-1-2H7L6 6zm2 5v2h8v-2H8zm0 4v2h5v-2H8z'],
   ['stock', 'M12 2 3 7v10l9 5 9-5V7l-9-5zm0 2.3L18.6 8 12 11.7 5.4 8 12 4.3zM5 9.7l6 3.4v6.6l-6-3.3V9.7zm8 10v-6.6l6-3.4v6.7l-6 3.3z'],
   ['expenses', 'M3 6h18v12H3V6zm2 2v8h14V8H5zm7 1.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM6 9h2v2H6V9zm10 4h2v2h-2v-2z'],
+  ['service', 'M22.7 19.3 13.6 10.2a6 6 0 0 0-7.8-7.8l3.9 3.9-2.8 2.8-3.9-3.9a6 6 0 0 0 7.8 7.8l9.1 9.1a1 1 0 0 0 1.4 0l1.4-1.4a1 1 0 0 0 0-1.4z'],
 ];
 
 /** Fixed start-side rail on desktop; a top tab bar on phones. */

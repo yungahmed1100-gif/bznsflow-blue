@@ -23,7 +23,9 @@ function toVariants(rows) {
 /** Create or edit a product; variant option names come from the industry pack. */
 export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
   const keys = pack.variantOptions.map(o => o.key);
-  const [form, setForm] = useState(() => ({ kind: item?.kind || 'product', nameAr: item?.nameAr || '', nameEn: item?.nameEn || '', category: item?.category || '', unit: item?.unit || 'piece', trackStock: item ? item.trackStock : true }));
+  const serialsModule = pack.modules?.serials === 'available';
+  const [form, setForm] = useState(() => ({ kind: item?.kind || 'product', nameAr: item?.nameAr || '', nameEn: item?.nameEn || '', category: item?.category || '', unit: item?.unit || 'piece', trackStock: item ? item.trackStock : true,
+    serialized: item ? !!item.serialized : serialsModule, warrantyMonths: String(item?.warrantyMonths ?? (serialsModule ? 12 : 0)), warrantyBy: item?.warrantyBy || (serialsModule ? 'store' : 'none') }));
   const [rows, setRows] = useState(() => item ? item.variants.map(v => fromVariant(v, keys)) : [blankVariant(keys)]);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [confirmArchive, setConfirmArchive] = useState(false);
   const [requestId] = useState(() => crypto.randomUUID());
@@ -36,7 +38,11 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
     if (!valid) { setError(h.reason('invalid_item')); return; }
     setBusy(true); setError('');
     try {
-      const saved = await hasib('item_save', { ...(item ? { itemId: item.id } : { requestId }), item: { ...form, nameAr: form.nameAr.trim(), nameEn: form.nameEn.trim(), category: form.category.trim() }, variants });
+      const serialized = serialsModule && form.kind === 'product' && form.trackStock && form.serialized;
+      const warrantyMonths = Math.min(60, Math.max(0, parseInt(form.warrantyMonths, 10) || 0));
+      const itemBody = { kind: form.kind, nameAr: form.nameAr.trim(), nameEn: form.nameEn.trim(), category: form.category.trim(), unit: form.unit, trackStock: form.trackStock,
+        ...(serialized ? { serialized: true } : {}), ...(warrantyMonths && form.warrantyBy !== 'none' ? { warrantyMonths, warrantyBy: form.warrantyBy } : {}) };
+      const saved = await hasib('item_save', { ...(item ? { itemId: item.id } : { requestId }), item: itemBody, variants: serialized ? variants.map(({ openingStock, ...v }) => v) : variants });
       onSaved(saved);
     } catch (err) { setError(h.reason(err.reason) || s.reason(err.reason)); setBusy(false); }
   };
@@ -52,6 +58,14 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
             {['product', 'service'].map(k => <option key={k} value={k}>{h.t(`kind_${k}`)}</option>)}</select></label>
         </div>
         {form.kind === 'product' && <label className="ld-check"><input type="checkbox" checked={form.trackStock} onChange={e => setForm({ ...form, trackStock: e.target.checked })} /> {h.t('trackStock')}</label>}
+        {serialsModule && form.kind === 'product' && form.trackStock && (
+          <div className="hb-grid-2">
+            <label className="ld-check"><input type="checkbox" checked={form.serialized} disabled={!!item} onChange={e => setForm({ ...form, serialized: e.target.checked })} /> {h.t('serialized')}</label>
+            <label className="ld-field">{h.t('warrantyBy')}<select value={form.warrantyBy} onChange={e => setForm({ ...form, warrantyBy: e.target.value })}>
+              {['store', 'agent', 'none'].map(w => <option key={w} value={w}>{h.t(`wb_${w}`)}</option>)}</select></label>
+            {form.warrantyBy !== 'none' && <label className="ld-field">{h.t('warrantyMonths')}<input className="hb-qty" inputMode="numeric" value={form.warrantyMonths} onChange={e => setForm({ ...form, warrantyMonths: e.target.value.replace(/\D/g, '').slice(0, 2) })} /></label>}
+          </div>
+        )}
         <fieldset className="ld-fieldset">
           <legend>{h.t('variants')}</legend>
           <div className="ld-table-wrap"><table className="ld-table hb-variants">
@@ -67,7 +81,7 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
                 <td><input aria-label={h.t('price')} className="hb-money" inputMode="decimal" dir="ltr" value={r.price} aria-invalid={parseAmount(r.price) === null} onChange={e => setRow(r.key, { price: e.target.value })} /></td>
                 <td><input aria-label={h.t('cost')} className="hb-money" inputMode="decimal" dir="ltr" value={r.cost} onChange={e => setRow(r.key, { cost: e.target.value })} /></td>
                 {form.trackStock && <>
-                  <td>{r.variantId ? <span className="ld-num">{r.onHand}</span> : <input aria-label={h.t('openingStock')} className="hb-qty" inputMode="numeric" value={r.openingStock} onChange={e => setRow(r.key, { openingStock: e.target.value.replace(/\D/g, '').slice(0, 6) })} />}</td>
+                  <td>{r.variantId ? <span className="ld-num">{r.onHand}</span> : form.serialized && serialsModule ? <span className="ld-help">—</span> : <input aria-label={h.t('openingStock')} className="hb-qty" inputMode="numeric" value={r.openingStock} onChange={e => setRow(r.key, { openingStock: e.target.value.replace(/\D/g, '').slice(0, 6) })} />}</td>
                   <td><input aria-label={h.t('reorderPoint')} className="hb-qty" inputMode="numeric" value={r.reorderPoint} onChange={e => setRow(r.key, { reorderPoint: e.target.value.replace(/\D/g, '').slice(0, 6) })} /></td>
                 </>}
                 <td><input aria-label={h.t('sku')} value={r.sku} maxLength={40} dir="ltr" onChange={e => setRow(r.key, { sku: e.target.value })} /></td>

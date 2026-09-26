@@ -36,6 +36,20 @@ const en = {
   readyBy: 'Ready by (optional)', depositNow: 'Deposit taken now (OMR, optional)', depositMethod: 'Deposit method', copyReceipt: 'Copy receipt', copied: 'Copied', exchange: 'Exchange',
   exchangeHelp: 'Marks this order returned (stock comes back) and starts a new order for the same customer.', due: 'Due {date}', depositFailed: 'The order was saved, but the deposit wasn’t recorded. Record it from the order.',
   amountCol: 'Amount', paidTo: 'Paid to', outOfStock: 'Out of stock',
+  changeIndustry: 'Change industry', currentIndustry: 'Current', service: 'Service',
+  serialized: 'Track IMEI / serial per unit', warrantyMonths: 'Warranty (months)', warrantyBy: 'Warranty from', wb_store: 'Our store', wb_agent: 'Official agent', wb_none: 'No warranty',
+  imei: 'IMEI / serial', imeis: 'IMEIs / serials', imeiHelp: 'One per line. Scanning with a barcode reader works.', imeiCount: '{count} entered', pickImeis: 'Choose the units sold',
+  noImeis: 'No units in stock for this product.', imeiNeeded: 'Choose {count} IMEI(s) for {name}', unitsInStock: '{count} units', serializedChip: 'IMEI',
+  warrantyLookup: 'Warranty lookup', lookup: 'Look up', lookupPlaceholder: 'Scan or type an IMEI', notFound: 'This IMEI is not in your records.',
+  soldOn: 'Sold {date}', warrantyActive: 'Under warranty until {date} ({days} days left)', warrantyExpired: 'Warranty ended {date}', noWarranty: 'No warranty recorded',
+  st_serial_in_stock: 'In stock', st_serial_reserved: 'Reserved', st_serial_sold: 'Sold', st_serial_written_off: 'Written off', src_purchase: 'Bought from supplier', src_trade_in: 'Trade-in',
+  tradeIn: 'Trade-in', tradeInTitle: 'Buy a used device', tradeInProduct: 'Used product', tradeInCost: 'Price paid (OMR)', seller: 'Seller name (optional)', condition: 'Condition notes',
+  tradeInDone: 'Trade-in #{number} saved. The device is now in stock.', tradeInsTile: 'Trade-ins bought', noUsedProducts: 'Add a product with IMEI tracking first (for example “iPhone 13 — used”).',
+  repairs: 'Repairs', newRepair: 'New repair', noRepairs: 'No repair tickets yet.', device: 'Device', fault: 'Fault', accessoriesLeft: 'Left with device (optional)', quote: 'Quote (OMR)',
+  dueDate: 'Promised by (optional)', repairNumber: 'Repair #{number}', underWarranty: 'Under warranty', warrantyByStore: 'Store warranty — labour not charged', warrantyByAgent: 'Official agent warranty',
+  labour: 'Labour (OMR)', parts: 'Parts from stock', addPart: 'Add part', saveQuote: 'Save quote and parts', repairLocked: 'Quote and parts are fixed once the device is ready.',
+  openRepairs: 'In the workshop', readyRepairs: 'Ready to collect', countLabel: 'Count: {count}', allRepairs: 'All repairs', labourLine: 'Repair labour — {device}',
+  rs_received: 'Received', rs_diagnosing: 'Diagnosing', rs_waiting_parts: 'Waiting for parts', rs_repairing: 'Repairing', rs_ready: 'Ready', rs_collected: 'Collected', rs_cancelled: 'Cancelled',
   industryTitle: 'Set up orders and stock', industryIntro: 'Hasib is being released one industry at a time. Choose the industry that fits your shop to open orders, stock, expenses and insights.', industryLayla: 'This only changes Hasib. Layla keeps her current business details and replies.', chooseIndustry: 'Use {name}', industry: 'Industry: {name}', choosing: 'Setting up…',
   currency: 'OMR', invalidAmount: 'Enter an amount like 12.500',
 };
@@ -74,6 +88,20 @@ const ar = {
   readyBy: 'جاهز بتاريخ (اختياري)', depositNow: 'عربون مستلم الآن (ر.ع.، اختياري)', depositMethod: 'طريقة دفع العربون', copyReceipt: 'نسخ الإيصال', copied: 'تم النسخ', exchange: 'استبدال',
   exchangeHelp: 'يسجّل هذا الطلب كمرتجع (يعود المخزون) ويبدأ طلباً جديداً للعميل نفسه.', due: 'موعده {date}', depositFailed: 'حُفظ الطلب لكن لم يُسجَّل العربون. سجّله من صفحة الطلب.',
   amountCol: 'المبلغ', paidTo: 'المدفوع له', outOfStock: 'نفد',
+  changeIndustry: 'تغيير القطاع', currentIndustry: 'الحالي', service: 'الصيانة',
+  serialized: 'تتبّع IMEI / الرقم التسلسلي لكل وحدة', warrantyMonths: 'الضمان (بالأشهر)', warrantyBy: 'جهة الضمان', wb_store: 'متجرنا', wb_agent: 'الوكيل الرسمي', wb_none: 'بدون ضمان',
+  imei: 'IMEI / الرقم التسلسلي', imeis: 'أرقام IMEI / التسلسلية', imeiHelp: 'رقم في كل سطر. يمكن استخدام قارئ الباركود.', imeiCount: 'تم إدخال {count}', pickImeis: 'اختر الوحدات المباعة',
+  noImeis: 'لا توجد وحدات في المخزون لهذا المنتج.', imeiNeeded: 'اختر {count} من أرقام IMEI لـ {name}', unitsInStock: '{count} وحدات', serializedChip: 'IMEI',
+  warrantyLookup: 'البحث عن الضمان', lookup: 'بحث', lookupPlaceholder: 'امسح أو اكتب رقم IMEI', notFound: 'رقم IMEI هذا غير موجود في سجلاتك.',
+  soldOn: 'بيع في {date}', warrantyActive: 'ضمن الضمان حتى {date} (متبقٍ {days} يوماً)', warrantyExpired: 'انتهى الضمان في {date}', noWarranty: 'لا يوجد ضمان مسجّل',
+  st_serial_in_stock: 'في المخزون', st_serial_reserved: 'محجوز', st_serial_sold: 'مباع', st_serial_written_off: 'مشطوب', src_purchase: 'شراء من المورد', src_trade_in: 'استبدال',
+  tradeIn: 'استبدال', tradeInTitle: 'شراء جهاز مستعمل', tradeInProduct: 'المنتج المستعمل', tradeInCost: 'المبلغ المدفوع (ر.ع.)', seller: 'اسم البائع (اختياري)', condition: 'ملاحظات الحالة',
+  tradeInDone: 'حُفظ الاستبدال رقم {number}. أصبح الجهاز في المخزون.', tradeInsTile: 'أجهزة مستبدلة', noUsedProducts: 'أضف أولاً منتجاً بتتبّع IMEI (مثل «آيفون 13 — مستعمل»).',
+  repairs: 'الصيانة', newRepair: 'تذكرة صيانة جديدة', noRepairs: 'لا توجد تذاكر صيانة بعد.', device: 'الجهاز', fault: 'العطل', accessoriesLeft: 'ما تُرك مع الجهاز (اختياري)', quote: 'التسعيرة (ر.ع.)',
+  dueDate: 'موعد التسليم (اختياري)', repairNumber: 'صيانة رقم {number}', underWarranty: 'ضمن الضمان', warrantyByStore: 'ضمان المتجر — لا تُحتسب أجرة', warrantyByAgent: 'ضمان الوكيل الرسمي',
+  labour: 'الأجرة (ر.ع.)', parts: 'قطع من المخزون', addPart: 'إضافة قطعة', saveQuote: 'حفظ التسعيرة والقطع', repairLocked: 'تُثبّت التسعيرة والقطع عند جاهزية الجهاز.',
+  openRepairs: 'في الورشة', readyRepairs: 'جاهزة للاستلام', countLabel: 'العدد: {count}', allRepairs: 'كل تذاكر الصيانة', labourLine: 'أجرة إصلاح — {device}',
+  rs_received: 'مستلم', rs_diagnosing: 'قيد الفحص', rs_waiting_parts: 'بانتظار القطع', rs_repairing: 'قيد الإصلاح', rs_ready: 'جاهز', rs_collected: 'تم الاستلام', rs_cancelled: 'ملغى',
   industryTitle: 'إعداد الطلبات والمخزون', industryIntro: 'نطلق حاسب لقطاع تلو الآخر. اختر القطاع المناسب لمتجرك لفتح الطلبات والمخزون والمصروفات والتقارير.', industryLayla: 'هذا يغيّر حاسب فقط. تحتفظ ليلى ببيانات نشاطك وردودها الحالية.', chooseIndustry: 'استخدام {name}', industry: 'القطاع: {name}', choosing: 'جارٍ الإعداد…',
   currency: 'ر.ع.', invalidAmount: 'أدخل مبلغاً مثل 12.500',
 };
@@ -81,11 +109,11 @@ const reasons = {
   en: { insufficient_stock: 'Not enough stock. Switch the stock rule to “warn” or receive stock first.', order_conflict: 'This order changed in another tab. It has been reloaded.',
     invalid_transition: 'That status change isn’t allowed from here.', refund_exceeds_paid: 'A refund can’t be more than what was paid.', order_closed: 'This order is closed. Only refunds are possible.',
     duplicate_sku: 'Another product already uses that SKU.', invalid_item: 'Check the product: a name and a price are needed for each variant.', invalid_order_lines: 'Check the lines: quantities and prices must be valid.',
-    variant_not_found: 'That product is no longer available.', hasib_unavailable: 'Orders and stock are not switched on for this account yet.', invalid_amount: 'Enter a valid amount.', invalid_expense: 'Check the expense: category, amount and date are needed, and VAT can’t exceed the amount.', pack_not_live: 'Choose an available industry to use orders and stock.' },
+    variant_not_found: 'That product is no longer available.', hasib_unavailable: 'Orders and stock are not switched on for this account yet.', invalid_amount: 'Enter a valid amount.', invalid_expense: 'Check the expense: category, amount and date are needed, and VAT can’t exceed the amount.', pack_not_live: 'Choose an available industry to use orders and stock.', serials_required: 'Choose the IMEI of each unit sold.', serial_unavailable: 'That IMEI is not in stock for this product.', serials_mismatch: 'The number of IMEIs must match the quantity.', duplicate_serial: 'That IMEI is already in stock.', invalid_serial: 'Check the IMEI: letters and digits only.', use_serial_flow: 'IMEI products change stock by receiving or writing off named units.', serialized_part: 'Parts with IMEIs are sold as their own order, not as repair parts.', repair_locked: 'Quote and parts are fixed once the device is ready.', repair_conflict: 'This repair changed in another tab. It has been reloaded.', invalid_repair: 'Device and fault are needed.', invalid_trade_in: 'Check the trade-in: price and method are needed.', not_serialized: 'Trade-ins need a product with IMEI tracking.', serial_not_found: 'This IMEI is not in your records.' },
   ar: { insufficient_stock: 'الكمية غير كافية. غيّر قاعدة المخزون إلى «تنبيه» أو استلم بضاعة أولاً.', order_conflict: 'تغيّر هذا الطلب في نافذة أخرى، وتمت إعادة تحميله.',
     invalid_transition: 'لا يمكن تغيير الحالة بهذا الشكل.', refund_exceeds_paid: 'لا يمكن أن يتجاوز الاسترداد المبلغ المدفوع.', order_closed: 'هذا الطلب مغلق، ويمكن فقط تسجيل استرداد.',
     duplicate_sku: 'رمز SKU مستخدم لمنتج آخر.', invalid_item: 'راجع المنتج: يلزم اسم وسعر لكل خيار.', invalid_order_lines: 'راجع البنود: يجب أن تكون الكميات والأسعار صحيحة.',
-    variant_not_found: 'هذا المنتج لم يعد متاحاً.', hasib_unavailable: 'الطلبات والمخزون غير مفعّلة لهذا الحساب بعد.', invalid_amount: 'أدخل مبلغاً صحيحاً.', invalid_expense: 'راجع المصروف: يلزم الفئة والمبلغ والتاريخ، ولا يمكن أن تتجاوز الضريبة المبلغ.', pack_not_live: 'اختر قطاعاً متاحاً لاستخدام الطلبات والمخزون.' },
+    variant_not_found: 'هذا المنتج لم يعد متاحاً.', hasib_unavailable: 'الطلبات والمخزون غير مفعّلة لهذا الحساب بعد.', invalid_amount: 'أدخل مبلغاً صحيحاً.', invalid_expense: 'راجع المصروف: يلزم الفئة والمبلغ والتاريخ، ولا يمكن أن تتجاوز الضريبة المبلغ.', pack_not_live: 'اختر قطاعاً متاحاً لاستخدام الطلبات والمخزون.', serials_required: 'اختر رقم IMEI لكل وحدة مباعة.', serial_unavailable: 'رقم IMEI هذا غير متوفر في المخزون لهذا المنتج.', serials_mismatch: 'يجب أن يطابق عدد أرقام IMEI الكمية.', duplicate_serial: 'رقم IMEI هذا موجود في المخزون بالفعل.', invalid_serial: 'راجع رقم IMEI: أحرف وأرقام فقط.', use_serial_flow: 'منتجات IMEI يتغير مخزونها باستلام وحدات محددة أو شطبها.', serialized_part: 'القطع ذات IMEI تُباع بطلب مستقل وليس كقطع صيانة.', repair_locked: 'تُثبّت التسعيرة والقطع عند جاهزية الجهاز.', repair_conflict: 'تغيّرت هذه التذكرة في نافذة أخرى، وتمت إعادة تحميلها.', invalid_repair: 'يلزم ذكر الجهاز والعطل.', invalid_trade_in: 'راجع الاستبدال: يلزم المبلغ وطريقة الدفع.', not_serialized: 'الاستبدال يتطلب منتجاً بتتبّع IMEI.', serial_not_found: 'رقم IMEI هذا غير موجود في سجلاتك.' },
 };
 
 const GROUPED = new Intl.NumberFormat('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
@@ -98,9 +126,11 @@ export function createHasibStrings(lang) {
   const amount = minor => GROUPED.format(minor / 1000);
   const money = minor => `${amount(minor)} ${table.currency}`;
   const name = row => (isAr ? row.nameAr || row.nameEn : row.nameEn || row.nameAr) || '';
+  /** An order line's label: repair labour is rendered in the owner's language. */
+  const lineName = l => (l.role === 'labour' ? t('labourLine', { device: l.name }) : l.name);
   // Arabic counts agree with the number: طلب واحد، طلبان، 3–10 طلبات، 11+ طلباً.
   const orders = n => isAr ? (n === 1 ? 'طلب واحد' : n === 2 ? 'طلبان' : n >= 3 && n <= 10 ? `${n} طلبات` : `${n} طلباً`) : `${n} ${n === 1 ? 'order' : 'orders'}`;
-  return { t, reason, amount, money, name, orders, lang, ar: isAr };
+  return { t, reason, amount, money, name, lineName, orders, lang, ar: isAr };
 }
 export const HASIB_EN_KEYS = Object.keys(en), HASIB_AR_KEYS = Object.keys(ar);
 export const HASIB_REASON_KEYS = { en: Object.keys(reasons.en), ar: Object.keys(reasons.ar) };

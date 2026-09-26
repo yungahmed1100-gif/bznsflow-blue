@@ -9,7 +9,7 @@ import { Money, OrderStatus, PaymentChip } from './Badges';
 
 const METHODS = ['cash', 'bank_transfer', 'cod', 'card', 'payment_link', 'other'];
 
-function PaymentForm({ h, order, onRecorded }) {
+export function PaymentForm({ h, order, onRecorded }) {
   const [amount, setAmount] = useState(''), [method, setMethod] = useState(order.fulfilment.type === 'delivery' ? 'cod' : 'cash');
   const [reference, setReference] = useState(''), [refund, setRefund] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
@@ -72,7 +72,7 @@ export function OrderDetail({ s, h, pack, business, orderId, timezone, onClose, 
           </p>
           <table className="ld-table hb-lines">
             <thead><tr><th scope="col">{h.t('items')}</th><th scope="col">{h.t('qty')}</th><th scope="col">{h.t('unitPrice')}</th><th scope="col">{h.t('total')}</th></tr></thead>
-            <tbody>{order.lines.map((l, i) => <tr key={i}><td><bdi>{l.name}</bdi></td><td className="ld-num">{l.qty}</td><td><Money h={h} minor={l.unitPriceMinor} /></td><td><Money h={h} minor={l.netMinor} /></td></tr>)}</tbody>
+            <tbody>{order.lines.map((l, i) => <tr key={i}><td><bdi>{h.lineName(l)}</bdi>{l.serials?.length > 0 && <span className="hb-line-serials">{l.serials.map(x => <bdi key={x} dir="ltr" className="ld-num">{x}</bdi>)}</span>}{l.warrantyUntil && <span className="ld-help"> · {h.t('warrantyActive', { date: formatDateTime(l.warrantyUntil, s.lang, timezone).split(',')[0], days: Math.max(0, Math.ceil((l.warrantyUntil - Date.now()) / 86400000)) })}</span>}</td><td className="ld-num">{l.qty}</td><td><Money h={h} minor={l.unitPriceMinor} /></td><td><Money h={h} minor={l.netMinor} /></td></tr>)}</tbody>
           </table>
           <dl className="hb-totals">
             <div><dt>{h.t('subtotal')}</dt><dd><Money h={h} minor={order.subtotalMinor} /></dd></div>

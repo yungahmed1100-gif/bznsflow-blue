@@ -7,6 +7,7 @@ import { orderTotals, paymentStatus } from '../convex/hasib/totals.js';
 import { canTransition, nextStatuses, STATUSES, deductsStock, stockEffect } from '../convex/hasib/orderMachine.js';
 import { applyStockPolicy } from '../convex/hasib/stock.js';
 import { hasibPack, HASIB_PACKS } from '../config/hasib-packs.js';
+import { nameMatches } from '../convex/hasib/matching.js';
 import { PRIMARY_SECTOR_IDS } from '../config/layla-sector-packs.js';
 
 const VAT_OFF = { registered: false, rateBps: 500, pricesIncludeVat: false };
@@ -128,3 +129,12 @@ test('every Layla sector has a valid Hasib pack; retail is the first full pack',
   assert.equal(hasibPack('unknown-sector').id, 'other');
   assert.equal(Object.keys(HASIB_PACKS).length, PRIMARY_SECTOR_IDS.length + 2, 'sector packs + other + retail-tech');
 });
+
+test('product names match across punctuation and Arabic spelling variants, never on one shared word', () => {
+  assert.equal(nameMatches({ nameEn: 'iPhone 13 (used)', nameAr: '' }, 'iPhone 13 used'), true);
+  assert.equal(nameMatches({ nameEn: 'iPhone 15 (official)', nameAr: '' }, 'iphone 15'), true);
+  assert.equal(nameMatches({ nameEn: '', nameAr: 'عباية سوداء' }, 'عبايه سوداء'), true);
+  assert.equal(nameMatches({ nameEn: 'Black abaya', nameAr: '' }, 'Black shayla'), false);
+  assert.equal(nameMatches({ nameEn: 'Galaxy S24', nameAr: '' }, 'x'), false);
+});
+

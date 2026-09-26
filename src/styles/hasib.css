@@ -24,6 +24,26 @@
 .hb-setup-list { list-style: none; margin: 4px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .hb-industry { vertical-align: middle; font-size: 12px; margin-inline-start: 8px; }
 
+/* Tech store: IMEI entry, unit picker, warranty lookup */
+.hb-serials { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; padding: 8px; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--card); }
+.hb-serial-picker { display: grid; gap: 6px; margin-block-start: 6px; }
+.hb-serial-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.hb-serial-chips button { font: inherit; font-size: 12px; padding: 4px 10px; border: 1px solid var(--rule-strong); border-radius: 999px; background: var(--card); color: var(--ink); cursor: pointer; font-variant-numeric: tabular-nums; }
+.hb-serial-chips button[aria-pressed=true] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.hb-serial-chips button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.hb-serial-scan { display: flex; gap: 6px; align-items: center; }
+.hb-serial-scan input { flex: 1 1 auto; min-inline-size: 0; font: inherit; padding: 6px 8px; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--card); }
+.hb-line-serials { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-block-start: 4px; font-size: 12px; color: var(--ink-2); }
+.hb-panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-block-end: 8px; }
+.hb-panel-head .hb-panel-title { margin: 0; }
+.hb-lookup-result { display: grid; gap: 4px; margin-block-start: 12px; padding-block-start: 12px; border-block-start: 1px solid var(--rule); }
+.hb-lookup-result p { margin: 0; }
+.hb-lookup-result .ld-chip { margin-inline-start: 6px; }
+.hb-warranty { font-weight: 600; padding-inline-start: 8px; border-inline-start: 3px solid var(--rule-strong); }
+.hb-warranty.is-active { border-color: var(--green-mark); color: var(--green); }
+.hb-warranty.is-ended { border-color: var(--coral-mark); color: var(--coral); }
+.hb-change-industry { margin-inline-start: 8px; vertical-align: middle; }
+
 /* Orders */
 .hb-order-table td:nth-child(5), .hb-order-table td:nth-child(6) { white-space: nowrap; }
 .hb-order-table .ld-row-open { font-weight: 700; }

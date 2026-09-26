@@ -10,7 +10,8 @@ import { normSerial } from './serialsState.js';
 import { createOrder, changeStatus, updatePendingOrder, publicOrder, paymentsOf } from './ordersState.js';
 
 const HISTORY = 30;
-const labourLine = (device, labourMinor) => ({ name: `إصلاح / Repair — ${device}`.slice(0, 120), qty: 1, unitPriceMinor: labourMinor });
+// The line name is the device; screens and receipts render "Repair labour — <device>" in the owner's language.
+const labourLine = (device, labourMinor) => ({ name: device.slice(0, 120), role: 'labour', qty: 1, unitPriceMinor: labourMinor });
 
 async function publicRepair(ctx, r, { detail = false } = {}) {
   const order = await ctx.db.get(r.orderId);

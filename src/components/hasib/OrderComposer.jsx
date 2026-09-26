@@ -9,15 +9,16 @@ import { Money } from './Badges';
 
 const newId = () => crypto.randomUUID();
 const priceText = minor => formatMinor(minor);
-const fromPrefill = p => p.lines.map(l => ({ key: newId(), variantId: l.variantId, label: l, qty: String(l.qty), price: priceText(l.unitPriceMinor), onHand: l.onHand }));
+const fromPrefill = p => p.lines.map(l => ({ key: newId(), variantId: l.variantId, label: l, qty: String(l.serialized ? 0 : l.qty), price: priceText(l.unitPriceMinor), onHand: l.onHand, serialized: !!l.serialized, serials: [] }));
 
 /** Lines as the server will read them, or null while any field is invalid. */
 function toLines(rows) {
   const out = [];
   for (const r of rows) {
-    const qty = Number(r.qty), unitPriceMinor = parseAmount(r.price);
+    // An IMEI-tracked line sells exactly the units picked.
+    const qty = r.serialized ? r.serials.length : Number(r.qty), unitPriceMinor = parseAmount(r.price);
     if (!Number.isSafeInteger(qty) || qty < 1 || unitPriceMinor === null || (!r.variantId && !r.name.trim())) return null;
-    out.push(r.variantId ? { variantId: r.variantId, qty, unitPriceMinor } : { name: r.name.trim(), qty, unitPriceMinor });
+    out.push(r.variantId ? { variantId: r.variantId, qty, unitPriceMinor, ...(r.serialized ? { serials: r.serials } : {}) } : { name: r.name.trim(), qty, unitPriceMinor });
   }
   return out.length ? out : null;
 }
@@ -26,6 +27,37 @@ function toLines(rows) {
 function previewTotals(lines, feeMinor, settings) {
   if (!lines || feeMinor === null) return null;
   try { return orderTotals({ lines, deliveryFeeMinor: feeMinor, vat: { registered: settings.vatRegistered, rateBps: settings.vatRateBps, pricesIncludeVat: settings.pricesIncludeVat } }); } catch { return null; }
+}
+
+/** Pick the exact units (IMEIs) sold on a line: tap one in stock, or scan/type it. */
+function SerialPicker({ h, variantId, picked, onChange }) {
+  const [units, setUnits] = useState([]), [typed, setTyped] = useState(''), [miss, setMiss] = useState(false);
+  useEffect(() => {
+    let live = true;
+    hasib('serials', { variantId }).then(r => { if (live) setUnits(r.items.map(u => u.serial)); }).catch(() => {});
+    return () => { live = false; };
+  }, [variantId]);
+  const toggle = serial => onChange(picked.includes(serial) ? picked.filter(x => x !== serial) : [...picked, serial]);
+  const addTyped = e => {
+    e.preventDefault();
+    const serial = typed.toUpperCase().replace(/[\s-]/g, '');
+    if (units.includes(serial)) { if (!picked.includes(serial)) onChange([...picked, serial]); setTyped(''); setMiss(false); } else setMiss(true);
+  };
+  return (
+    <div className="hb-serial-picker">
+      {!units.length ? <p className="ld-help">{h.t('noImeis')}</p> : (
+        <ul className="hb-serial-chips" role="list" aria-label={h.t('pickImeis')}>
+          {units.map(u => <li key={u}><button type="button" aria-pressed={picked.includes(u)} onClick={() => toggle(u)}><bdi dir="ltr">{u}</bdi></button></li>)}
+        </ul>
+      )}
+      <div className="hb-serial-scan">
+        <input aria-label={h.t('lookupPlaceholder')} placeholder={h.t('lookupPlaceholder')} dir="ltr" value={typed} aria-invalid={miss} onChange={e => { setTyped(e.target.value); setMiss(false); }}
+          onKeyDown={e => { if (e.key === 'Enter') addTyped(e); }} />
+        <button type="button" className="ld-button ld-quiet ld-compact" onClick={addTyped}>{h.t('lookup')}</button>
+      </div>
+      {miss && <p className="ld-inline-error" role="alert">{h.reason('serial_unavailable')}</p>}
+    </div>
+  );
 }
 
 function ItemPicker({ s, h, onPick }) {
@@ -73,7 +105,8 @@ export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSa
   const lines = toLines(rows), feeMinor = fee.trim() ? parseAmount(fee) : 0;
   const totals = previewTotals(lines, feeMinor, settings);
   const set = (key, patch) => setRows(rs => rs.map(r => r.key === key ? { ...r, ...patch } : r));
-  const add = (item, v) => setRows(rs => [...rs, { key: newId(), variantId: v.id, label: { nameAr: item.nameAr, nameEn: item.nameEn, options: v.options }, qty: '1', price: priceText(v.priceMinor), onHand: item.trackStock ? v.onHand : null }]);
+  const add = (item, v) => setRows(rs => [...rs, { key: newId(), variantId: v.id, label: { nameAr: item.nameAr, nameEn: item.nameEn, options: v.options }, qty: item.serialized ? '0' : '1', price: priceText(v.priceMinor),
+    onHand: item.trackStock ? v.onHand : null, serialized: !!item.serialized, serials: [] }]);
 
   const save = async e => {
     e.preventDefault();
@@ -108,9 +141,11 @@ export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSa
             {rows.map(r => (
               <tr key={r.key}>
                 <td>{r.variantId ? <><bdi>{h.name(r.label)}</bdi>{r.label.options?.length ? ` — ${r.label.options.map(o => o.value).join(' / ')}` : ''}
-                  {r.onHand !== null && r.onHand !== undefined && Number(r.qty) > r.onHand && <span className="ld-chip is-coral">{h.t('onHand', { count: r.onHand })}</span>}</>
+                  {!r.serialized && r.onHand !== null && r.onHand !== undefined && Number(r.qty) > r.onHand && <span className="ld-chip is-coral">{h.t('onHand', { count: r.onHand })}</span>}
+                  {r.serialized && <SerialPicker h={h} variantId={r.variantId} picked={r.serials} onChange={serials => set(r.key, { serials })} />}</>
                   : <input aria-label={h.t('lineName')} value={r.name} maxLength={120} dir="auto" onChange={e => set(r.key, { name: e.target.value })} />}</td>
-                <td><input aria-label={h.t('qty')} className="hb-qty" inputMode="numeric" value={r.qty} onChange={e => set(r.key, { qty: e.target.value.replace(/\D/g, '').slice(0, 5) })} /></td>
+                <td>{r.serialized ? <span className="ld-num" aria-label={h.t('qty')}>{r.serials.length}</span>
+                  : <input aria-label={h.t('qty')} className="hb-qty" inputMode="numeric" value={r.qty} onChange={e => set(r.key, { qty: e.target.value.replace(/\D/g, '').slice(0, 5) })} />}</td>
                 <td><input aria-label={h.t('unitPrice')} className="hb-money" inputMode="decimal" dir="ltr" value={r.price} aria-invalid={parseAmount(r.price) === null} onChange={e => set(r.key, { price: e.target.value })} /></td>
                 <td><button type="button" className="ld-icon-button" aria-label={h.t('remove')} onClick={() => setRows(rs => rs.filter(x => x.key !== r.key))}><span aria-hidden="true">×</span></button></td>
               </tr>

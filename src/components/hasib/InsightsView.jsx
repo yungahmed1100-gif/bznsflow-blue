@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { usePolling } from '../../hooks/usePolling';
 import { hasib } from '../../lib/dashboard/api';
 import { Money } from './Badges';
+import { Dialog } from '../dashboard/Dialog';
+import { IndustrySetup } from './IndustrySetup';
 
 const PERIODS = ['today', '7d', '30d', 'month', 'prev_month'];
 
@@ -37,8 +39,8 @@ function DemandList({ title, rows, columns }) {
 }
 
 /** Insights: one period selector scopes every figure below it. */
-export function InsightsView({ s, h, overview }) {
-  const [period, setPeriod] = useState('month');
+export function InsightsView({ s, h, overview, onIndustryChanged }) {
+  const [period, setPeriod] = useState('month'), [changing, setChanging] = useState(false);
   const data = usePolling(() => hasib('insights', { period }), [period], { interval: 60000 });
   const i = data.data;
   const categoryLabel = key => { const c = overview.pack.expenseCategories.find(x => x.key === key); return c ? (s.ar ? c.ar : c.en) : key; };
@@ -47,7 +49,8 @@ export function InsightsView({ s, h, overview }) {
   return (
     <div className="hb-insights">
       <div className="ld-page-head">
-        <h1>{h.t('insights')} {(() => { const live = overview.livePacks?.find(p => p.id === overview.pack.id); return live ? <span className="ld-chip hb-industry">{h.t('industry', { name: s.ar ? live.ar : live.en })}</span> : null; })()}</h1>
+        <h1>{h.t('insights')} {(() => { const live = overview.livePacks?.find(p => p.id === overview.pack.id); return live ? <span className="ld-chip hb-industry">{h.t('industry', { name: s.ar ? live.ar : live.en })}</span> : null; })()}
+          {overview.livePacks?.length > 1 && <button type="button" className="ld-button ld-quiet ld-compact hb-change-industry" onClick={() => setChanging(true)}>{h.t('changeIndustry')}</button>}</h1>
         <div className="ld-segmented hb-periods" role="radiogroup" aria-label={h.t('insights')}>
           {PERIODS.map(p => <label key={p}><input type="radio" name="hb-period" checked={period === p} onChange={() => setPeriod(p)} /><span>{h.t(`period_${p}`)}</span></label>)}
         </div>
@@ -117,6 +120,11 @@ export function InsightsView({ s, h, overview }) {
               ]} /></section>}
             </div>
 
+            {(i.tradeIns || i.repairs) && <dl className="hb-tiles hb-tiles-small">
+              {i.repairs && <Tile label={h.t('openRepairs')}><span>{i.repairs.open}</span></Tile>}
+              {i.repairs && <Tile label={h.t('readyRepairs')}><span>{i.repairs.ready}</span></Tile>}
+              {i.tradeIns && <Tile label={h.t('tradeInsTile')} note={h.t('countLabel', { count: i.tradeIns.count })}><Money h={h} minor={i.tradeIns.totalMinor} /></Tile>}
+            </dl>}
             <dl className="hb-tiles hb-tiles-small">
               <Tile label={h.t('stockValueTile')}><Money h={h} minor={i.stock.valueMinor} /></Tile>
               <Tile label={h.t('lowTile')}><span>{i.stock.low}</span></Tile>
@@ -129,6 +137,9 @@ export function InsightsView({ s, h, overview }) {
             <p className="ld-help hb-definitions">{h.t('definitions')}</p>
           </div>
         )}
+      {changing && <Dialog s={s} title={h.t('changeIndustry')} onClose={() => setChanging(false)}>
+        <IndustrySetup s={s} h={h} livePacks={overview.livePacks} current={overview.pack.id} heading={false} onChosen={() => { setChanging(false); onIndustryChanged?.(); }} />
+      </Dialog>}
     </div>
   );
 }

@@ -17,7 +17,7 @@ export function StockView({ s, h, overview, onChanged }) {
   };
   // The low-stock endpoint returns variants; group them back under their product.
   const items = lowOnly ? Object.values((list.data?.items || []).reduce((acc, v) => {
-    acc[v.itemId] ||= { id: v.itemId, nameAr: v.nameAr, nameEn: v.nameEn, trackStock: true, variants: [], partial: true };
+    acc[v.itemId] ||= { id: v.itemId, nameAr: v.nameAr, nameEn: v.nameEn, trackStock: true, serialized: v.serialized, variants: [], partial: true };
     acc[v.itemId].variants.push(v); return acc;
   }, {})) : list.data?.items || [];
 
@@ -45,7 +45,7 @@ export function StockView({ s, h, overview, onChanged }) {
                   <tr key={v.id} className={i ? 'hb-sub' : ''}>
                     {i === 0 && <th scope="rowgroup" rowSpan={item.variants.length}>
                       {item.partial ? <bdi>{h.name(item)}</bdi> : <button type="button" className="ld-row-open" onClick={() => setEditing({ item })}><bdi>{h.name(item)}</bdi></button>}
-                      {item.category && <span className="ld-help"> · <bdi>{item.category}</bdi></span>}
+                      {item.category && <span className="ld-help"> · <bdi>{item.category}</bdi></span>}{item.serialized && <span className="ld-chip">{h.t('serializedChip')}</span>}
                     </th>}
                     <td>{v.options.map(o => o.value).join(' / ') || '—'}{v.sku && <span className="ld-help"> · <bdi dir="ltr">{v.sku}</bdi></span>}</td>
                     <td><Money h={h} minor={v.priceMinor} /></td>

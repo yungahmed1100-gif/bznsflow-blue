@@ -18,13 +18,14 @@ import { StockView } from '../components/hasib/StockView';
 import { InsightsView } from '../components/hasib/InsightsView';
 import { ExpensesView } from '../components/hasib/ExpensesView';
 import { IndustrySetup } from '../components/hasib/IndustrySetup';
+import { ServiceView } from '../components/hasib/ServiceView';
 import { browserTimezone } from '../lib/dashboard/format';
 import { createStrings } from '../lib/dashboard/strings';
 import '../styles/layla-dashboard.css';
 import '../styles/hasib.css';
 
-const TABS = ['broadcast', 'chats', 'contacts', 'insights', 'orders', 'stock', 'expenses', 'channels', 'business'];
-const HASIB_TABS = ['insights', 'orders', 'stock', 'expenses'];
+const TABS = ['broadcast', 'chats', 'contacts', 'insights', 'orders', 'stock', 'service', 'expenses', 'channels', 'business'];
+const HASIB_TABS = ['insights', 'orders', 'stock', 'service', 'expenses'];
 
 export default function LaylaDashboard({ lang = 'ar' }) {
   const s = useMemo(() => createStrings(lang), [lang]);
@@ -35,7 +36,8 @@ export default function LaylaDashboard({ lang = 'ar' }) {
   const hasibState = usePolling(loadHasib, [], { interval: 60000, enabled: ready && !!overview.data?.connected });
   const hasibOverview = hasibState.data?.modules ? hasibState.data : null;
   // Until the owner picks a live industry, Hasib shows one entry that opens the picker.
-  const hasibTabs = hasibOverview ? (hasibOverview.setupRequired ? ['insights'] : hasibOverview.modules) : [];
+  // The Service tab (repairs, warranty, trade-ins) exists only for packs with the repairs module.
+  const hasibTabs = hasibOverview ? (hasibOverview.setupRequired ? ['insights'] : [...hasibOverview.modules, ...(hasibOverview.modules.includes('repairs') ? ['service'] : [])]) : [];
   const h = useMemo(() => createHasibStrings(lang), [lang]);
   const requested = params.get('tab');
   const tab = TABS.includes(requested) && (!HASIB_TABS.includes(requested) || hasibTabs.includes(requested)) ? requested : 'chats';
@@ -79,7 +81,8 @@ export default function LaylaDashboard({ lang = 'ar' }) {
           : overview.error && !data ? <div className="ld-state" role="alert"><p>{s.reason(overview.error.reason)}</p><button className="ld-button" onClick={() => overview.refresh()}>{s.t('retry')}</button></div>
           : data?.connected ? (
             tab === 'insights' && hasibOverview?.setupRequired ? <IndustrySetup s={s} h={h} livePacks={hasibOverview.livePacks} onChosen={() => hasibState.refresh({ quiet: true })} />
-            : tab === 'insights' ? <InsightsView s={s} h={h} overview={hasibOverview} />
+            : tab === 'insights' ? <InsightsView s={s} h={h} overview={hasibOverview} onIndustryChanged={() => hasibState.refresh({ quiet: true })} />
+            : tab === 'service' ? <ServiceView s={s} h={h} timezone={data.timezone} onChanged={() => hasibState.refresh({ quiet: true })} />
             : tab === 'expenses' ? <ExpensesView s={s} h={h} overview={hasibOverview} timezone={data.timezone} />
             : tab === 'orders' ? <OrdersView s={s} h={h} overview={hasibOverview} business={data.business.name} timezone={data.timezone} fromChat={params.get('fromChat')} onConsumedChat={() => setParams(new URLSearchParams({ tab: 'orders' }), { replace: true })} />
             : tab === 'stock' ? <StockView s={s} h={h} overview={hasibOverview} onChanged={() => hasibState.refresh({ quiet: true })} />

@@ -47,7 +47,8 @@ async function resolveLines(ctx, accountId, raw) {
     } else {
       const name = bounded(l.name ?? '', 120);
       if (!name || l.unitPriceMinor === undefined) throw { reason: 'invalid_order_lines' };
-      lines.push({ name, qty: l.qty, unitPriceMinor: l.unitPriceMinor, discountMinor: l.discountMinor || 0, unitCostMinor: 0, tracked: false });
+      // `role` is set only by server code (repair labour); the API never forwards it.
+      lines.push({ name, qty: l.qty, unitPriceMinor: l.unitPriceMinor, discountMinor: l.discountMinor || 0, unitCostMinor: 0, tracked: false, ...(l.role === 'labour' ? { role: 'labour' } : {}) });
     }
   }
   return lines;
@@ -247,7 +248,7 @@ async function chatPrefill(ctx, tenant, a, now) {
   if (itemText) {
     const item = await matchItem(ctx, tenant.accountId, itemText);
     const variant = item && (await ctx.db.query('hasibVariants').withIndex('by_item', q => q.eq('itemId', item._id)).take(50)).find(v => !v.archived);
-    if (variant) lines.push({ variantId: variant._id, itemId: item._id, nameAr: item.nameAr, nameEn: item.nameEn, qty, unitPriceMinor: variant.priceMinor, onHand: variant.onHand });
+    if (variant) lines.push({ variantId: variant._id, itemId: item._id, nameAr: item.nameAr, nameEn: item.nameEn, qty, unitPriceMinor: variant.priceMinor, onHand: variant.onHand, serialized: !!item.serialized });
   }
   return ok({ contact: { id: contact._id, name: displayName(contact).name }, conversationId: person._id, channel: person.channel || 'whatsapp', lines, unmatched: lines.length ? '' : itemText,
     fulfilment: { type, ...(type === 'delivery' && area ? { area } : {}) } });

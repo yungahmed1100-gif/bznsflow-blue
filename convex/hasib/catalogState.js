@@ -158,7 +158,7 @@ export async function executeCatalog(ctx, tenant, a, now) {
     const items = [];
     for (const v of rows) {
       const item = await ctx.db.get(v.itemId);
-      if (item && !item.archived && item.trackStock) items.push({ ...publicVariant(v), itemId: item._id, nameAr: item.nameAr, nameEn: item.nameEn });
+      if (item && !item.archived && item.trackStock) items.push({ ...publicVariant(v), itemId: item._id, nameAr: item.nameAr, nameEn: item.nameEn, serialized: !!item.serialized });
     }
     return ok({ items });
   }

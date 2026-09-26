@@ -24,7 +24,7 @@ export function expensesCsv(expenses) {
 /** Plain-text receipt the owner can paste into WhatsApp. Figures come from the saved order. */
 export function receiptText(order, h, business) {
   const money = minor => h.money(minor);
-  const lines = order.lines.map(l => `${l.qty} × ${l.name} — ${money(l.netMinor)}`);
+  const lines = order.lines.map(l => `${l.qty} × ${h.lineName ? h.lineName(l) : l.name} — ${money(l.netMinor)}`);
   const totals = [
     order.deliveryMinor > 0 && `${h.t('delivery')}: ${money(order.deliveryMinor)}`,
     order.vatMinor > 0 && `${h.t('vat')}: ${money(order.vatMinor)}${order.pricesIncludeVat ? ` (${h.t('pricesIncludeVat')})` : ''}`,
