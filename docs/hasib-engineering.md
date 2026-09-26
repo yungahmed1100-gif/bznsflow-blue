@@ -173,6 +173,21 @@ never written (commit `a51d0c2`).
 
 **To switch it on:** run `npx convex run blueHasib:setEnabled '{"enabled":true}'` in this repo. **To switch off:** the same command with `false`. For a full rollback, also set `BLUE_HASIB_ENABLED=false` and run `npm run deploy:blue`, or roll back to `dpl_FANGbGk9T9jnbfgTXvp52a7EQwtp`. No data is deleted.
 
+## Tech-store pack — 2026-09-26
+
+`retail-tech` ("Electronics and phone store") is the second live pack. It covers:
+- IMEI/serial stock: one row per unit, and on-hand always equals the units in stock;
+- warranty from the store or the official agent, with lookup by IMEI;
+- trade-ins into used stock at their own cost;
+- repair tickets, whose quote, parts and deposit live on a linked order;
+- a Service tab, and "Change industry" to switch between live packs.
+
+Commits: `4ae4506` (backend), `8e701ed` (UI).
+
+- **Evidence (local):** `npm test` 187/187; `test:hasib` 65/65; browser checks: 158 synthetic, 72 fashion real-logic and 50 tech real-logic (`tests/hasib-tech-browser.mjs` against `node scripts/hasib-demo.mjs 5311 --pack=retail-tech`).
+- **Blue Convex:** pushed. It added only the `hasibSerials`, `hasibTradeIns` and `hasibRepairs` tables with their indexes, plus optional fields. `ahmed@bznsflowai.com` still has plan `ascend`, pack `retail`, and live packs `retail` and `retail-tech`.
+- **Blue frontend:** the deploy was **blocked by the session's permission classifier**. Ahmed runs `npm run deploy:blue`. Until then, Blue runs the earlier frontend (`dpl_4QdjLrkyw3LG2X8iJcMD3nNvaVAB`), which is compatible with the new backend.
+
 ## Rollout order (each step needs authorization)
 
 1. Push the Convex schema/functions to `quaint-nightingale-675`.
