@@ -85,3 +85,18 @@ const LIVE_LABELS = { retail: { en: 'Retail and fashion', ar: 'التجزئة و
 export const isLivePack = id => HASIB_LIVE_PACKS.includes(id);
 export const livePackSummaries = () => HASIB_LIVE_PACKS.map(id => ({ id, ...LIVE_LABELS[id] }));
 
+// Every industry Hasib will serve, in release order. Finished packs are selectable;
+// the rest are shown as "coming soon" so owners see what is next.
+const INDUSTRIES = [
+  ['retail', 'Retail and fashion', 'التجزئة والأزياء'], ['retail-tech', 'Electronics and phone store', 'متجر الإلكترونيات والهواتف'],
+  ['beauty', 'Salon and spa', 'صالون وسبا'], ['dental', 'Dental clinic', 'عيادة أسنان'], ['clinic', 'Medical clinic', 'عيادة طبية'],
+  ['restaurant', 'Restaurant', 'مطعم'], ['cafe', 'Café', 'مقهى'], ['cakes', 'Bakery and cakes', 'مخبز وحلويات'],
+  ['automotive', 'Garage and car services', 'كراج وخدمات السيارات'], ['fitness', 'Gym and fitness', 'نادٍ رياضي'],
+  ['education', 'Training and tutoring', 'التدريب والدروس'], ['cleaning', 'Cleaning services', 'خدمات التنظيف'],
+  ['hvac', 'AC and maintenance', 'التكييف والصيانة'], ['construction', 'Construction and contracting', 'المقاولات'], ['real-estate', 'Real estate', 'العقارات'],
+];
+export function industryCatalog() {
+  const all = INDUSTRIES.map(([id, en, ar]) => ({ id, en, ar, live: isLivePack(id) }));
+  return [...all.filter(i => i.live), ...all.filter(i => !i.live)];
+}
+

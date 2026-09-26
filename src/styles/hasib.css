@@ -23,6 +23,9 @@
 .hb-setup p { margin: 0; }
 .hb-setup-list { list-style: none; margin: 4px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .hb-industry { vertical-align: middle; font-size: 12px; margin-inline-start: 8px; }
+.hb-soon-title { font-size: 14px; margin: 8px 0 0; color: var(--ink-2); }
+.hb-soon-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px 12px; }
+.hb-soon-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px dashed var(--rule-strong); border-radius: var(--radius); color: var(--ink-2); }
 
 /* Tech store: IMEI entry, unit picker, warranty lookup */
 .hb-serials { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; padding: 8px; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--card); }

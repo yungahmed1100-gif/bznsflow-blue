@@ -80,7 +80,7 @@ export default function LaylaDashboard({ lang = 'ar' }) {
           : unavailable ? <div className="ld-state"><p>{s.t('dashboardUnavailable')}</p><a className="ld-button" href={setupPath(lang)}>{s.t('setup')}</a></div>
           : overview.error && !data ? <div className="ld-state" role="alert"><p>{s.reason(overview.error.reason)}</p><button className="ld-button" onClick={() => overview.refresh()}>{s.t('retry')}</button></div>
           : data?.connected ? (
-            tab === 'insights' && hasibOverview?.setupRequired ? <IndustrySetup s={s} h={h} livePacks={hasibOverview.livePacks} onChosen={() => hasibState.refresh({ quiet: true })} />
+            tab === 'insights' && hasibOverview?.setupRequired ? <IndustrySetup s={s} h={h} livePacks={hasibOverview.livePacks} industries={hasibOverview.industries} onChosen={() => hasibState.refresh({ quiet: true })} />
             : tab === 'insights' ? <InsightsView s={s} h={h} overview={hasibOverview} onIndustryChanged={() => hasibState.refresh({ quiet: true })} />
             : tab === 'service' ? <ServiceView s={s} h={h} timezone={data.timezone} onChanged={() => hasibState.refresh({ quiet: true })} />
             : tab === 'expenses' ? <ExpensesView s={s} h={h} overview={hasibOverview} timezone={data.timezone} />

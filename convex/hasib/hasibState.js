@@ -2,7 +2,7 @@
 // The tenant is always resolved from the verified session hash; ids in the
 // request are re-checked against it by `owned()` inside each executor.
 import { resolveTenant } from '../blueTenant.js';
-import { visibleModules, isLivePack, livePackSummaries } from '../../config/hasib-packs.js';
+import { visibleModules, isLivePack, livePackSummaries, industryCatalog } from '../../config/hasib-packs.js';
 import { STOCK_POLICIES } from './stock.js';
 import { hasibEnabled } from './gate.js';
 import { ok, fail, settingsFor, packFor } from './shared.js';
@@ -62,7 +62,7 @@ export async function executeHasib(ctx, a, now = Date.now()) {
   if (a.operation === 'settings_update') return updateSettings(ctx, tenant.accountId, a, now);
   if (!isLivePack(pack.id)) {
     // Only live packs open Hasib; the owner can choose one without changing Layla's sector.
-    return a.operation === 'overview' ? ok({ plan, setupRequired: true, livePacks: livePackSummaries(), modules: [], settings: publicSettings(await settingsFor(ctx, tenant.accountId)) }) : fail('pack_not_live');
+    return a.operation === 'overview' ? ok({ plan, setupRequired: true, livePacks: livePackSummaries(), industries: industryCatalog(), modules: [], settings: publicSettings(await settingsFor(ctx, tenant.accountId)) }) : fail('pack_not_live');
   }
 
   if (a.operation === 'overview') {
@@ -70,7 +70,7 @@ export async function executeHasib(ctx, a, now = Date.now()) {
     const pending = await ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => q.eq('accountId', tenant.accountId).eq('status', 'pending')).take(100);
     const low = (await ctx.db.query('hasibVariants').withIndex('by_account_low', q => q.eq('accountId', tenant.accountId).eq('low', true)).take(100)).filter(v => !v.archived);
     return ok({ pack: { id: pack.id, archetype: pack.archetype, version: pack.version, variantOptions: pack.variantOptions, orderFields: pack.orderFields, expenseCategories: pack.expenseCategories },
-      plan, setupRequired: false, livePacks: livePackSummaries(), modules: visibleModules(pack), settings: publicSettings(settings), counts: { pendingOrders: pending.length, lowStock: low.length } });
+      plan, setupRequired: false, livePacks: livePackSummaries(), industries: industryCatalog(), modules: visibleModules(pack), settings: publicSettings(settings), counts: { pendingOrders: pending.length, lowStock: low.length } });
   }
   const module = moduleOf(a.operation);
   if (module && pack.modules[module] !== 'available') return fail('module_unavailable');

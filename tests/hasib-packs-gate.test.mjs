@@ -7,7 +7,7 @@ import { blueHarness, seedTenant } from './helpers/blue-tenant.mjs';
 import { SECRET } from './helpers/convex-memory.mjs';
 import { executeHasib } from '../convex/hasib/hasibState.js';
 import { grantPlan } from '../convex/hasib/plans.js';
-import { HASIB_LIVE_PACKS, isLivePack } from '../config/hasib-packs.js';
+import { HASIB_LIVE_PACKS, isLivePack, industryCatalog } from '../config/hasib-packs.js';
 
 async function setup(sector) {
   const h = blueHarness();
@@ -75,3 +75,18 @@ test('a retail business needs no setup', async () => {
   assert.equal(o.setupRequired, false);
   assert.equal(o.pack.id, 'retail');
 });
+
+test('the industry list shows finished packs first and the rest as coming soon', async () => {
+  const list = industryCatalog();
+  assert.deepEqual(list.filter(i => i.live).map(i => i.id), ['retail', 'retail-tech']);
+  assert.ok(list.length > 8, 'the roadmap is visible');
+  for (const i of list) assert.ok(i.id && i.en && i.ar && typeof i.live === 'boolean', i.id);
+  assert.equal(list.findIndex(i => !i.live), list.filter(i => i.live).length, 'live industries come first');
+  const { hasib } = await setup('Retail');
+  const o = (await hasib('overview')).value;
+  assert.deepEqual(o.industries, list);
+  assert.equal((await hasib('settings_update', { packId: 'dental' })).reason, 'pack_not_live', 'coming-soon industries cannot be chosen yet');
+  const pending = (await setup('Real estate')).hasib;
+  assert.deepEqual((await pending('overview')).value.industries, list, 'the setup screen gets the same list');
+});
+
