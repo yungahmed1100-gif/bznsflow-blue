@@ -36,6 +36,7 @@ import type * as hasib_expensesState from "../hasib/expensesState.js";
 import type * as hasib_gate from "../hasib/gate.js";
 import type * as hasib_hasibState from "../hasib/hasibState.js";
 import type * as hasib_insightsState from "../hasib/insightsState.js";
+import type * as hasib_laylaOrders from "../hasib/laylaOrders.js";
 import type * as hasib_matching from "../hasib/matching.js";
 import type * as hasib_money from "../hasib/money.js";
 import type * as hasib_orderMachine from "../hasib/orderMachine.js";
@@ -89,6 +90,7 @@ declare const fullApi: ApiFromModules<{
   "hasib/gate": typeof hasib_gate;
   "hasib/hasibState": typeof hasib_hasibState;
   "hasib/insightsState": typeof hasib_insightsState;
+  "hasib/laylaOrders": typeof hasib_laylaOrders;
   "hasib/matching": typeof hasib_matching;
   "hasib/money": typeof hasib_money;
   "hasib/orderMachine": typeof hasib_orderMachine;
