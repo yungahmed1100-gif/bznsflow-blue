@@ -98,7 +98,7 @@ try {
     const state = fixture();
     const { page, context } = await openPage(browser, { width, path: '/layla/dashboard', handler: api(state) });
     await page.getByRole('heading', { name: 'Chats', exact: true }).waitFor();
-    assert.equal(await page.getByRole('navigation', { name: 'Dashboard sections' }).getByRole('link').allTextContents().then(t => t.join('|')), 'Channels|Broadcast|Chats|Contacts|Business'); count++;
+    assert.equal(await page.getByRole('navigation', { name: 'Dashboard sections' }).getByRole('link').allTextContents().then(t => t.join('|')), 'Chats|Customers|Settings'); count++;
     assert.equal(await page.getByRole('link', { name: 'Chats' }).getAttribute('aria-current'), 'page'); count++;
     await page.getByRole('button', { name: /Aisha Al Balushi/ }).click();
     await page.getByRole('heading', { name: 'Aisha Al Balushi' }).waitFor();
@@ -142,7 +142,8 @@ try {
     assert.match(await page.locator('.ld-table').textContent(), /Opted out/); count++;
     assert.deepEqual(await axe(page), []); count++;
     await page.screenshot({ path: `${OUT}/contacts-en-1280.png`, fullPage: true });
-    await page.getByRole('link', { name: 'Broadcast' }).click();
+    // Contacts and Broadcast now sit under Customers as two views.
+    await page.getByRole('navigation', { name: 'Views in this section' }).getByRole('link', { name: 'Message many' }).click();
     await page.getByRole('heading', { name: 'Broadcast', exact: true }).waitFor();
     await page.getByRole('button', { name: 'New broadcast' }).click();
     const dialog = page.getByRole('dialog');

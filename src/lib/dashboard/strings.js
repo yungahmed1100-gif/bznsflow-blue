@@ -1,7 +1,9 @@
 // Dashboard copy, Arabic and English. Plain, specific and short; reasons map
 // server codes to what the owner can do next.
 const en = {
-  title: 'Layla dashboard', loadEarlier: 'Load earlier messages', nav: 'Dashboard sections', broadcast: 'Broadcast', chats: 'Chats', contacts: 'Contacts', business: 'Business',
+  title: 'Layla dashboard', loadEarlier: 'Load earlier messages', nav: 'Dashboard sections', today: 'Today', money: 'Money', customers: 'Customers', settings: 'Settings', sectionViews: 'Views in this section',
+  view_products: 'Products', view_services: 'Services', view_insights: 'Summary', view_expenses: 'Expenses', view_contacts: 'Customer list', view_broadcast: 'Message many', view_channels: 'Channels', view_business: 'Business details',
+  broadcast: 'Broadcast', chats: 'Chats', contacts: 'Contacts', business: 'Business',
   active: 'Layla is replying', paused: 'Layla is paused', pause: 'Pause Layla', activate: 'Activate Layla', checkConnection: 'Check connection',
   connectionOk: 'Connection healthy', connectionAttention: 'Connection needs attention', checkedAt: 'Checked {time}', repliesToday: '{used} of {limit} replies today',
   signOut: 'Sign out', setup: 'Business setup', language: 'العربية', loading: 'Loading…', retry: 'Try again', loadMore: 'Load more', close: 'Close', back: 'Back', cancel: 'Cancel',
@@ -46,7 +48,9 @@ const en = {
   dashboardUnavailable: 'The dashboard isn’t switched on yet. Your setup and Layla’s replies are unaffected.',
 };
 const ar = {
-  title: 'لوحة ليلى', loadEarlier: 'عرض الرسائل الأقدم', nav: 'أقسام اللوحة', broadcast: 'الرسائل الجماعية', chats: 'المحادثات', contacts: 'جهات الاتصال', business: 'نشاطك',
+  title: 'لوحة ليلى', loadEarlier: 'عرض الرسائل الأقدم', nav: 'أقسام اللوحة', today: 'اليوم', money: 'المال', customers: 'العملاء', settings: 'الإعدادات', sectionViews: 'أقسام هذه الصفحة',
+  view_products: 'المنتجات', view_services: 'الخدمات', view_insights: 'الملخص', view_expenses: 'المصروفات', view_contacts: 'قائمة العملاء', view_broadcast: 'رسالة جماعية', view_channels: 'القنوات', view_business: 'بيانات النشاط',
+  broadcast: 'الرسائل الجماعية', chats: 'المحادثات', contacts: 'جهات الاتصال', business: 'نشاطك',
   active: 'ليلى ترد الآن', paused: 'ليلى متوقفة', pause: 'إيقاف ليلى', activate: 'تفعيل ليلى', checkConnection: 'فحص الاتصال',
   connectionOk: 'الاتصال سليم', connectionAttention: 'الاتصال يحتاج مراجعة', checkedAt: 'آخر فحص {time}', repliesToday: '{used} من {limit} رد اليوم',
   signOut: 'تسجيل الخروج', setup: 'إعداد النشاط', language: 'English', loading: 'جارٍ التحميل…', retry: 'حاول مجدداً', loadMore: 'عرض المزيد', close: 'إغلاق', back: 'رجوع', cancel: 'إلغاء',

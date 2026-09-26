@@ -3,6 +3,7 @@
 // request are re-checked against it by `owned()` inside each executor.
 import { registerPhoto } from './photosState.js';
 import { importItems } from './importState.js';
+import { executeToday } from './todayState.js';
 import { resolveTenant } from '../blueTenant.js';
 import { visibleModules, isLivePack, livePackSummaries, industryCatalog } from '../../config/hasib-packs.js';
 import { STOCK_POLICIES } from './stock.js';
@@ -18,7 +19,7 @@ import { executeRepairs } from './repairsState.js';
 
 export const HASIB_OPERATIONS = ['overview', 'settings_update', 'items', 'item_save', 'item_archive', 'stock_move', 'stock_moves', 'low_stock',
   'order_create', 'order_status', 'orders', 'order', 'payment_record', 'contact_summary', 'conversation_orders', 'expense_create', 'expenses', 'expense_void', 'insights',
-  'photo_upload_url', 'photo_register', 'item_photo', 'items_import', 'serials', 'serial_lookup', 'trade_in', 'repairs', 'repair', 'repair_create', 'repair_update', 'repair_status'];
+  'today', 'photo_upload_url', 'photo_register', 'item_photo', 'items_import', 'serials', 'serial_lookup', 'trade_in', 'repairs', 'repair', 'repair_create', 'repair_update', 'repair_status'];
 
 // Operations that belong to an optional module; a pack without that module refuses them.
 const MODULE_OPS = { serials: ['serials', 'serial_lookup'], tradeIns: ['trade_in'], repairs: ['repairs', 'repair', 'repair_create', 'repair_update', 'repair_status'] };
@@ -93,6 +94,6 @@ export async function executeHasib(ctx, a, now = Date.now()) {
   if (module && pack.modules[module] !== 'available') return fail('module_unavailable');
   const result = (await executeCatalog(ctx, tenant, a, now)) || (await executeOrders(ctx, tenant, a, now))
     || (await executeExpenses(ctx, tenant, a, now)) || (await executeInsights(ctx, tenant, a, now))
-    || (await executeSerials(ctx, tenant, a, now)) || (await executeRepairs(ctx, tenant, a, now));
+    || (await executeSerials(ctx, tenant, a, now)) || (await executeRepairs(ctx, tenant, a, now)) || (await executeToday(ctx, tenant, a, now));
   return result || fail('invalid_action');
 }

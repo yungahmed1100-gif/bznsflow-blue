@@ -116,7 +116,8 @@ try {
     await dialog.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByText(/Trade-in #\d+ saved/).waitFor(); count++;
     assert.equal((await api('serial_lookup', { serial: '353251509999999' })).source, 'trade_in'); count++;
-    await page.getByRole('link', { name: 'Insights' }).click();
+    await page.getByRole('navigation', { name: 'Dashboard sections' }).getByRole('link', { name: 'Money' }).click();
+    assert.equal(await page.getByRole('navigation', { name: 'Views in this section' }).getByRole('link', { name: 'Summary' }).getAttribute('aria-current'), 'page', 'Money opens on its summary'); count++;
     await page.getByRole('button', { name: 'Change industry' }).click();
     const change = page.getByRole('dialog');
     assert.ok(await change.getByRole('button', { name: /Electronics and phone store · Current/ }).isDisabled(), 'current industry shown'); count++;

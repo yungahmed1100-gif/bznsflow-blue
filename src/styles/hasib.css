@@ -190,3 +190,38 @@
 .hb-import-issues p { margin: 0 0 4px; font-weight: 700; }
 .hb-import-issues ul { margin: 0; padding-inline-start: 20px; }
 .hb-import-progress progress { inline-size: 100%; block-size: 12px; accent-color: var(--blue); }
+
+/* Today */
+.hb-today { display: grid; gap: 20px; }
+.hb-today h1 { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0; }
+.hb-today-date { font-size: 1rem; font-weight: 500; color: var(--ink-muted); }
+.hb-today-card { background: var(--card); border: 1px solid var(--rule-strong); border-radius: var(--radius); padding: 16px 20px; display: grid; gap: 12px; }
+.hb-today-card h2 { margin: 0; font-size: 1.1rem; }
+.hb-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.hb-needs { border-width: 2px; border-color: var(--ink); }
+.hb-need-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.hb-need { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; padding: 12px; border-radius: var(--radius); border-inline-start: 6px solid var(--rule-strong); background: var(--paper); }
+.hb-need.is-coral { border-inline-start-color: var(--coral); }
+.hb-need.is-yellow { border-inline-start-color: var(--yellow); }
+.hb-need.is-blue { border-inline-start-color: var(--blue); }
+.hb-need-main { display: grid; gap: 4px; min-inline-size: 0; }
+.hb-need-text { margin: 0; font-weight: 700; }
+.hb-need-list { margin: 0; padding-inline-start: 18px; color: var(--ink-muted); font-size: .92rem; }
+.hb-need .ld-button { flex: none; min-block-size: 44px; }
+.hb-all-clear { margin: 0; font-weight: 600; }
+.hb-today-pair { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.hb-figures { margin: 0; display: grid; gap: 14px; }
+.hb-figure { display: grid; gap: 2px; }
+.hb-figure dt { font-weight: 600; }
+.hb-figure dd { margin: 0; }
+.hb-figure-value { font-size: 1.6rem; font-weight: 800; line-height: 1.2; }
+.hb-figure-help { color: var(--ink-muted); font-size: .88rem; }
+.hb-setup progress { inline-size: 100%; block-size: 10px; accent-color: var(--blue); }
+.hb-setup ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.hb-setup li { display: flex; align-items: center; gap: 10px; min-block-size: 44px; }
+.hb-step-mark { inline-size: 24px; block-size: 24px; flex: none; border: 2px solid var(--ink); border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: .8rem; }
+.hb-setup li.is-done .hb-step-mark { background: var(--ink); color: var(--card); }
+.hb-setup li.is-done .hb-step-label { color: var(--ink-muted); text-decoration: line-through; }
+.hb-step-label { flex: 1; }
+@media (max-width: 480px) { .hb-need { flex-direction: column; } .hb-need .ld-button { align-self: stretch; } }
+.hb-variant-actions { justify-content: flex-start; }

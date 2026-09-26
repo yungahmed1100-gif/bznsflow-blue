@@ -302,3 +302,10 @@
 .ld-channel-card { border: 1px solid var(--line, #ddd); border-radius: 12px; padding: 16px; margin-block: 12px; max-width: 100%; }
 .ld-channel-card h3 { margin: 0 0 8px; display: flex; align-items: center; gap: 10px; }
 .ld-channel-card .ld-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Views inside a section (Stock → Products · Services, Money → Summary · Expenses, …) */
+.ld-section-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-block-end: 16px; border-block-end: 1px solid var(--rule-strong, #0003); }
+.ld-section-tabs a { padding: 10px 14px; min-block-size: 44px; display: inline-flex; align-items: center; font-weight: 600; color: inherit; text-decoration: none; border-block-end: 3px solid transparent; margin-block-end: -1px; }
+.ld-section-tabs a[aria-current=page] { border-block-end-color: currentColor; font-weight: 800; }
+.ld-section-tabs a:focus-visible { outline: 2px solid var(--blue, #1d4ed8); outline-offset: 2px; }
+.ld-section-tabs a:hover { background: color-mix(in srgb, currentColor 6%, transparent); }

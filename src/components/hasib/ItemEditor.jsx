@@ -30,6 +30,8 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
   const [rows, setRows] = useState(() => item ? item.variants.map(v => fromVariant(v, keys)) : [blankVariant(keys)]);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [confirmArchive, setConfirmArchive] = useState(false);
   const [requestId] = useState(() => crypto.randomUUID());
+  // Cost, alert level and SKU stay tucked away until the owner wants them (or already uses them).
+  const [more, setMore] = useState(() => !!item?.variants.some(v => v.sku || v.costMinor || v.reorderPoint !== 2));
   // photo.id is undefined until the owner changes it; '' means removed.
   const [photo, setPhoto] = useState(() => ({ url: item?.photoUrl || null, id: undefined, uploading: false }));
   const variants = toVariants(rows);
@@ -106,25 +108,30 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
           <div className="ld-table-wrap"><table className="ld-table hb-variants">
             <thead><tr>
               {pack.variantOptions.map(o => <th key={o.key} scope="col">{s.ar ? o.ar : o.en}</th>)}
-              <th scope="col">{h.t('price')}</th><th scope="col">{h.t('cost')}</th>
-              {form.trackStock && <><th scope="col">{item ? h.t('stock') : h.t('openingStock')}</th><th scope="col">{h.t('reorderPoint')}</th></>}
-              <th scope="col">{h.t('sku')}</th><th scope="col"><span className="ld-visually-hidden">{h.t('remove')}</span></th>
+              <th scope="col">{h.t('price')}</th>
+              {form.trackStock && <th scope="col">{item ? h.t('stock') : h.t('openingStock')}</th>}
+              {more && <><th scope="col">{h.t('cost')}</th>{form.trackStock && <th scope="col">{h.t('reorderPoint')}</th>}<th scope="col">{h.t('sku')}</th></>}
+              <th scope="col"><span className="ld-visually-hidden">{h.t('remove')}</span></th>
             </tr></thead>
             <tbody>{rows.map(r => (
               <tr key={r.key}>
                 {keys.map(k => <td key={k}><input aria-label={pack.variantOptions.find(o => o.key === k)[s.ar ? 'ar' : 'en']} value={r.options[k]} maxLength={40} dir="auto" onChange={e => setRow(r.key, { options: { ...r.options, [k]: e.target.value } })} /></td>)}
                 <td><input aria-label={h.t('price')} className="hb-money" inputMode="decimal" dir="ltr" value={r.price} aria-invalid={parseAmount(r.price) === null} onChange={e => setRow(r.key, { price: e.target.value })} /></td>
-                <td><input aria-label={h.t('cost')} className="hb-money" inputMode="decimal" dir="ltr" value={r.cost} onChange={e => setRow(r.key, { cost: e.target.value })} /></td>
-                {form.trackStock && <>
-                  <td>{r.variantId ? <span className="ld-num">{r.onHand}</span> : form.serialized && serialsModule ? <span className="ld-help">—</span> : <input aria-label={h.t('openingStock')} className="hb-qty" inputMode="numeric" value={r.openingStock} onChange={e => setRow(r.key, { openingStock: e.target.value.replace(/\D/g, '').slice(0, 6) })} />}</td>
-                  <td><input aria-label={h.t('reorderPoint')} className="hb-qty" inputMode="numeric" value={r.reorderPoint} onChange={e => setRow(r.key, { reorderPoint: e.target.value.replace(/\D/g, '').slice(0, 6) })} /></td>
+                {form.trackStock && <td>{r.variantId ? <span className="ld-num">{r.onHand}</span> : form.serialized && serialsModule ? <span className="ld-help">—</span> : <input aria-label={h.t('openingStock')} className="hb-qty" inputMode="numeric" value={r.openingStock} onChange={e => setRow(r.key, { openingStock: e.target.value.replace(/\D/g, '').slice(0, 6) })} />}</td>}
+                {more && <>
+                  <td><input aria-label={h.t('cost')} className="hb-money" inputMode="decimal" dir="ltr" value={r.cost} onChange={e => setRow(r.key, { cost: e.target.value })} /></td>
+                  {form.trackStock && <td><input aria-label={h.t('reorderPoint')} className="hb-qty" inputMode="numeric" value={r.reorderPoint} onChange={e => setRow(r.key, { reorderPoint: e.target.value.replace(/\D/g, '').slice(0, 6) })} /></td>}
+                  <td><input aria-label={h.t('sku')} value={r.sku} maxLength={40} dir="ltr" onChange={e => setRow(r.key, { sku: e.target.value })} /></td>
                 </>}
-                <td><input aria-label={h.t('sku')} value={r.sku} maxLength={40} dir="ltr" onChange={e => setRow(r.key, { sku: e.target.value })} /></td>
                 <td>{!r.variantId && rows.length > 1 && <button type="button" className="ld-icon-button" aria-label={h.t('remove')} onClick={() => setRows(rs => rs.filter(x => x.key !== r.key))}><span aria-hidden="true">×</span></button>}</td>
               </tr>
             ))}</tbody>
           </table></div>
-          <button type="button" className="ld-button ld-quiet" onClick={() => setRows(rs => [...rs, blankVariant(keys)])}>{h.t('addVariant')}</button>
+          <div className="ld-actions hb-variant-actions">
+            <button type="button" className="ld-button ld-quiet" onClick={() => setRows(rs => [...rs, blankVariant(keys)])}>{h.t('addVariant')}</button>
+            <button type="button" className="ld-button ld-quiet" aria-expanded={more} onClick={() => setMore(m => !m)}>{more ? h.t('fewerDetails') : h.t('moreDetails')}</button>
+          </div>
+          {!more && <p className="ld-help">{h.t('moreDetailsHelp')}</p>}
         </fieldset>
         {error && <p className="ld-inline-error" role="alert">{error}</p>}
         {confirmArchive && <p className="ld-help" role="alert">{h.t('archiveConfirm', { name: h.name(item) })}</p>}

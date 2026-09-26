@@ -66,6 +66,16 @@ const en = {
   bulkPhotos: 'Add photos by file name', bulkPhotosHelp: 'Name each picture with the product’s SKU or name, for example AB-1.jpg or Black abaya.jpg.', photosUnmatched: 'No product matched: {names}', done: 'Done',
   issue_name_missing: 'the name is missing', issue_price_missing: 'the price is missing', issue_price_invalid: 'the price isn’t a number', issue_cost_invalid: 'the cost isn’t a number', issue_quantity_invalid: 'the quantity isn’t a whole number',
   issue_alert_invalid: 'the alert level isn’t a whole number', issue_serial_invalid: 'the IMEI / serial looks wrong', issue_duplicate_sku: 'this SKU belongs to another product', issue_duplicate_serial: 'this IMEI is listed twice',
+  // Today
+  todayTitle: 'Today', needsYou: 'Needs you', allClear: 'All clear — Layla is handling everything.', ordersWaitingLine: 'Orders waiting for you: {count}', chatsHandedLine: 'Chats handed to you: {count}',
+  lowStockLine: 'Running low or out of stock: {count}', repairsReadyLine: 'Repairs ready to collect: {count}', seeAll: 'See all', openChats: 'Open chats', openStock: 'Open stock', openService: 'Open service',
+  laylaToday: 'Layla today', laylaReplies: 'Replies sent', laylaConfirmed: 'Orders she confirmed', laylaQuestions: 'Product questions',
+  moneyTitle: 'Money', moneyToday: 'Money in today', moneyMonth: 'Money in this month', owedToYou: 'Owed to you',
+  help_moneyToday: 'Payments you recorded today, in cash, card or transfer.', help_moneyMonth: 'All payments recorded since the 1st of this month.', help_owedToYou: 'What customers still have to pay on orders that are not finished.',
+  help_laylaReplies: 'Messages Layla wrote to customers today.', help_laylaConfirmed: 'Orders Layla checked against your stock and confirmed by herself today.', help_laylaQuestions: 'Times a customer asked about one of your products today.',
+  setupTitle: 'Finish setting up', setupProgress: '{done} of {total} done', setup_whatsapp: 'Connect WhatsApp', setup_industry: 'Choose your type of shop', setup_products: 'Add your products', setup_photos: 'Add product photos', setup_services: 'Add your services',
+  moreDetails: 'More details', fewerDetails: 'Fewer details', moreDetailsHelp: 'Cost, low-stock alert and SKU are under “More details”.',
+  setupDone: 'Done', setupTodo: 'To do', setupStart: 'Start', onHandShort: '{count} left',
 };
 const ar = {
   orders: 'الطلبات', stock: 'المخزون', newOrder: 'طلب جديد', createOrder: 'إنشاء طلب', orderNumber: 'طلب رقم {number}', noOrders: 'لا توجد طلبات بعد. أنشئ طلباً من محادثة أو من هنا.',
@@ -132,6 +142,16 @@ const ar = {
   bulkPhotos: 'إضافة صور حسب اسم الملف', bulkPhotosHelp: 'سمِّ كل صورة برمز المنتج أو اسمه، مثل AB-1.jpg أو عباية سوداء.jpg.', photosUnmatched: 'لم تطابق أي منتج: {names}', done: 'تم',
   issue_name_missing: 'الاسم غير موجود', issue_price_missing: 'السعر غير موجود', issue_price_invalid: 'السعر ليس رقماً', issue_cost_invalid: 'التكلفة ليست رقماً', issue_quantity_invalid: 'الكمية ليست رقماً صحيحاً',
   issue_alert_invalid: 'حد التنبيه ليس رقماً صحيحاً', issue_serial_invalid: 'رقم IMEI / التسلسلي غير صحيح', issue_duplicate_sku: 'رمز SKU هذا لمنتج آخر', issue_duplicate_serial: 'رقم IMEI هذا مكرر',
+  // Today
+  todayTitle: 'اليوم', needsYou: 'بانتظارك', allClear: 'كل شيء تمام — ليلى تتولى كل شيء.', ordersWaitingLine: 'طلبات بانتظارك: {count}', chatsHandedLine: 'محادثات حُوّلت إليك: {count}',
+  lowStockLine: 'منتجات قاربت على النفاد أو نفدت: {count}', repairsReadyLine: 'أجهزة جاهزة للاستلام: {count}', seeAll: 'عرض الكل', openChats: 'فتح المحادثات', openStock: 'فتح المخزون', openService: 'فتح الصيانة',
+  laylaToday: 'ليلى اليوم', laylaReplies: 'ردود أرسلتها', laylaConfirmed: 'طلبات أكّدتها', laylaQuestions: 'أسئلة عن المنتجات',
+  moneyTitle: 'المال', moneyToday: 'دخل اليوم', moneyMonth: 'دخل هذا الشهر', owedToYou: 'مبالغ لك عند العملاء',
+  help_moneyToday: 'المدفوعات التي سجّلتها اليوم نقداً أو بالبطاقة أو بالتحويل.', help_moneyMonth: 'كل المدفوعات المسجلة منذ أول الشهر.', help_owedToYou: 'ما بقي على العملاء دفعه في الطلبات غير المنتهية.',
+  help_laylaReplies: 'الرسائل التي كتبتها ليلى للعملاء اليوم.', help_laylaConfirmed: 'طلبات راجعتها ليلى مع مخزونك وأكّدتها بنفسها اليوم.', help_laylaQuestions: 'عدد المرات التي سأل فيها عميل عن أحد منتجاتك اليوم.',
+  setupTitle: 'أكمل الإعداد', setupProgress: 'أُنجز {done} من {total}', setup_whatsapp: 'ربط واتساب', setup_industry: 'اختيار نوع متجرك', setup_products: 'إضافة منتجاتك', setup_photos: 'إضافة صور المنتجات', setup_services: 'إضافة خدماتك',
+  moreDetails: 'تفاصيل أكثر', fewerDetails: 'تفاصيل أقل', moreDetailsHelp: 'التكلفة وتنبيه نفاد المخزون ورمز SKU ضمن «تفاصيل أكثر».',
+  setupDone: 'تم', setupTodo: 'مطلوب', setupStart: 'ابدأ', onHandShort: 'المتبقي {count}',
 };
 const reasons = {
   en: { insufficient_stock: 'Not enough stock. Switch the stock rule to “warn” or receive stock first.', order_conflict: 'This order changed in another tab. It has been reloaded.',

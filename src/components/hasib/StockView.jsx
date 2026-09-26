@@ -7,8 +7,8 @@ import { StockImporter } from './StockImporter';
 import { Money } from './Badges';
 
 /** Products and variants with on-hand, alert level and one-tap adjustments. */
-export function StockView({ s, h, overview, onChanged }) {
-  const [search, setSearch] = useState(''), [lowOnly, setLowOnly] = useState(false);
+export function StockView({ s, h, overview, initialLow = false, onChanged }) {
+  const [search, setSearch] = useState(''), [lowOnly, setLowOnly] = useState(initialLow);
   const [editing, setEditing] = useState(null), [moving, setMoving] = useState(null), [notice, setNotice] = useState(''), [importing, setImporting] = useState(false);
   const query = useDebounced(search.trim(), 300);
   const list = usePolling(() => lowOnly ? hasib('low_stock') : hasib('items', query ? { search: query } : {}), [query, lowOnly], { interval: 30000 });

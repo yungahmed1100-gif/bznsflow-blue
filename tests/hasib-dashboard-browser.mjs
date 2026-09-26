@@ -34,7 +34,7 @@ function api(state) {
     messaging: { available: true, active: true, reason: '', broadcastAvailable: false, limits: { perMinute: 10, perDay: 100, usedToday: 3 } }, timezone: 'Asia/Muscat', migrationPending: false,
     qualification: { id: 'retail', archetype: 'catalog', sensitive: false, fields: [{ key: 'item', kind: 'catalog', en: 'Item', ar: 'المنتج', required: true, options: [] }] } };
   const livePacks = [{ id: 'retail', en: 'Retail and fashion', ar: 'التجزئة والأزياء' }];
-  const hasibOverview = () => state.needsSetup && !state.chosen ? { setupRequired: true, livePacks, modules: [], settings: { currency: 'OMR', vatRegistered: false, vatRateBps: 500, pricesIncludeVat: false, vatin: '', stockPolicy: 'warn' } } : ({ setupRequired: false, livePacks, pack: packRetail, modules: ['orders', 'stock'], settings: { currency: 'OMR', vatRegistered: false, vatRateBps: 500, pricesIncludeVat: false, vatin: '', stockPolicy: 'warn' },
+  const hasibOverview = () => state.needsSetup && !state.chosen ? { setupRequired: true, livePacks, modules: [], settings: { currency: 'OMR', vatRegistered: false, vatRateBps: 500, pricesIncludeVat: false, vatin: '', stockPolicy: 'warn' } } : ({ setupRequired: false, livePacks, pack: packRetail, modules: ['orders', 'stock', 'expenses', 'insights'], settings: { currency: 'OMR', vatRegistered: false, vatRateBps: 500, pricesIncludeVat: false, vatin: '', stockPolicy: 'warn' },
     counts: { pendingOrders: state.orders.filter(o => o.status === 'pending').length, lowStock: state.item.variants.filter(v => v.low).length } });
   return async (surface, method, body) => {
     state.calls.push({ surface, method, action: body?.action, item: body?.item, products: body?.products });
@@ -77,6 +77,9 @@ function api(state) {
       }
       case 'settings_update': if (body.packId !== 'retail') return { status: 409, json: { ok: false, reason: 'pack_not_live' } }; state.chosen = true; return ok({ settings: {} });
       case 'items_import': state.imports = (state.imports || []).concat([body.products]); return ok({ results: body.products.map((p, index) => ({ index, status: 'created', itemId: `imp${index}` })), created: body.products.length, updated: 0, failed: 0 });
+      case 'today': return ok({ date: '2026-09-26', timezone: 'Asia/Muscat',
+        needsYou: { orders: [{ id: 'o9', number: 9, flags: ['out_of_stock'], createdAt: now - HOUR, totalMinor: 75000, customerName: 'Mariam' }], ordersCount: 1, chats: 2, lowStock: [{ variantId: 'v1', itemId: 'i1', nameAr: 'عباية سوداء', nameEn: 'Black abaya', options: [{ key: 'size', value: '52' }], onHand: 1 }], lowStockCount: 1, repairsReady: null },
+        layla: { replies: 14, ordersConfirmed: 3, productQuestions: 6 }, money: { todayMinor: 50000, monthMinor: 1282000, owedMinor: 25000 }, setup: { products: true, photos: false, services: true } });
       case 'photo_upload_url': return ok({ url: `${BASE}/upload-test` });
       case 'photo_register': return ok({ photoId: body.storageId });
       case 'item_save': return ok({ item: state.item, variants: state.item.variants });
@@ -225,6 +228,53 @@ try {
     assert.equal(await noOverflow(page), true); count++;
     await context.close();
   }
+  // Today is home: what needs the owner (each with its reason and one tap), Layla's day, the money, setup left.
+  const TT = { en: { today: 'Today', seeAll: 'See all', orders: 'Orders', stock: 'Stock', money: 'Money', customers: 'Customers', list: 'Customer list', settings: 'Settings', channels: 'Channels', services: 'Services' },
+    ar: { today: 'اليوم', seeAll: 'عرض الكل', orders: 'الطلبات', stock: 'المخزون', money: 'المال', customers: 'العملاء', list: 'قائمة العملاء', settings: 'الإعدادات', channels: 'القنوات', services: 'الخدمات' } };
+  for (const lang of ['en', 'ar']) {
+    const t = TT[lang];
+    for (const width of [1440, 1024, 768, 375, 320]) {
+      const state = fixture();
+      const { page, context } = await openPage(browser, { width, lang, path: '/layla/dashboard', handler: api(state) });
+      await page.getByRole('heading', { level: 1, name: new RegExp(`^${t.today}`) }).waitFor();
+      const sections = await page.getByRole('navigation', { name: lang === 'ar' ? 'أقسام اللوحة' : 'Dashboard sections' }).getByRole('link').allTextContents();
+      assert.deepEqual(sections.map(x => x.replace(/\d+$/, '')), lang === 'ar' ? ['اليوم', 'المحادثات', 'الطلبات', 'المخزون', 'المال', 'العملاء', 'الإعدادات'] : ['Today', 'Chats', 'Orders', 'Stock', 'Money', 'Customers', 'Settings'], `sections ${lang}`); count++;
+      const needs = await page.locator('.hb-needs').textContent();
+      assert.match(needs, lang === 'ar' ? /طلبات بانتظارك: 1/ : /Orders waiting for you: 1/); count++;
+      assert.match(needs, lang === 'ar' ? /الكمية غير كافية/ : /Not enough in stock/, 'the reason is shown'); count++;
+      assert.match(await page.locator('.hb-today').textContent(), lang === 'ar' ? /أُنجز 4 من 5/ : /4 of 5 done/, 'setup progress'); count++;
+      assert.equal(await noOverflow(page), true, `today no overflow ${lang} ${width}`); count++;
+      assert.deepEqual(await axe(page), [], `today axe ${lang} ${width}`); count++;
+      await page.screenshot({ path: `${OUT}/today-${lang}-${width}.png`, fullPage: true });
+      if (width === 375) {
+        await page.locator('.hb-need').first().getByRole('button').click();
+        await page.getByRole('heading', { name: t.orders, exact: true }).waitFor();
+        assert.match(page.url(), /tab=orders/); count++;
+        // Old links land where their content lives now.
+        await page.goto(`${BASE}${lang === 'ar' ? '' : '/en'}/layla/dashboard?tab=contacts`);
+        const views = page.getByRole('navigation', { name: lang === 'ar' ? 'أقسام هذه الصفحة' : 'Views in this section' });
+        assert.equal(await views.getByRole('link', { name: t.list }).getAttribute('aria-current'), 'page', `contacts → customers (${lang})`); count++;
+        await page.goto(`${BASE}${lang === 'ar' ? '' : '/en'}/layla/dashboard?tab=stock&view=services`);
+        assert.equal(await views.getByRole('link', { name: t.services }).getAttribute('aria-current'), 'page'); count++;
+        assert.deepEqual(await axe(page), [], `stock services axe ${lang}`); count++;
+      }
+      await context.close();
+    }
+  }
+
+  // A new product starts simple: name, size, price, stock. Cost, alert and SKU wait under "More details".
+  for (const lang of ['en', 'ar']) {
+    const { page, context } = await openPage(browser, { width: 375, lang, path: '/layla/dashboard?tab=stock', handler: api(fixture()) });
+    await page.getByRole('button', { name: lang === 'ar' ? 'إضافة منتج' : 'Add product' }).click();
+    const editor = page.getByRole('dialog');
+    const cost = editor.getByLabel(lang === 'ar' ? 'التكلفة (ر.ع.)' : 'Cost (OMR)');
+    assert.equal(await cost.count(), 0, `cost hidden for a new product (${lang})`); count++;
+    await editor.getByRole('button', { name: lang === 'ar' ? 'تفاصيل أكثر' : 'More details' }).click();
+    assert.equal(await cost.count(), 1, `cost shown on request (${lang})`); count++;
+    assert.deepEqual(await axe(page, '[role=dialog]'), [], `simple editor axe ${lang}`); count++;
+    await context.close();
+  }
+
   // Import from a file: pick a CSV, check the columns and products, save, see the summary.
   const CSV = 'Stock list September\n\nProduct,Size,Selling price,Qty,SKU\nBlack abaya,52,25.000,3,AB-52\nBlack abaya,56,25.000,2,AB-56\nKaftan,,18.5,,\nShayla,,,4,\n';
   for (const [lang, width] of [['en', 1280], ['ar', 375]]) {

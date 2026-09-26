@@ -120,6 +120,19 @@ try {
     await page.screenshot({ path: `${OUT}/stock-ar-375.png`, fullPage: true });
     await context.close();
   }
+  // Today, from the real logic: the same numbers the API returns, and one tap into each section.
+  const day = await api('today');
+  assert.ok(day.ok, 'today op answers through the real API route');
+  for (const lang of ['en', 'ar']) {
+    const { page, context, errors } = await open(375, lang, '/layla/dashboard');
+    await page.locator('.hb-figures').first().waitFor();
+    assert.match(await page.locator('.hb-today').textContent(), new RegExp(grouped(day.money.owedMinor).replace(/[.,]/g, m => `\\${m}`)), `owed matches (${lang})`); count++;
+    assert.equal(await noOverflow(page), true); count++;
+    assert.deepEqual(await axe(page), [], `today axe ${lang}`); count++;
+    assert.deepEqual(errors, []); count++;
+    await page.screenshot({ path: `${OUT}/today-${lang}-375.png`, fullPage: true });
+    await context.close();
+  }
   console.log(`hasib demo browser: ${count} assertions passed`);
 } finally {
   await browser.close();

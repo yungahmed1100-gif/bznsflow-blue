@@ -17,15 +17,14 @@ import { OrdersView } from '../components/hasib/OrdersView';
 import { StockView } from '../components/hasib/StockView';
 import { InsightsView } from '../components/hasib/InsightsView';
 import { ExpensesView } from '../components/hasib/ExpensesView';
-import { IndustrySetup } from '../components/hasib/IndustrySetup';
+import { TodayView } from '../components/hasib/TodayView';
+import { SectionTabs } from '../components/dashboard/SectionTabs';
+import { dashboardMap, resolveTab } from '../lib/dashboard/navigation';
 import { ServiceView } from '../components/hasib/ServiceView';
 import { browserTimezone } from '../lib/dashboard/format';
 import { createStrings } from '../lib/dashboard/strings';
 import '../styles/layla-dashboard.css';
 import '../styles/hasib.css';
-
-const TABS = ['broadcast', 'chats', 'contacts', 'insights', 'orders', 'stock', 'service', 'expenses', 'channels', 'business'];
-const HASIB_TABS = ['insights', 'orders', 'stock', 'service', 'expenses'];
 
 export default function LaylaDashboard({ lang = 'ar' }) {
   const s = useMemo(() => createStrings(lang), [lang]);
@@ -35,12 +34,10 @@ export default function LaylaDashboard({ lang = 'ar' }) {
   // Hasib is optional: when it is off (or unavailable) its tabs simply do not appear.
   const hasibState = usePolling(loadHasib, [], { interval: 60000, enabled: ready && !!overview.data?.connected });
   const hasibOverview = hasibState.data?.modules ? hasibState.data : null;
-  // Until the owner picks a live industry, Hasib shows one entry that opens the picker.
-  // The Service tab (repairs, warranty, trade-ins) exists only for packs with the repairs module.
-  const hasibTabs = hasibOverview ? (hasibOverview.setupRequired ? ['insights'] : [...hasibOverview.modules, ...(hasibOverview.modules.includes('repairs') ? ['service'] : [])]) : [];
+  // Eight plain sections; Hasib's appear with the account's industry pack (Today holds the picker until one is chosen).
+  const map = useMemo(() => dashboardMap(hasibOverview), [hasibOverview]);
   const h = useMemo(() => createHasibStrings(lang), [lang]);
-  const requested = params.get('tab');
-  const tab = TABS.includes(requested) && (!HASIB_TABS.includes(requested) || hasibTabs.includes(requested)) ? requested : 'chats';
+  const { tab, view } = resolveTab(params.get('tab'), params.get('view'), map);
 
   // Client-only: the prerendered HTML is a neutral loading shell.
   useEffect(() => { setReady(true); }, []);
@@ -74,24 +71,27 @@ export default function LaylaDashboard({ lang = 'ar' }) {
         <a className="ld-lang" href={`${s.ar ? '/en' : ''}/layla/dashboard${params.toString() ? `?${params}` : ''}`} lang={s.ar ? 'en' : 'ar'}>{s.t('language')}</a>
       </header>
       <HasibProvider lang={lang} overview={hasibOverview} business={data?.business?.name || ''} timezone={data?.timezone} onChanged={refreshHasib}>
-      <DashboardNav s={s} tab={tab} onSelect={go} hasib={hasibOverview ? { modules: hasibTabs, h, badges: { orders: hasibOverview.counts?.laylaWaiting || 0 } } : null} />
+      <DashboardNav s={s} h={h} sections={map.sections} tab={tab} onSelect={go} badges={{ orders: hasibOverview?.counts?.laylaWaiting || 0 }} />
       <main id="ld-main" className="ld-main" tabIndex={-1} data-tab={tab}>
         {!ready || (overview.loading && !data) ? <p className="ld-state" role="status">{s.t('loading')}</p>
           : unavailable ? <div className="ld-state"><p>{s.t('dashboardUnavailable')}</p><a className="ld-button" href={setupPath(lang)}>{s.t('setup')}</a></div>
           : overview.error && !data ? <div className="ld-state" role="alert"><p>{s.reason(overview.error.reason)}</p><button className="ld-button" onClick={() => overview.refresh()}>{s.t('retry')}</button></div>
           : data?.connected ? (
-            tab === 'insights' && hasibOverview?.setupRequired ? <IndustrySetup s={s} h={h} livePacks={hasibOverview.livePacks} industries={hasibOverview.industries} onChosen={() => hasibState.refresh({ quiet: true })} />
-            : tab === 'insights' ? <InsightsView s={s} h={h} overview={hasibOverview} onIndustryChanged={() => hasibState.refresh({ quiet: true })} />
-            : tab === 'service' ? <ServiceView s={s} h={h} timezone={data.timezone} onChanged={() => hasibState.refresh({ quiet: true })} />
-            : tab === 'expenses' ? <ExpensesView s={s} h={h} overview={hasibOverview} timezone={data.timezone} />
-            : tab === 'orders' ? <OrdersView s={s} h={h} overview={hasibOverview} business={data.business.name} timezone={data.timezone} onChanged={refreshHasib} />
-            : tab === 'stock' ? <StockView s={s} h={h} overview={hasibOverview} onChanged={() => hasibState.refresh({ quiet: true })} />
-            : tab === 'channels' ? <ChannelConnections s={s} data={data} onChange={()=>overview.refresh({quiet:true})} />
-            : tab === 'business' ? <BusinessDetails s={s} />
-            : tab === 'contacts' ? <ContactsView s={s} overview={data} onOpenChat={id => go('chats', { chat: id })} />
-            : tab === 'broadcast' && !data.integration ? <p className="ld-state">{s.ar?'البث متاح لقناة واتساب فقط.':'Broadcasts are available for WhatsApp only.'}</p>
-            : tab === 'broadcast' ? <BroadcastView s={s} overview={data} onTimezone={() => overview.refresh({ quiet: true })} />
-            : <ChatsView s={s} overview={data} selected={params.get('chat')} onSelect={id => go('chats', id ? { chat: id } : {})} />
+            <>
+              <SectionTabs s={s} tab={tab} views={map.views[tab]} view={view} onSelect={go} />
+              {tab === 'today' ? <TodayView s={s} h={h} hasibOverview={hasibOverview} connected={!!data.connected} onGo={go} onIndustryChosen={refreshHasib} />
+                : tab === 'orders' ? <OrdersView s={s} h={h} overview={hasibOverview} business={data.business.name} timezone={data.timezone} onChanged={refreshHasib} />
+                : tab === 'stock' && view === 'products' ? <StockView s={s} h={h} overview={hasibOverview} initialLow={params.get('low') === '1'} onChanged={refreshHasib} />
+                : tab === 'stock' ? <BusinessDetails s={s} section="services" />
+                : tab === 'service' ? <ServiceView s={s} h={h} timezone={data.timezone} onChanged={refreshHasib} />
+                : tab === 'money' && view === 'expenses' ? <ExpensesView s={s} h={h} overview={hasibOverview} timezone={data.timezone} />
+                : tab === 'money' ? <InsightsView s={s} h={h} overview={hasibOverview} onIndustryChanged={refreshHasib} />
+                : tab === 'customers' && view === 'broadcast' ? (data.integration ? <BroadcastView s={s} overview={data} onTimezone={() => overview.refresh({ quiet: true })} /> : <p className="ld-state">{s.ar ? 'الرسائل الجماعية متاحة لقناة واتساب فقط.' : 'Messaging many customers is available on WhatsApp only.'}</p>)
+                : tab === 'customers' ? <ContactsView s={s} overview={data} onOpenChat={id => go('chats', { chat: id })} />
+                : tab === 'settings' && view === 'business' ? <BusinessDetails s={s} section={map.sections.includes('stock') ? 'details' : 'all'} />
+                : tab === 'settings' ? <ChannelConnections s={s} data={data} onChange={() => overview.refresh({ quiet: true })} />
+                : <ChatsView s={s} overview={data} selected={params.get('chat')} onSelect={id => go('chats', id ? { chat: id } : {})} />}
+            </>
           ) : <p className="ld-state" role="status">{s.t('loading')}</p>}
       </main>
       </HasibProvider>

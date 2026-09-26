@@ -111,7 +111,8 @@ async function demandReport(ctx, accountId, range) {
   };
 }
 
-async function receivables(ctx, accountId) {
+/** What customers still owe on open orders — the one definition Today and Insights share. */
+export async function receivables(ctx, accountId) {
   const rows = await ctx.db.query('hasibOrders').withIndex('by_account_created', q => q.eq('accountId', accountId)).order('desc').take(RECEIVABLE_SCAN);
   return rows.filter(o => !CLOSED.has(o.status)).reduce((n, o) => n + Math.max(o.totalMinor - o.paidMinor, 0), 0);
 }

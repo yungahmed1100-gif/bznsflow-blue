@@ -33,6 +33,7 @@ const NEEDS_REQUEST = new Set(['order_create', 'payment_record', 'stock_move', '
 const SHAPES = {
   items: b => ({ search: str(b.search, 80), cursor: str(b.cursor, 100), limit: int(b.limit) }),
   low_stock: () => ({}),
+  today: () => ({}),
   item_save: b => ({ requestId: uuid(b.requestId), itemId: id(b.itemId), item: item(b.item), variants: list(b.variants, 50, variant) }),
   item_archive: b => ({ itemId: id(b.itemId) }),
   item_photo: b => ({ itemId: id(b.itemId), photoId: typeof b.photoId === 'string' && /^[A-Za-z0-9_-]{0,64}$/.test(b.photoId) ? b.photoId : undefined }),
