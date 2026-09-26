@@ -48,6 +48,7 @@ import type * as hasib_repairsState from "../hasib/repairsState.js";
 import type * as hasib_serialsState from "../hasib/serialsState.js";
 import type * as hasib_shared from "../hasib/shared.js";
 import type * as hasib_stock from "../hasib/stock.js";
+import type * as hasib_stockSync from "../hasib/stockSync.js";
 import type * as hasib_totals from "../hasib/totals.js";
 import type * as http from "../http.js";
 import type * as layla from "../layla.js";
@@ -102,6 +103,7 @@ declare const fullApi: ApiFromModules<{
   "hasib/serialsState": typeof hasib_serialsState;
   "hasib/shared": typeof hasib_shared;
   "hasib/stock": typeof hasib_stock;
+  "hasib/stockSync": typeof hasib_stockSync;
   "hasib/totals": typeof hasib_totals;
   http: typeof http;
   layla: typeof layla;
