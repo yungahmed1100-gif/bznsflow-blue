@@ -19,7 +19,7 @@ export function openToken(envelope, context, env) {
     return Buffer.concat([decipher.update(Buffer.from(envelope.data, 'base64')), decipher.final()]).toString('utf8');
   } catch { throw new PilotError('credential_unavailable', 503); }
 }
-export const credentialContext = (account, i) => ['layla-credential-v1', account, i.id, i.app, i.waba, i.phone].join(':');
+export const credentialContext = (account, i) => (i.channel==='instagram' ? ['layla-instagram-v1',account,i.id,i.app,i.igAccount] : ['layla-credential-v1', account, i.id, i.app, i.waba, i.phone]).join(':');
 export async function metaRequest(c, path, token, fetcher, body) {
   try {
     const url = new URL(`https://graph.facebook.com/${c.version}/${path}`);

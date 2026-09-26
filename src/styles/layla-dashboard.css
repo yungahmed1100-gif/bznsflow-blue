@@ -40,7 +40,6 @@
 .ld-identity { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
 .ld-identity strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ld-identity bdi { font-size: 12px; color: var(--ink-2); }
-.ld-portfolio { font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ld-health, .ld-layla { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .ld-layla { flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.3; }
 .ld-layla small { color: var(--ink-2); font-weight: 400; }
@@ -265,13 +264,13 @@
   .ld-top { flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
   .ld-brand span { display: none; }
   .ld-header { flex-wrap: wrap; order: 3; flex-basis: 100%; }
-  .ld-layla small, .ld-identity bdi, .ld-portfolio { display: none; }
+  .ld-layla small, .ld-identity bdi { display: none; }
   .ld-header-actions { margin-inline-start: 0; flex: 1; justify-content: flex-end; }
   .ld-header-actions .ld-quiet { display: none; }
   .ld-nav { grid-row: 2; overflow: visible; border-inline-end: 0; border-bottom: 1px solid var(--rule-strong); z-index: 4; }
   .ld-nav ul { flex-direction: row; padding: 6px; }
-  .ld-nav li { flex: 1; }
-  .ld-nav a { flex-direction: row; justify-content: center; padding: 8px; }
+  .ld-nav li { flex: 1; min-width: 0; }
+  .ld-nav a { flex-direction: column; justify-content: center; padding: 6px 2px; font-size: 11px; }
   .ld-main { grid-row: 3; grid-column: 1; }
   .ld-chats { grid-template-columns: minmax(0, 1fr); height: 100%; }
   .ld-chats .ld-thread-pane { display: none; }
@@ -299,3 +298,7 @@
   .ld-primary:hover:not(:disabled), .ld-primary:active:not(:disabled) { transform: none; }
 }
 @media print { .ld-nav, .ld-top, .ld-composer { display: none; } }
+
+.ld-channel-card { border: 1px solid var(--line, #ddd); border-radius: 12px; padding: 16px; margin-block: 12px; max-width: 100%; }
+.ld-channel-card h3 { margin: 0 0 8px; display: flex; align-items: center; gap: 10px; }
+.ld-channel-card .ld-actions { display: flex; flex-wrap: wrap; gap: 8px; }

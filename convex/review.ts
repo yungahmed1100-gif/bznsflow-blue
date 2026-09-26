@@ -5,7 +5,7 @@ export const profile = v.object({ businessName: v.string(), sector: v.string(), 
 export const path = v.union(v.literal('coexistence'), v.literal('new_number'), v.literal('existing_cloud'));
 export const integration = v.object({ id: v.string(), app: v.string(), waba: v.string(), phone: v.string(), sender: v.string(), path, credential: v.object({ v: v.number(), iv: v.string(), data: v.string(), tag: v.string() }) });
 export const execute = internalMutation({ args: {
-  operation: v.union(...['create','get','profile','begin','await','claim','cancel','credential','claim_operation','result','pause','save_progress','review_preview','preview_result','pending_selection','cancel_selection'].map(s => v.literal(s))),
+  operation: v.union(...['create','get','profile','begin','await','claim','cancel','credential','claim_operation','result','pause','save_progress','preview_result','pending_selection','cancel_selection'].map(s => v.literal(s))),
   selection: v.optional(v.object({ waba: v.string(), path, candidates: v.array(v.object({ id: v.string(), sender: v.string() })), credential: v.object({ v: v.number(), iv: v.string(), data: v.string(), tag: v.string() }) })),
   diagnostic: v.optional(v.object({ reason: v.string(), stage: v.string(), at: v.number(), providerCode: v.optional(v.number()) })),
   connectionChecks: v.optional(v.object({ routing: v.boolean(), registered: v.boolean(), path: v.boolean(), nameStatus:v.optional(v.string()), portfolio:v.optional(v.object({ id:v.string(), name:v.string(), verificationStatus:v.string() })) })),

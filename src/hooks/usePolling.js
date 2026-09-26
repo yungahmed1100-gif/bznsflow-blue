@@ -29,8 +29,12 @@ export function usePolling(load, deps = [], { interval = POLL_INTERVAL_MS, enabl
     refresh();
     const timer = interval ? setInterval(() => { if (document.visibilityState === 'visible') refresh({ quiet: true }); }, interval) : null;
     const onVisible = () => { if (document.visibilityState === 'visible') refresh({ quiet: true }); };
+    // Back/forward cache: a page restored after leaving for another site (e.g.
+    // Instagram's login) shows its old data until refreshed.
+    const onShow = (event) => { if (event.persisted) refresh({ quiet: true }); };
     document.addEventListener('visibilitychange', onVisible);
-    return () => { active.current = false; if (timer) clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+    window.addEventListener('pageshow', onShow);
+    return () => { active.current = false; if (timer) clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('pageshow', onShow); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, interval, ...deps]);
   return { ...state, refresh, setData: data => setState(s => ({ ...s, data })) };

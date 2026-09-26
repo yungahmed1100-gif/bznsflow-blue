@@ -1,9 +1,10 @@
 import React from 'react';
+import { statusKey } from '../../lib/dashboard/strings.js';
 
 const TICKS = { sent: 1, submitted: 1, delivered: 2, read: 2 };
 /** WhatsApp-style ticks with a text label; read uses green, never blue (blue means interactive). */
-export function StatusTicks({ s, status }) {
-  const label = s.t(`status_${status}`);
+export function StatusTicks({ s, status, channel }) {
+  const label = s.t(statusKey(status, channel));
   if (!TICKS[status]) {
     const tone = ['failed'].includes(status) ? 'is-coral' : ['ambiguous', 'queued', 'attempting', 'pending'].includes(status) ? 'is-yellow' : 'is-muted';
     return <span className={`ld-ticks ${tone}`} title={label}><span aria-hidden="true">{status === 'failed' ? '!' : status === 'ambiguous' ? '?' : '◷'}</span><span className="ld-visually-hidden">{label}</span></span>;

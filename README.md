@@ -1,5 +1,7 @@
 # BznsFlow — bznsflowai.com
 
+Blue Instagram/WhatsApp setup and review: [owner guide](docs/instagram-app-review-setup.md) · [recording pack](docs/review-recording-pack.md) · [engineering notes](docs/blue-instagram-engineering.md).
+
 > Bilingual (AR/EN) marketing site with an AI chat assistant, email sign-in, and
 > a lead pipeline into a Google Sheet CRM. By Ahmed Darwish, Cairo.
 

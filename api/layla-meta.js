@@ -1,3 +1,4 @@
+import { createInstagramApi } from './_lib/layla/instagram.js';
 import { randomUUID } from 'node:crypto';
 import { createMessagingApi } from './_lib/layla/blue-messaging.js';
 import { createDashboardApi } from './_lib/layla/dashboard-api.js';
@@ -79,8 +80,19 @@ export function createHandler({ store = createStore(), configuration = settings,
 export const customerAvailable = reviewAvailable;
 const reviewCustomer = createReviewHandler({reviewMode:true});
 const savedCustomer = createReviewHandler({reviewMode:false});
+// Instagram can send the browser back without our ?surface=instagram-callback,
+// keeping only its own code/error and our state. Our state is always 64 hex, so
+// a GET carrying it plus code or error is recognised as that callback.
+export function requestSurface(req) {
+  const params = new URL(req.url || '/', 'https://internal.invalid').searchParams;
+  const surface = req.query?.surface || params.get('surface');
+  if (surface) return surface;
+  const isInstagramReturn = req.method === 'GET' && /^[a-f0-9]{64}$/.test(params.get('state') || '') && (params.has('code') || params.has('error'));
+  return isInstagramReturn ? 'instagram-callback' : null;
+}
 export default function blueHandler(req, res) {
-  const surface = req.query?.surface || new URL(req.url || '/', 'https://internal.invalid').searchParams.get('surface');
+  const surface = requestSurface(req);
+  if (['instagram','instagram-callback','instagram-deauthorize','instagram-delete','instagram-deletion-status'].includes(surface)) return createInstagramApi()(req,res,surface);
   if (surface === 'messaging') return createMessagingApi()(req,res);
   // Owner dashboard shares this function to stay inside the Vercel function quota.
   if (surface === 'dashboard') return createDashboardApi()(req,res);

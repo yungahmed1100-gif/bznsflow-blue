@@ -2,16 +2,15 @@
 //
 // This is the "Data Deletion Instructions URL" registered with Meta for the
 // WhatsApp Embedded Signup app. Every step describes what the product does
-// today: owners delete contacts in the dashboard; account deletion and removing
-// a WhatsApp connection are handled by email, because the detach is an
-// operator action (convex/review.ts detachIntegration). Retention figures match
+// today: owners delete contacts and disconnect channels in the dashboard;
+// full account deletion is handled by verified email requests. Retention figures match
 // src/content/privacy.js. If either changes, this file must change with it.
 
-export const DATA_DELETION_UPDATED_ISO = '2026-09-15';
+export const DATA_DELETION_UPDATED_ISO = '2026-09-23';
 
 const en = {
   title: 'Data Deletion Instructions',
-  updated: 'Last updated 15 September 2026',
+  updated: 'Last updated 23 September 2026',
   lead: 'How to remove the data BznsFlow holds about you or your business, including data we received when you connected WhatsApp through Facebook Login for Business.',
   sections: [
     {
@@ -36,6 +35,10 @@ const en = {
       ],
     },
     {
+      h: 'Instagram data and access',
+      p: ['Include your Instagram username when requesting deletion by email. To stop the connection, select Disconnect in the Instagram connection card, or remove BznsFlow from Instagram’s connected apps. Disconnecting removes the saved credential and stops replies; existing chat records remain until deleted or their retention period ends.', 'You can delete Instagram contacts from the same Contacts screen as WhatsApp contacts. A data-deletion request delivered by Meta stops the connection and schedules deletion of its Instagram conversations and contacts. The confirmation link returned to Meta reports whether that cleanup is pending or complete. Instagram message text is retained for 30 days.'],
+    },
+    {
       h: 'Delete individual contacts yourself',
       p: ['In the Layla dashboard, open Contacts, choose the contact, select Delete contact, then Delete permanently. Their name, number, lead details and chat text are removed immediately. You can export your chats, contacts or a full copy of your account before deleting.'],
     },
@@ -57,7 +60,7 @@ const en = {
 
 const ar = {
   title: 'تعليمات حذف البيانات',
-  updated: 'آخر تحديث ١٥ سبتمبر ٢٠٢٦',
+  updated: 'آخر تحديث ٢٣ سبتمبر ٢٠٢٦',
   lead: 'كيف تحذف البيانات التي تحتفظ بها BznsFlow عنك أو عن نشاطك، بما فيها البيانات التي استلمناها عند ربط واتساب عبر تسجيل الدخول بفيسبوك للأعمال.',
   sections: [
     {
@@ -80,6 +83,10 @@ const ar = {
         'إذا كان أحد العملاء قد ألغى اشتراكه في رسائلك، نحتفظ فقط برمز مشفّر أحادي الاتجاه لرقمه مع إلغاء الاشتراك، حتى لا يُراسَل مجدداً. ولا يمكن تحويله إلى الرقم.',
         'نص الرسائل المقروء يُحذف تلقائياً بعد ٣٠ يوماً.',
       ],
+    },
+    {
+      h: 'بيانات إنستغرام والوصول',
+      p: ['اذكر اسم مستخدم إنستغرام عند طلب الحذف بالبريد. لإيقاف الاتصال اختر «فصل الاتصال» في بطاقة إنستغرام، أو أزل BznsFlow من التطبيقات المرتبطة في إنستغرام. الفصل يحذف بيانات الوصول ويوقف الردود؛ وتبقى المحادثات حتى حذفها أو انتهاء مدة الاحتفاظ بها.', 'يمكنك حذف جهات اتصال إنستغرام من شاشة جهات الاتصال نفسها. طلب حذف البيانات الذي ترسله Meta يوقف الاتصال ويضيف محادثات إنستغرام وجهات اتصالها إلى قائمة الحذف. يعرض رابط التأكيد المُعاد إلى Meta ما إذا كان الحذف قيد التنفيذ أو مكتملاً. تُحفظ نصوص رسائل إنستغرام لمدة ٣٠ يوماً.'],
     },
     {
       h: 'احذف جهات اتصال بعينها بنفسك',

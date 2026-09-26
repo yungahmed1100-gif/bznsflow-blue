@@ -1,68 +1,221 @@
-.layla-customer{background:#f6efdf;color:#1a1a1a;min-height:100vh;padding:0 5vw 90px;font-family:Poppins,sans-serif;line-height:1.65}
-.layla-customer[lang=ar]{font-family:'IBM Plex Sans Arabic',sans-serif}
-.layla-customer *{box-sizing:border-box}
-.layla-customer ::selection{background:#ebe1c9;color:#1a1a1a}
-.layla-customer a{color:inherit;text-underline-offset:4px}
-.layla-customer-nav{max-width:1180px;margin:auto;display:flex;justify-content:space-between;align-items:center;padding:25px 0;border-bottom:1px solid #c9bfac}
-.layla-customer-nav>a:first-child{font-size:25px;font-weight:800;text-decoration:none}
-.layla-customer-nav>a:first-child{display:flex;align-items:center;gap:10px}
-.layla-customer-nav img{width:40px;height:40px;object-fit:contain}
-.layla-customer-nav nav{display:flex;align-items:center;gap:22px}
-.layla-back-home{border:1px solid #928b7f;border-radius:4px;padding:9px 14px;text-decoration:none;font-size:14px;font-weight:600;background:#fff}
-.layla-back-home:hover{background:#ebe1c9}
-.layla-customer-layout{max-width:1180px;margin:48px auto;display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:clamp(32px,6vw,88px);align-items:start}
-.layla-intro h1{font-size:clamp(2rem,3.3vw,3.4rem);line-height:1.15;letter-spacing:-.025em;margin:0 0 22px;text-wrap:balance}
-.layla-customer[lang=ar] h1{letter-spacing:0;line-height:1.35}
-.layla-intro>p{max-width:38ch;color:#4b5563;font-size:17px}
-.layla-intro img{display:block;width:100%;height:480px;object-fit:contain;margin-top:30px;border-radius:4px}
-.layla-intro .layla-intro-note{font-size:14px;margin-top:16px}
-.layla-workspace{min-width:0}
-.layla-customer-steps{list-style:none;padding:0;margin:0 0 32px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:12px;color:#4b5563}
-.layla-customer-steps li{border-top:2px solid #c9bfac;padding-top:10px}
-.layla-customer-steps span{display:block;font-size:16px;margin-bottom:5px;font-variant-numeric:tabular-nums}
-.layla-customer-steps [aria-current=step]{border-color:#1a1a1a;color:#1a1a1a;font-weight:700}
-.layla-workspace h2{font-size:28px;line-height:1.3;margin:0 0 16px}
-.layla-workspace p{max-width:65ch;margin:0 0 22px}
-.layla-workspace label:not(.layla-check):not(.layla-choice){display:block;font-weight:600;margin:22px 0 0}
-.layla-workspace input:not([type=checkbox]):not([type=radio]),.layla-workspace textarea{display:block;width:100%;border:1px solid #928b7f;border-radius:4px;padding:13px 15px;background:white;color:#1a1a1a;font:inherit;font-weight:400;margin-top:8px;caret-color:#276877}
-.layla-suggestion{display:block;width:100%;border:1px dashed #928b7f;border-radius:4px;padding:10px 12px;background:#ebe1c9;color:#1a1a1a;font:inherit;font-size:14px;margin-top:8px;cursor:pointer}
-.layla-phone-fields{display:grid;grid-template-columns:minmax(150px,.75fr) 1.25fr;gap:10px;margin-top:8px}.layla-phone-fields select,.layla-phone-fields input{width:100%;border:1px solid #928b7f;border-radius:4px;padding:13px 12px;background:#fff;color:#1a1a1a;font:inherit}.layla-field-help{display:block;color:#4b5563;font-size:13px;font-weight:400;margin-top:8px}
-.layla-workspace textarea{resize:vertical;min-height:80px}
-.layla-workspace input::placeholder,.layla-workspace textarea::placeholder{color:#656565;opacity:1}
-.layla-customer :focus-visible{outline:2px solid #28628f;outline-offset:4px}
-.layla-workspace h2:focus{outline:none}
-.layla-workspace details{margin:25px 0}
-.layla-workspace summary{cursor:pointer;text-decoration:underline;text-underline-offset:4px}
-.layla-workspace .layla-help{font-size:13px;color:#4b5563;margin-top:16px}
-.layla-check,.layla-choice{display:flex;align-items:start;gap:12px;cursor:pointer}
-.layla-check{margin:24px 0;font-size:14px}
-.layla-check input,.layla-choice input{flex:none;margin-top:5px;width:18px;height:18px;accent-color:#1a1a1a}
-.layla-workspace button{font:inherit;font-weight:600;padding:14px 22px;border-radius:4px;cursor:pointer;min-height:48px;margin:10px 10px 6px 0;transition:background-color 120ms,transform 120ms}
-.layla-primary{background:#1a1a1a;color:#f6efdf;border:1px solid #1a1a1a;box-shadow:3px 3px 0 #827b6f}
-.layla-primary:hover:not(:disabled){background:#353535;transform:translateY(-1px)}
-.layla-secondary{background:transparent;color:#1a1a1a;border:1px solid #928b7f}
-.layla-workspace button:disabled{background:#ebe1c9;color:#4b5563;box-shadow:none;border-color:#c9bfac;cursor:not-allowed}
-.layla-workspace .layla-notice{background:#ebe1c9;padding:18px;margin:22px 0;border-radius:4px;color:#1a1a1a;font-size:14px}
-.layla-workspace .layla-error{color:#8c2525;padding:16px;border:1px solid #8c2525;margin:20px 0}
-.layla-workspace fieldset{border:0;margin:24px 0;padding:0;min-width:0}
-.layla-workspace legend{font-weight:600;margin-bottom:8px}
-.layla-choice{padding:20px 0;border-bottom:1px solid #c9bfac}
-.layla-choice strong,.layla-choice small{display:block}
-.layla-choice small{margin-top:7px;color:#4b5563;font-size:14px}
-.layla-answer{background:white;padding:24px;margin:24px 0;border:1px solid #c9bfac;border-radius:4px}
-.layla-answer p{margin:12px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
-.layla-customer-footer{display:flex;gap:25px;border-top:1px solid #c9bfac;margin-top:36px;padding-top:22px;font-size:13px}
-@media(max-width:768px){.layla-customer{padding-inline:6vw}
-.layla-customer-layout{display:block;margin-top:28px}
-.layla-intro{display:grid;grid-template-columns:1fr 105px;gap:0 18px;margin-bottom:32px}
-.layla-intro h1{font-size:27px;grid-column:1}
-.layla-intro>p{font-size:14px;grid-column:1;margin:0}
-.layla-intro img{grid-column:2;grid-row:1/4;height:190px;width:105px;margin:0;align-self:start}
-.layla-intro .layla-intro-note{font-size:12px;grid-column:1;margin-top:12px}
-.layla-customer-steps{font-size:11px;gap:8px}
-.layla-workspace h2{font-size:25px}
-.layla-workspace button{width:100%;margin-inline:0}
-.layla-customer-nav{padding:18px 0}
-.layla-customer-nav nav{gap:10px}.layla-back-home{padding:7px 9px;font-size:12px}.layla-customer-nav>a:first-child{font-size:20px}.layla-customer-nav img{width:32px;height:32px}
-.layla-phone-fields{grid-template-columns:1fr}.layla-field-help{font-size:12px}
+/* Layla onboarding — the website's own "Ledger" theme (DESIGN.md).
+   Every colour, radius and shadow here resolves to a site token in base.css,
+   so a palette change on the website reaches this page with no edit.
+   Colour is instruction, not decoration:
+     blue   = you can act on this / where you are now
+     green  = done, confirmed
+     orange = recommended, or still in progress
+     red    = something to fix (always with a sentence)
+   Accents are rules, chips and marks only — never a surface fill. */
+.layla-customer{
+  --layla-bg:var(--bg-primary);--layla-band:var(--bg-secondary);--layla-surface:var(--bg-card);--layla-surface-soft:var(--bg-card-hover);
+  --layla-ink:var(--text-primary);--layla-ink-2:var(--text-secondary);--layla-muted:var(--text-muted);
+  --layla-rule:var(--border);--layla-rule-strong:var(--border-hover);
+  /* Field edges must reach 3:1 against white so a first-timer can see where to type. */
+  --layla-field-edge:color-mix(in srgb,var(--text-primary) 50%,var(--bg-card));
+  /* Text-safe shades of the site accents (the raw accents are tuned for marks). */
+  --layla-blue-ink:color-mix(in srgb,var(--accent-blue) 60%,var(--text-primary));
+  --layla-green-ink:color-mix(in srgb,var(--green) 55%,var(--text-primary));
+  --layla-red-ink:color-mix(in srgb,var(--red) 55%,var(--text-primary));
+  --layla-radius:var(--radius-sm);
+  background:var(--layla-bg);color:var(--layla-ink);min-height:100vh;padding:0 5vw 90px;font-family:Poppins,'Helvetica Neue',Arial,sans-serif;line-height:1.6
 }
+.layla-customer[lang=ar]{font-family:'IBM Plex Sans Arabic','Noto Sans Arabic',sans-serif;line-height:1.8}
+.layla-customer *{box-sizing:border-box}
+.layla-customer ::selection{background:var(--layla-band);color:var(--layla-ink)}
+.layla-customer a{color:inherit;text-underline-offset:4px}
+.layla-customer :focus-visible{outline:2px solid var(--layla-blue-ink);outline-offset:2px}
+
+/* ---- Header ---- */
+.layla-customer-nav{max-width:1180px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:22px 0;border-bottom:1px solid var(--layla-rule-strong)}
+.layla-customer-nav>a:first-child{display:flex;align-items:center;gap:10px;font-size:25px;font-weight:800;text-decoration:none}
+.layla-customer-nav img{width:40px;height:40px;object-fit:contain}
+.layla-customer-nav nav{display:flex;align-items:center;gap:22px;font-size:14px;font-weight:600}
+.layla-back-home{border:1px solid var(--layla-ink);border-radius:var(--layla-radius);padding:9px 14px;text-decoration:none}
+.layla-back-home:hover{background:var(--layla-band)}
+
+/* ---- Layout ---- */
+.layla-customer-layout{max-width:1180px;margin:40px auto;display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr);gap:clamp(32px,6vw,78px);align-items:start}
+.layla-intro{position:sticky;top:24px}
+.layla-intro h1{font-size:clamp(2rem,3.3vw,3.4rem);font-weight:800;line-height:1.15;letter-spacing:-.02em;margin:0 0 22px;text-wrap:balance}
+.layla-customer[lang=ar] h1,.layla-customer[lang=ar] h2{letter-spacing:0;line-height:1.4}
+.layla-intro>p{max-width:38ch;color:var(--layla-ink-2);font-size:17px}
+.layla-intro img{display:block;width:100%;height:440px;object-fit:contain;margin-top:24px}
+.layla-intro .layla-intro-note{font-size:14px;margin-top:16px;padding-top:12px;border-top:1px solid var(--layla-rule-strong)}
+.layla-workspace{min-width:0}
+.layla-workspace h2{font-size:28px;font-weight:800;line-height:1.3;margin:0 0 12px}
+.layla-workspace h2:focus{outline:none}
+.layla-workspace h3{font-size:19px;line-height:1.35;margin:0 0 6px}
+.layla-workspace p{max-width:65ch;margin:0 0 16px}
+.layla-stage-intro{font-size:16px;color:var(--layla-ink-2);max-width:58ch}
+
+/* ---- Stepper: done = green check, current = ink bar + blue number, upcoming = muted ---- */
+.layla-customer-steps{list-style:none;padding:0;margin:0 0 28px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:13px;color:var(--layla-muted)}
+.layla-customer-steps li{display:flex;align-items:center;gap:8px;border-top:4px solid var(--layla-rule-strong);padding-top:10px;line-height:1.3}
+.layla-step-mark{flex:none;display:inline-grid;place-items:center;width:26px;height:26px;border-radius:var(--radius-pill);border:1px solid var(--layla-rule-strong);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;background:var(--layla-surface)}
+.layla-customer-steps [data-state=done]{border-top-color:var(--green);color:var(--layla-green-ink)}
+.layla-customer-steps [data-state=done] .layla-step-mark{background:var(--green);border-color:var(--green);color:var(--bg-card)}
+.layla-customer-steps [data-state=current]{border-top-color:var(--layla-ink);color:var(--layla-ink);font-weight:700}
+.layla-customer-steps [data-state=current] .layla-step-mark{background:var(--layla-blue-ink);border-color:var(--layla-blue-ink);color:var(--bg-card)}
+.layla-step-count{display:none}
+
+/* ---- Step-0 chapters: one numbered block per job, each marked Required or Optional ---- */
+.layla-workspace fieldset{border:0;margin:24px 0;padding:0;min-width:0}
+.layla-workspace legend{font-weight:600;margin-bottom:8px;padding:0}
+.layla-workspace .layla-chapter{margin:32px 0 0;padding-top:22px;border-top:1px solid var(--layla-rule-strong)}
+.layla-workspace .layla-chapter>legend{display:flex;align-items:center;flex-wrap:wrap;gap:10px;width:100%;margin:0 0 4px;font-size:19px;font-weight:700;line-height:1.35}
+.layla-chapter-number{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:var(--radius-pill);background:var(--layla-ink);color:var(--layla-bg);font-size:14px;font-variant-numeric:tabular-nums}
+.layla-chapter-lede{color:var(--layla-ink-2);font-size:14px;margin:0 0 4px!important}
+
+/* ---- Chips ---- */
+.layla-chip{display:inline-flex;align-items:center;gap:6px;border-radius:var(--radius-pill);padding:3px 11px;font-size:12px;font-weight:600;line-height:1.5;vertical-align:middle;white-space:nowrap}
+.layla-chip:lang(en){text-transform:uppercase;letter-spacing:.06em;font-size:11px}
+.layla-chip--required{background:var(--layla-ink);color:var(--layla-bg)}
+.layla-chip--optional{background:var(--layla-band);color:var(--layla-ink-2)}
+.layla-chip--recommended{background:color-mix(in srgb,var(--orange) 22%,var(--bg-card));color:var(--layla-ink)}
+.layla-chip--recommended::before{content:"";width:7px;height:7px;border-radius:var(--radius-pill);background:var(--orange)}
+
+/* ---- Fields ---- */
+.layla-workspace label:not(.layla-check):not(.layla-choice){display:block;font-weight:600;margin:20px 0 0}
+.layla-workspace :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select){display:block;width:100%;border:1px solid var(--layla-field-edge);border-radius:var(--layla-radius);padding:13px 15px;background:var(--layla-surface);color:var(--layla-ink);font:inherit;font-weight:400;margin-top:8px;caret-color:var(--layla-blue-ink);transition:border-color var(--transition-press)}
+.layla-workspace :is(input,textarea,select):hover:not(:disabled){border-color:var(--layla-ink)}
+.layla-workspace :is(input,textarea,select):focus-visible{border-color:var(--layla-blue-ink)}
+.layla-workspace :is(input,textarea,select):disabled{background:var(--layla-band);color:var(--layla-ink-2)}
+.layla-workspace select{cursor:pointer}
+.layla-workspace input[type=file]{display:block;margin:12px 0;font:inherit;font-size:14px}
+.layla-workspace textarea{resize:vertical;min-height:80px}
+.layla-workspace input::placeholder,.layla-workspace textarea::placeholder{color:var(--layla-muted);opacity:1}
+.layla-phone-fields{display:grid;grid-template-columns:minmax(150px,.75fr) 1.25fr;gap:10px;margin-top:8px}
+.layla-phone-fields :is(select,input){margin-top:0!important}
+.layla-field-help,.layla-workspace label small{display:block;color:var(--layla-ink-2);font-size:13px;font-weight:400;margin-top:6px}
+
+/* ---- The "I checked these facts" confirm: turns green once ticked ---- */
+.layla-check,.layla-choice{display:flex;align-items:start;gap:12px;cursor:pointer}
+.layla-check{margin:24px 0 8px;padding:16px 18px;font-size:15px;font-weight:600;background:var(--layla-surface);border:1px dashed var(--layla-field-edge);border-radius:var(--layla-radius);transition:border-color var(--transition-press)}
+.layla-check:has(input:checked){border-style:solid;border-color:var(--green);box-shadow:inset 4px 0 0 var(--green)}
+.layla-customer[dir=rtl] .layla-check:has(input:checked){box-shadow:inset -4px 0 0 var(--green)}
+.layla-check input,.layla-choice input{flex:none;margin-top:4px;width:20px;height:20px;accent-color:var(--layla-ink)}
+.layla-check:has(input:checked) input{accent-color:var(--layla-green-ink)}
+
+/* ---- Radio choices as tappable cards; the chosen one is outlined in blue ---- */
+.layla-choice{padding:16px 18px;margin-bottom:10px;background:var(--layla-surface);border:1px solid var(--layla-rule-strong);border-radius:var(--layla-radius);transition:border-color var(--transition-press)}
+.layla-choice:hover{border-color:var(--layla-ink)}
+.layla-choice:has(input:checked){border-color:var(--layla-blue-ink);box-shadow:inset 0 0 0 1px var(--layla-blue-ink)}
+.layla-choice strong{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.layla-choice small{display:block;margin-top:6px;color:var(--layla-ink-2);font-size:14px}
+
+/* ---- Buttons: ink with a hard shadow; press moves into the shadow ---- */
+.layla-workspace :is(button,a.layla-primary,a.layla-secondary){font:inherit;font-weight:600;padding:13px 22px;border-radius:var(--layla-radius);cursor:pointer;min-height:48px;margin-block:10px 6px;margin-inline:0 10px;transition:transform var(--transition-press),box-shadow var(--transition-press),background-color var(--transition-press)}
+.layla-primary{background:var(--layla-ink);color:var(--layla-bg);border:1px solid var(--layla-ink);box-shadow:var(--shadow-raised)}
+.layla-primary:hover:not(:disabled){box-shadow:var(--shadow-lifted);transform:translate(calc(-2px * var(--x-sign)),-2px)}
+.layla-primary:active:not(:disabled){box-shadow:0 0 0 var(--layla-ink);transform:translate(calc(4px * var(--x-sign)),4px)}
+.layla-secondary{background:transparent;color:var(--layla-ink);border:1px solid var(--layla-ink)}
+/* A link styled as a button (e.g. Open your inbox) sizes and aligns like one;
+   the generic `.layla-customer a{color:inherit}` must not darken its label. */
+.layla-workspace :is(a.layla-primary,a.layla-secondary){display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.layla-customer a.layla-primary{color:var(--layla-bg)}
+.layla-customer a.layla-secondary{color:var(--layla-ink)}
+.layla-secondary:hover:not(:disabled){background:var(--layla-band)}
+.layla-workspace button:disabled{background:var(--layla-band);color:var(--layla-ink-2);box-shadow:none;border-color:transparent;cursor:not-allowed;transform:none}
+.layla-quick-questions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.layla-quick-questions button{margin:0!important;min-height:44px;padding:9px 14px;font-weight:500;text-align:start}
+/* A disabled main button always says why, right underneath it. */
+.layla-cta-hint{display:flex;align-items:center;gap:8px;color:var(--layla-red-ink);font-size:14px;font-weight:600;margin:6px 0 0!important}
+.layla-cta-hint::before{content:"↑";font-weight:800}
+
+/* ---- Callouts: a coloured inline-start rule and a symbol say what kind of message it is ---- */
+.layla-workspace :is(.layla-notice,.layla-error){position:relative;margin:18px 0;padding:14px 18px;padding-inline-start:50px;border-radius:var(--layla-radius);font-size:14px;color:var(--layla-ink);background:var(--layla-surface);border:1px solid var(--layla-rule-strong);border-inline-start:4px solid var(--layla-ink-2)}
+.layla-workspace :is(.layla-notice,.layla-error)::before{content:"i";position:absolute;inset-inline-start:14px;top:13px;display:grid;place-items:center;width:22px;height:22px;border-radius:var(--radius-pill);background:var(--layla-ink-2);color:var(--bg-card);font-size:13px;font-weight:800;font-style:normal;line-height:1}
+.layla-workspace .layla-notice--progress{border-inline-start-color:var(--orange)}
+.layla-workspace .layla-notice--progress::before{content:"…";background:var(--orange);color:var(--layla-ink)}
+.layla-workspace .layla-notice--done{border-inline-start-color:var(--green)}
+.layla-workspace .layla-notice--done::before{content:"✓";background:var(--green)}
+.layla-workspace :is(.layla-error,.layla-notice--problem){border-inline-start-color:var(--red);color:var(--layla-red-ink);font-weight:500}
+.layla-workspace :is(.layla-error,.layla-notice--problem)::before{content:"!";background:var(--red)}
+.layla-workspace .layla-help{font-size:13px;color:var(--layla-ink-2);margin-top:12px}
+.layla-saved{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--layla-green-ink);margin:0 0 12px!important}
+.layla-saved::before{content:"✓";display:grid;place-items:center;width:20px;height:20px;border-radius:var(--radius-pill);background:var(--green);color:var(--bg-card);font-size:12px}
+.layla-saved--preview{color:var(--layla-ink-2)}
+.layla-saved--preview::before{content:"…";background:var(--orange);color:var(--layla-ink)}
+
+/* ---- Disclosures (optional extras) ---- */
+.layla-workspace details{margin:12px 0;border:1px solid var(--layla-rule-strong);border-radius:var(--layla-radius);background:var(--layla-surface)}
+.layla-workspace summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;padding:15px 18px;font-weight:600;list-style:none}
+.layla-workspace summary::-webkit-details-marker{display:none}
+.layla-workspace summary::after{content:"+";flex:none;display:grid;place-items:center;width:26px;height:26px;border:1px solid var(--layla-ink);border-radius:var(--radius-pill);font-weight:700;line-height:1}
+.layla-workspace details[open]>summary{border-bottom:1px solid var(--layla-rule)}
+.layla-workspace details[open]>summary::after{content:"−"}
+.layla-workspace summary:hover{background:var(--layla-surface-soft)}
+.layla-workspace details>:not(summary){margin-inline:18px}
+.layla-workspace details>:last-child{margin-bottom:18px}
+
+/* ---- Panels ---- */
+.layla-answer{background:var(--layla-surface);padding:24px;margin:20px 0;border:1px solid var(--layla-rule-strong);border-radius:var(--layla-radius)}
+.layla-answer p{margin:12px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.layla-answer>h3{margin:0}
+.layla-faq{padding:14px 0;border-bottom:1px solid var(--layla-rule)}
+/* The guided helper is the recommended path, so it is the one bordered in ink; its chip says why. */
+.layla-guided-panel{border-color:var(--layla-ink)}
+.layla-guided-panel>h3{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.layla-guided-or{color:var(--layla-ink-2);font-size:14px;margin:8px 0 0!important}
+.layla-guided-progress{display:grid;grid-template-columns:repeat(var(--total),1fr);gap:4px;margin:12px 0 6px}
+.layla-guided-progress span{height:6px;border-radius:var(--radius-pill);background:var(--layla-band)}
+.layla-guided-progress span[data-done]{background:var(--green)}
+.layla-guided-progress span[data-current]{background:var(--layla-blue-ink)}
+.layla-guided-done{border-color:var(--green)}
+
+/* ---- Channels ---- */
+.layla-channel-stage{display:grid;gap:18px}
+.layla-channel-stage>p:first-child{font-size:16px;color:var(--layla-ink-2)}
+.layla-channel-card{padding:22px;border:1px solid var(--layla-rule-strong);border-radius:var(--layla-radius);background:var(--layla-surface)}
+.layla-channel-card h3{display:flex;align-items:center;gap:10px;margin:0 0 8px;font-size:21px}
+.layla-channel-logo{flex:none;display:block}
+.layla-channel-card .ld-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.layla-channel-retry{margin-top:12px;padding:14px 16px;border:1px solid var(--layla-rule-strong);border-radius:var(--layla-radius)}
+.layla-channel-retry p{margin:0 0 10px}
+.layla-channel-card .ld-button{font:inherit;font-weight:600;min-height:48px;padding:12px 18px;border-radius:var(--layla-radius);cursor:pointer;margin:0}
+.layla-channel-card .ld-button:not(.ld-primary):not(.ld-danger){background:transparent;border:1px solid var(--layla-ink);color:var(--layla-ink)}
+.layla-channel-card .ld-button.ld-primary{background:var(--layla-ink);border-color:var(--layla-ink);color:var(--layla-bg);box-shadow:var(--shadow-raised)}
+.layla-channel-card .ld-button.ld-danger{color:var(--layla-red-ink);border:1px solid var(--red);background:var(--layla-surface)}
+.layla-checklist{display:grid;gap:8px;margin:16px 0;padding:0;list-style:none;font-weight:600}
+.layla-checklist li{display:flex;align-items:center;gap:10px}
+.layla-checklist li::before{content:"";flex:none;width:20px;height:20px;border-radius:var(--radius-pill);border:2px solid var(--orange)}
+.layla-checklist li[data-ok]{color:var(--layla-green-ink)}
+.layla-checklist li[data-ok]::before{content:"✓";display:grid;place-items:center;border-color:var(--green);background:var(--green);color:var(--bg-card);font-size:12px}
+
+.layla-customer-footer{display:flex;gap:25px;border-top:1px solid var(--layla-rule-strong);margin-top:36px;padding-top:22px;font-size:13px}
+
+@media (prefers-reduced-motion:reduce){
+  .layla-customer *{transition:none!important}
+  .layla-primary:hover:not(:disabled),.layla-primary:active:not(:disabled){transform:none}
+}
+
+@media(max-width:1024px){.layla-intro{position:static}}
+@media(max-width:768px){
+  .layla-customer{padding-inline:16px}
+  .layla-customer-layout{display:block;margin-top:24px}
+  .layla-intro{display:grid;grid-template-columns:1fr 96px;gap:0 16px;margin-bottom:28px}
+  .layla-intro h1{font-size:27px;grid-column:1}
+  .layla-intro>p{font-size:14px;grid-column:1;margin:0}
+  .layla-intro img{grid-column:2;grid-row:1/4;height:176px;width:96px;margin:0;align-self:start}
+  .layla-intro .layla-intro-note{font-size:12px;grid-column:1;margin-top:12px}
+  /* On a phone the stepper is three bars plus one line: "Step 2 of 3 · Connect your channels". */
+  .layla-customer-steps{gap:6px;margin-bottom:8px}
+  .layla-customer-steps li{padding-top:0}
+  .layla-customer-steps :is(.layla-step-mark,.layla-step-name){display:none}
+  .layla-step-count{display:block;font-size:13px;font-weight:600;color:var(--layla-ink-2);margin:0 0 20px!important}
+  .layla-workspace h2{font-size:24px}
+  .layla-workspace :is(button,a.layla-primary,a.layla-secondary){width:100%;margin-inline:0}
+  .layla-quick-questions button{width:auto}
+  .layla-customer-nav{padding:16px 0}
+  .layla-customer-nav nav{gap:10px;font-size:12px}
+  .layla-back-home{padding:7px 9px}
+  .layla-customer-nav>a:first-child{font-size:20px}
+  .layla-customer-nav img{width:32px;height:32px}
+  .layla-phone-fields{grid-template-columns:1fr}
+  .layla-answer{padding:18px}
+}
+/* The business form embedded in the dashboard's Business tab: same tokens and
+   fields as onboarding, without the full-page height, gutter and background. */
+.layla-customer.layla-embedded{min-height:0;padding:0;background:transparent}
+.layla-embedded .layla-workspace{max-width:760px}

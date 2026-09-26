@@ -29,7 +29,7 @@ function publicState(row, available, accountReady = true) {
   return { ok: true, review: true, synthetic: true, available, status: row.status, expiresAt: row.expiresAt,
     profile: row.profile || null, messagingStateUrl: '/api/layla-meta?surface=messaging',
     journeyStep: row.journeyStep ?? (row.profile ? 2 : 0), profileVersion: row.profileVersion || 1,
-    previewReviewedVersion: row.previewReviewedVersion || null, lastPreview: row.lastPreview || null, previewIntents: row.previewIntents || [],
+    lastPreview: row.lastPreview || null, previewIntents: row.previewIntents || [],
     capabilities: { preview: !!row.profile?.reviewed, connect: accountReady && available && !!row.profile?.humanContact && !row.integration && !row.pendingSelection, manageMessaging: accountReady && !!row.accountId && !!row.integration },
     nextAction: row.status === 'registration_required' ? 'register_number' : row.integration && !['connected','paused'].includes(row.status) ? 'refresh' : row.profile ? 'preview' : 'profile',
     selection: row.pendingSelection ? { candidates: row.pendingSelection.candidates, expiresAt: row.attempt?.expiresAt } : null,
@@ -62,32 +62,6 @@ export async function inspectReviewConnection({ c, integration: i, token, fetche
   return { nameStatus: ['APPROVED','AVAILABLE_WITHOUT_REVIEW','DECLINED','EXPIRED','PENDING_REVIEW','NONE'].includes(name?.name_status) ? name.name_status : 'UNKNOWN', pathVerified, registered: phone.status === 'CONNECTED', isolated: isolated && pathVerified, safeToSubscribe, connected: isolated && pathVerified && phone.status === 'CONNECTED', subscribed: !!app,
     phoneMatches: phone.id === i.phone, phoneRoutedElsewhere: !!routing?.phone_number && routing.phone_number !== CALLBACK };
 }
-// Meta's Business verification_status values; anything else is reported as unknown.
-const PORTFOLIO_STATUSES = ['verified','not_verified','pending','pending_submission','pending_need_more_info','failed','rejected','expired','revoked','ineligible'];
-// business_management: the business portfolio that owns the connected WABA, so the owner
-// sees which portfolio BznsFlow is acting for. Display-only and never a connection gate:
-// a failed read is recorded as an absent portfolio and shown as unavailable, not retried.
-// Kept out of inspectReviewConnection so message and campaign workers do not pay for it.
-export async function inspectPortfolio({ c, integration: i, token, fetcher }) {
-  try {
-    const owner = await metaRequest(c, `${i.waba}?fields=owner_business_info`, token, fetcher);
-    const id = owner.owner_business_info?.id;
-    if (!assetId(id)) return null;
-    const business = await metaRequest(c, `${id}?fields=id,name,verification_status`, token, fetcher);
-    if (business.id !== id) return null;
-    const name = typeof business.name === 'string' ? business.name.replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 120) : '';
-    const status = String(business.verification_status || '').toLowerCase();
-    return { id, name, verificationStatus: PORTFOLIO_STATUSES.includes(status) ? status : 'unknown' };
-  } catch (error) {
-    // `null` still means "no portfolio to show", because a missing portfolio must
-    // never block a connection. But it used to also mean "the lookup failed",
-    // and a binding check that cannot tell those apart is not a check: a Graph
-    // outage read exactly like a WABA that genuinely has no owning business.
-    // The caller's behaviour is unchanged; the cause is no longer silent.
-    console.error('[review] portfolio lookup failed:', error?.message || 'unknown');
-    return null;
-  }
-}
 // Existing API numbers use the business-first Embedded Signup flow so an owner with several
 // portfolios picks the right one. BLUE_SIGNUP_VERSION_EXISTING can switch it without code.
 export function signupVersion(env, path) {
@@ -110,7 +84,7 @@ export function ownerConnection(env, account) {
   if (!account?.email || String(account.email).toLowerCase() !== parts[0].toLowerCase()) return null;
   return { waba: parts[1], phone: parts[2], business: parts[3] };
 }
-export function createReviewHandler({ env = process.env, fetcher = fetch, now = Date.now, store = reviewStore({ env, fetcher }), catalog = catalogStore({env,fetcher}), exchange = exchangeAndVerify, inspect = inspectReviewConnection, portfolio = inspectPortfolio, reviewMode = true, accountStore = blueAuthStore({env,fetcher}), websiteImport = importWebsite } = {}) {
+export function createReviewHandler({ env = process.env, fetcher = fetch, now = Date.now, store = reviewStore({ env, fetcher }), catalog = catalogStore({env,fetcher}), exchange = exchangeAndVerify, inspect = inspectReviewConnection, reviewMode = true, accountStore = blueAuthStore({env,fetcher}), websiteImport = importWebsite } = {}) {
   return async (req, res) => {
     let body;
     try {
@@ -178,7 +152,7 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
           }
           const after = await inspect({c,integration:i,token,fetcher});
           const status = after.connected ? 'connected' : after.isolated && i.path === 'new_number' ? 'registration_required' : 'reconciliation_required';
-          await write('result',{operationId,status,connectionChecks:checks(after,await portfolio({c,integration:i,token,fetcher}))});
+          await write('result',{operationId,status,connectionChecks:checks(after)});
         } catch (error) { await write('result',{operationId,status:'reconciliation_required',diagnostic:diagnostic(error,'subscription')}); }
       };
       // Exchange (or token check), then connection persistence. A failure before any provider
@@ -197,7 +171,7 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
           throw error;
         } finally { token = undefined; }
       };
-      const checks = (proof, owner) => ({ routing:!!proof.isolated, registered:!!(proof.registered ?? proof.connected), path:!!(proof.pathVerified ?? proof.isolated), nameStatus:proof.nameStatus || 'UNKNOWN', ...(owner ? { portfolio:owner } : {}) });
+      const checks = proof => ({ routing:!!proof.isolated, registered:!!(proof.registered ?? proof.connected), path:!!(proof.pathVerified ?? proof.isolated), nameStatus:proof.nameStatus || 'UNKNOWN' });
       const diagnostic = (error, stage) => ({reason:error instanceof PilotError ? error.code : 'review_backend_unavailable',stage,at:now(),...(Number.isSafeInteger(error.providerCode) ? {providerCode:error.providerCode} : {})});
       if (body.action === 'claim_draft') {
         if (!accountsAvailable || !account) throw new PilotError('sign_in_required',401);
@@ -234,8 +208,6 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
         return send(res,200,{...result(), preview: preview.text, sourceFields: preview.sourceFields, needsHuman: preview.needsHuman},{vary:'Cookie'});
       } else if (body.action === 'save_progress') {
         await write('save_progress', { journeyStep: body.journeyStep });
-      } else if (body.action === 'review_preview') {
-        await write('review_preview', { profileVersion: body.profileVersion });
       } else if (body.action === 'catalog_list') {
         if(!row.accountId)throw new PilotError('sign_in_required',401);
         const value=await catalog('list',{ownerKey,cursor:body.cursor,limit:body.limit});return send(res,200,{...result(),catalog:value},{vary:'Cookie'});
@@ -326,7 +298,7 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
             if (r.success !== true) throw new PilotError('meta_connection_unavailable',502);
             proof = await inspect({c,integration:i,token,fetcher});
           }
-          await write('result',{operationId,status:proof.connected ? 'connected' : proof.isolated && i.path === 'new_number' && !row.registrationAttempted ? 'registration_required' : 'reconciliation_required',connectionChecks:checks(proof,await portfolio({c,integration:i,token,fetcher}))});
+          await write('result',{operationId,status:proof.connected ? 'connected' : proof.isolated && i.path === 'new_number' && !row.registrationAttempted ? 'registration_required' : 'reconciliation_required',connectionChecks:checks(proof)});
         } catch (error) { await write('result',{operationId,status:'reconciliation_required',diagnostic:diagnostic(error,register ? 'registration' : 'refresh')}); }
         finally { token = undefined; delete body.pin; }
       } else if (body.action === 'pause') await write('pause');

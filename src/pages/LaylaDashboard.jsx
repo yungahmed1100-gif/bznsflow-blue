@@ -1,3 +1,5 @@
+import { ChannelConnections } from '../components/dashboard/ChannelConnections';
+import { BusinessDetails } from '../components/dashboard/BusinessDetails';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Seo } from '../components/ui/Seo';
@@ -13,7 +15,7 @@ import { browserTimezone } from '../lib/dashboard/format';
 import { createStrings } from '../lib/dashboard/strings';
 import '../styles/layla-dashboard.css';
 
-const TABS = ['broadcast', 'chats', 'contacts'];
+const TABS = ['broadcast', 'chats', 'contacts', 'channels', 'business'];
 
 export default function LaylaDashboard({ lang = 'ar' }) {
   const s = useMemo(() => createStrings(lang), [lang]);
@@ -58,7 +60,10 @@ export default function LaylaDashboard({ lang = 'ar' }) {
           : unavailable ? <div className="ld-state"><p>{s.t('dashboardUnavailable')}</p><a className="ld-button" href={setupPath(lang)}>{s.t('setup')}</a></div>
           : overview.error && !data ? <div className="ld-state" role="alert"><p>{s.reason(overview.error.reason)}</p><button className="ld-button" onClick={() => overview.refresh()}>{s.t('retry')}</button></div>
           : data?.connected ? (
-            tab === 'contacts' ? <ContactsView s={s} overview={data} onOpenChat={id => go('chats', { chat: id })} />
+            tab === 'channels' ? <ChannelConnections s={s} data={data} onChange={()=>overview.refresh({quiet:true})} />
+            : tab === 'business' ? <BusinessDetails s={s} />
+            : tab === 'contacts' ? <ContactsView s={s} overview={data} onOpenChat={id => go('chats', { chat: id })} />
+            : tab === 'broadcast' && !data.integration ? <p className="ld-state">{s.ar?'البث متاح لقناة واتساب فقط.':'Broadcasts are available for WhatsApp only.'}</p>
             : tab === 'broadcast' ? <BroadcastView s={s} overview={data} onTimezone={() => overview.refresh({ quiet: true })} />
             : <ChatsView s={s} overview={data} selected={params.get('chat')} onSelect={id => go('chats', id ? { chat: id } : {})} />
           ) : <p className="ld-state" role="status">{s.t('loading')}</p>}

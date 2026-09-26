@@ -1,5 +1,34 @@
 # Meta App Review — submission package (updated 2026-09-15)
 
+## Current decision and implementation — 2026-09-23
+
+WhatsApp messaging and management **Advanced Access approved**, verified with
+Meta's connected tool today. `business_management` was rejected; Ahmed chose to
+defer it and remove the optional portfolio lookup/display. The reviewer requested
+an ads account flow that does not match that optional feature. This supersedes
+only the older instruction to keep requesting `business_management`.
+
+Instagram DM-only client onboarding is implemented **locally, not deployed**,
+using Instagram Login and `instagram_business_basic` plus
+`instagram_business_manage_messages`. Each business can connect Instagram,
+WhatsApp, or both, with shared approved facts/inbox and separate reply controls.
+Test account: `@bznsflow`. Instagram settings, real consent/message evidence,
+recordings, review submission and Advanced Access remain pending.
+
+Use [Instagram setup and review guide](instagram-app-review-setup.md) for the
+current steps and [engineering notes](blue-instagram-engineering.md) for release
+order and rollback. Tests: `npm run verify` passes (137 Layla and 177 Blue tests,
+plus the legacy suites); Convex TypeScript passes; 32 Instagram and 80 dashboard
+synthetic browser assertions pass in English/Arabic. Lint has 12 existing hook
+warnings, zero errors. These are not live provider evidence.
+
+Meta's read-only settings check still showed the Green privacy URL, placeholder
+terms/deletion URLs and unverified contact email. No Meta settings, deployment,
+webhook binding, live message or submission was changed during implementation.
+Green stays frozen. The material below records earlier dates and may describe
+superseded permission/release state.
+
+
 App `1388038082832745` (bznsflowai), Blue review environment
 `https://bznsflow-blue.vercel.app`. Nothing has been submitted yet. Re-read Meta's
 App Review API (`devtools_app_review requirements`) right before submitting.

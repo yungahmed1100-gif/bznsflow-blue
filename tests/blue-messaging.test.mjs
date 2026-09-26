@@ -23,7 +23,7 @@ async function setup() {
   const m=memory();await m.db.insert('blueMessagingSettings',{key:'global',enabled:true});
   const integration={id:randomUUID(),app:'1388038082832745',waba:'1234',phone:'5678',sender:'96890000000',path:'new_number'};
   const sessionHash='d'.repeat(64);integration.credential=sealToken('synthetic-token-only',credentialContext(sessionHash,integration),env);
-  const rowId=await m.db.insert('blueReviewSessions',{accountId:'accountA',sessionHash,expiresAt:1e15,status:'connected',profile,profileVersion:1,previewReviewedVersion:1,checkedAt:m.now(),connectionChecks:{routing:true,registered:true,path:true},integration,phone:integration.phone});
+  const rowId=await m.db.insert('blueReviewSessions',{accountId:'accountA',sessionHash,expiresAt:1e15,status:'connected',profile,profileVersion:1,checkedAt:m.now(),connectionChecks:{routing:true,registered:true,path:true},integration,phone:integration.phone});
   assert.equal((await m.call('activate',{sessionHash})).ok,true);
   const inbound=(id='in1',extra={})=>m.call('ingest',{integrationId:integration.id,events:[{kind:'message',id,from:'96891111111',at:m.now(),text:'services',reply:'Portraits',intent:'services',...extra}]});
   const outgoing=()=>[...m.rows.values()].filter(r=>r.table==='blueMessages'&&r.direction==='out');
@@ -41,8 +41,24 @@ test('cross-account conversation access and activation without approved facts ar
   const person=[...m.rows.values()].find(r=>r.table==='blueConversations');
   await m.db.insert('blueReviewSessions',{accountId:'B',sessionHash:'e'.repeat(64),expiresAt:1e15,integration:{id:'other'}});
   assert.equal((await m.call('manual_reply',{sessionHash:'e'.repeat(64),conversationId:person._id,text:'bad',requestId:randomUUID()})).reason,'conversation_not_found');
-  await m.db.patch(m.rowId,{previewReviewedVersion:undefined});
-  assert.equal((await m.call('activate',{sessionHash:m.sessionHash})).reason,'activation_not_ready');
+  await m.db.patch(m.rowId,{profile:{...profile,reviewed:false}});
+  assert.equal((await m.call('activate',{sessionHash:m.sessionHash})).reason,'activation_not_ready','facts never confirmed');
+  await m.db.patch(m.rowId,{profile:{...profile,humanContact:undefined}});
+  assert.equal((await m.call('activate',{sessionHash:m.sessionHash})).reason,'activation_not_ready','no team to hand over to');
+});
+test('the owner reviews once: no preview approval is needed, and editing answers keeps Layla live',async()=>{
+  // Ahmed, 2026-09-24: "ask one time to review business information then go live".
+  const m=await setup();
+  await m.db.patch(m.rowId,{checkedAt:m.now()});
+  assert.equal((await m.call('activate',{sessionHash:m.sessionHash})).ok,true,'no Try Layla approval step');
+  // Saving new answers bumps the version.
+  await m.db.patch(m.rowId,{profile:{...profile,services:'Portraits and weddings'},profileVersion:2});
+  assert.equal((await m.call('state',{sessionHash:m.sessionHash})).value.active,true,'still live after an edit');
+  await m.inbound('after-edit');
+  const job=m.outgoing().at(-1);
+  assert.equal(job.profileVersion,2,'the reply uses the latest saved answers');
+  assert(( await m.call('claim',{jobId:job._id,intent:'edit'})).value,'claimable');
+  assert.equal((await m.call('send_gate',{jobId:job._id,intent:'edit'})).value,true,'and sendable');
 });
 test('pause and resume cannot revive queued messages; editing facts fences claimed sends',async()=>{
   const m=await setup();await m.inbound();await m.call('pause',{sessionHash:m.sessionHash});
@@ -50,7 +66,7 @@ test('pause and resume cannot revive queued messages; editing facts fences claim
   assert.equal((await m.call('claim',{jobId:m.outgoing()[0]._id,intent:'one'})).value,null);
   await m.inbound('in2');const jobId=m.outgoing()[1]._id;
   await m.call('claim',{jobId,intent:'two'});
-  await m.db.patch(m.rowId,{profileVersion:2,previewReviewedVersion:2});
+  await m.db.patch(m.rowId,{profileVersion:2});
   assert.equal((await m.call('send_gate',{jobId,intent:'two'})).value,false);
 });
 test('human echo fences a claimed reply even after conversation resume',async()=>{

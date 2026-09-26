@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePolling } from '../../hooks/usePolling';
 import { dashboard, messaging } from '../../lib/dashboard/api';
 import { formatPhone } from '../../lib/dashboard/phone';
+import { issueKey } from '../../lib/dashboard/strings.js';
 import { formatDay, formatTime, formatDateTime, sameDay } from '../../lib/dashboard/format';
 import { exportChat } from '../../lib/dashboard/exports';
 import { StatusTicks, QualificationChip } from './Badges';
@@ -48,7 +49,7 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
   const toggleLeave = async () => {
     const next = !takeover;
     setOptimisticTakeover(next);
-    await act('leave', () => messaging(next ? 'takeover' : 'resume_conversation', { conversationId }));
+    await act('leave', () => messaging(next ? 'takeover' : 'resume_conversation', { conversationId,channel:conversation.channel }));
     setOptimisticTakeover(null);
   };
   const send = e => {
@@ -56,7 +57,7 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
     const text = draft.text.trim();
     if (!text) return;
     // Resubmitting unchanged text reuses the request id, so a retry never duplicates; editing starts a new one.
-    act('send', async () => { await messaging('manual_reply', { conversationId, text, requestId: draft.id }); setDraft({ text: '', id: newRequestId() }); });
+    act('send', async () => { await messaging('manual_reply', { conversationId,channel:conversation.channel, text, requestId: draft.id }); setDraft({ text: '', id: newRequestId() }); });
   };
   const exportAs = format => act(`export-${format}`, () => exportChat(conversationId, format, { lang: s.lang, business: overview.business.name }));
 
@@ -66,7 +67,7 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
         <button type="button" className="ld-icon-button ld-back" onClick={onBack} aria-label={s.t('back')}><span aria-hidden="true">{s.ar ? '→' : '←'}</span></button>
         <div className="ld-thread-title">
           <h2><bdi>{name}</bdi></h2>
-          <p><bdi dir="ltr" className="ld-num">{formatPhone(contact.number)}</bdi> <QualificationChip s={s} status={contact.status} />{contact.optout && <span className="ld-chip is-coral">{s.t('optedOut')}</span>}</p>
+          <p><bdi dir="ltr" className="ld-num">{contact.channel==='instagram'?'Instagram':formatPhone(contact.number)}</bdi> <QualificationChip s={s} status={contact.status} />{contact.optout && <span className="ld-chip is-coral">{s.t('optedOut')}</span>}</p>
         </div>
         <div className="ld-thread-actions">
           <label className="ld-switch">
@@ -83,7 +84,7 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
         </div>
         <p id="ld-leave-help" className="ld-help">{s.t('leaveChatHelp')}</p>
       </header>
-      <ol className="ld-messages" ref={scroller} aria-live="polite" aria-relevant="additions"
+      <ol className="ld-messages" ref={scroller} tabIndex={0} aria-live="polite" aria-relevant="additions"
         onScroll={e => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }}>
         {olderCursor && <li className="ld-day"><button type="button" className="ld-button ld-quiet" disabled={busy === 'earlier'} onClick={loadEarlier}>{s.t('loadEarlier')}</button></li>}
         {messages.map((m, i) => (
@@ -94,8 +95,8 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
               {m.text === null ? <p className="ld-expired">{s.t('textExpired')}</p> : <p dir="auto">{m.text}</p>}
               <span className="ld-bubble-meta">
                 <time dateTime={new Date(m.at).toISOString()} className="ld-num">{formatTime(m.at, s.lang, overview.timezone)}</time>
-                {m.direction !== 'in' && m.direction !== 'human' && <StatusTicks s={s} status={m.status} />}
-                {['failed', 'ambiguous', 'blocked'].includes(m.status) && <span className="ld-bubble-issue">{s.t(`status_${m.status}`)}{m.errorCode ? ` · ${m.errorCode}` : ''}</span>}
+                {m.direction !== 'in' && m.direction !== 'human' && <StatusTicks s={s} status={m.status} channel={contact.channel} />}
+                {['failed', 'ambiguous', 'blocked'].includes(m.status) && <span className="ld-bubble-issue">{issueKey(m.reason) ? s.t(issueKey(m.reason)) : <>{s.t(`status_${m.status}`)}{m.errorCode ? ` · ${m.errorCode}` : ''}</>}</span>}
               </span>
             </li>
           </React.Fragment>
@@ -116,12 +117,12 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
           ) : (
             <div className="ld-window-closed">
               <p>{s.t('windowClosed', { time: formatDateTime(conversation.windowOpenUntil, s.lang, overview.timezone) })}</p>
-              <button type="button" className="ld-button" onClick={() => setTemplateOpen(true)} disabled={!overview.broadcastEnabled}>{s.t('sendTemplate')}</button>
-              {!overview.broadcastEnabled && <p className="ld-help">{s.t('broadcastUnavailable')}</p>}
+              {conversation.channel!=='instagram' && <button type="button" className="ld-button" onClick={() => setTemplateOpen(true)} disabled={!overview.broadcastEnabled}>{s.t('sendTemplate')}</button>}
+              {conversation.channel!=='instagram' && !overview.broadcastEnabled && <p className="ld-help">{s.t('broadcastUnavailable')}</p>}
             </div>
           )}
       </footer>
-      {templateOpen && (
+      {templateOpen && conversation.channel!=='instagram' && (
         <Dialog s={s} title={s.t('sendTemplate')} onClose={() => setTemplateOpen(false)} wide>
           <CampaignWizard s={s} overview={overview} single={contact} onDone={() => { setTemplateOpen(false); thread.refresh({ quiet: true }); }} />
         </Dialog>

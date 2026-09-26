@@ -84,3 +84,5 @@ export const blueAuthStore = convexStore({ route: 'blue-auth', fallback: 'accoun
 export const dashboardStore = convexStore({ route: 'blue-dashboard', fallback: 'dashboard_unavailable', status: signInAware });
 export const campaignStore = convexStore({ route: 'blue-campaign', fallback: 'campaign_unavailable', timeout: 6000, status: signInAware });
 export const messagingStore = convexStore({ route: 'blue-messaging', fallback: 'messaging_unavailable', timeout: 6000 });
+
+export const instagramStore = convexStore({ route: 'blue-instagram', fallback: 'instagram_unavailable', status: signInAware });

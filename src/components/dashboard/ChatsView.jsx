@@ -10,6 +10,7 @@ import { StatusTicks, QualificationChip } from './Badges';
 /** Conversation list + active thread. Desktop shows both; phones show one at a time. */
 export function ChatsView({ s, overview, selected, onSelect }) {
   const [search, setSearch] = useState('');
+  const [channel,setChannel]=useState('');
   const [exporting, setExporting] = useState(false), [exportError, setExportError] = useState('');
   const exportAll = async () => {
     setExporting(true); setExportError('');
@@ -20,13 +21,13 @@ export function ChatsView({ s, overview, selected, onSelect }) {
   const query = useDebounced(search.trim(), 300);
   const [extra, setExtra] = useState({ items: [], cursor: null });
   const list = usePolling(async () => {
-    const result = await dashboard('conversations', query ? { search: query } : {});
+    const result = await dashboard('conversations', {...(query?{search:query}:{}),...(channel?{channel}:{})});
     return result;
-  }, [query]);
+  }, [query,channel]);
   const items = [...(list.data?.items || []), ...extra.items.filter(i => !(list.data?.items || []).some(x => x.id === i.id))];
   const cursor = extra.cursor ?? list.data?.cursor;
   const loadMore = async () => {
-    const result = await dashboard('conversations', { cursor });
+    const result = await dashboard('conversations', { cursor,...(channel?{channel}:{}) });
     setExtra(e => ({ items: [...e.items, ...result.items], cursor: result.cursor }));
   };
   return (
@@ -38,6 +39,7 @@ export function ChatsView({ s, overview, selected, onSelect }) {
             <button type="button" className="ld-button ld-quiet" disabled={exporting} onClick={exportAll}>{exporting ? s.t('exporting') : s.t('exportAll')}</button>
           </div>
           {exportError && <p className="ld-inline-error" role="alert">{exportError}</p>}
+          <label>{s.ar?'القناة':'Channel'} <select value={channel} onChange={e=>{setChannel(e.target.value);setExtra({items:[],cursor:null});}}><option value="">{s.ar?'كل القنوات':'All channels'}</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option></select></label>
           <label className="ld-search"><span className="ld-visually-hidden">{s.t('searchChats')}</span>
             <input type="search" value={search} placeholder={s.t('searchChats')} onChange={e => { setSearch(e.target.value); setExtra({ items: [], cursor: null }); }} />
           </label>
@@ -56,10 +58,10 @@ export function ChatsView({ s, overview, selected, onSelect }) {
                       <time className="ld-num">{item.lastMessage ? listTimestamp(item.lastMessage.at, s.lang, overview.timezone) : ''}</time>
                     </span>
                     <span className="ld-conversation-bottom">
-                      {item.lastMessage && item.lastMessage.direction !== 'in' && <StatusTicks s={s} status={item.lastMessage.status} />}
+                      {item.lastMessage && item.lastMessage.direction !== 'in' && <StatusTicks s={s} status={item.lastMessage.status} channel={item.contact.channel} />}
                       <span className="ld-preview" dir="auto">{item.lastMessage?.text ?? (item.lastMessage ? s.t('textExpired') : '')}</span>
                     </span>
-                    <span className="ld-conversation-tags">
+                    <span className="ld-conversation-tags"><span className="ld-chip">{item.channel==='instagram'?'Instagram':'WhatsApp'}</span>
                       {item.takeover && <span className="ld-chip is-ink">{s.t('handling')}</span>}
                       {item.optout && <span className="ld-chip is-coral">{s.t('optedOut')}</span>}
                       {item.contact.status !== 'new' && <QualificationChip s={s} status={item.contact.status} />}

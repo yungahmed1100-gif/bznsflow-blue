@@ -383,3 +383,15 @@ test('advice frames and catalogue terms do not contradict each other', () => {
     }
   }
 });
+
+test('a greeting with a question mark or a short opener is still a greeting, not a hand-off', () => {
+  // Seen live on Instagram 2026-09-24: "hello?" routed to unknown, so Layla
+  // handed a customer who was only checking she was there to a human.
+  for (const text of ['hello?', 'Hi?', 'hey!!', 'hi there', 'Hello Layla!', 'good morning', 'Good evening.', 'hiya', 'أهلا', 'مرحباً؟', 'صباح الخير', 'مساء الخير', 'السلام عليكم']) {
+    assert.equal(classifyWithGuard(text).intent, 'greeting', text);
+  }
+  // Only a bare greeting counts; anything with a real request keeps its meaning.
+  assert.notEqual(classifyWithGuard('hi, what are your prices?').intent, 'greeting');
+  assert.notEqual(classifyWithGuard('hello can I speak to a human').intent, 'greeting');
+  assert.notEqual(classifyWithGuard('good morning, where are you located?').intent, 'greeting');
+});

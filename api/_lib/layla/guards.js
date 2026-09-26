@@ -64,7 +64,10 @@ export function classifyWithGuard(text) {
   // of the labelled eval set. Someone asking price-and-something wants the price.
   if (matches.length) return { intent: matches[0][0], guard: null };
 
-  if (/^(hi|hello|hey|مرحبا|السلام عليكم)[!.؟]*$/.test(t)) return { intent: 'greeting', guard: null };
+  // A bare greeting, with any trailing punctuation ("hello?" is someone checking
+  // Layla is there, not a question she cannot answer) and an optional "there" or
+  // her name. Anything longer keeps its real meaning via the rules above.
+  if (/^(hi|hiya|hello|hey|good (morning|afternoon|evening)|مرحبا|مرحباً|أهلا|اهلا|أهلاً|اهلاً|السلام عليكم|صباح الخير|مساء الخير)( there| layla| ليلى)?[\s!.?؟،,]*$/.test(t)) return { intent: 'greeting', guard: null };
   return { intent: 'unknown', guard: null };
 }
 

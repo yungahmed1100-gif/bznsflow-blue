@@ -12,7 +12,7 @@ export async function seedTenant(m, { name = 'a', sector = 'Real estate', phone 
   const accountId = await m.db.insert('accounts', { email: `${name}@example.com`, role: 'customer', createdAt: m.now() });
   const sessionHash = name.charCodeAt(0).toString(16).padStart(2, '0').repeat(32);
   const integration = { id: randomUUID(), app: APP, waba, phone, sender, path: 'new_number', credential: { v: 1, iv: 'x', data: 'x', tag: 'x' } };
-  const rowId = await m.db.insert('blueReviewSessions', { accountId, sessionHash, expiresAt: 1e15, status: 'connected', profile: profileFor(sector), profileVersion: 1, previewReviewedVersion: 1,
+  const rowId = await m.db.insert('blueReviewSessions', { accountId, sessionHash, expiresAt: 1e15, status: 'connected', profile: profileFor(sector), profileVersion: 1,
     checkedAt: m.now(), connectionChecks: { routing: true, registered: true, path: true }, integration, phone, waba, createdAt: m.now(), updatedAt: m.now(), attempts: 0 });
   await m.db.patch(accountId, { draftHash: sessionHash });
   return { accountId, sessionHash, integration, rowId };

@@ -6,11 +6,11 @@
 // charges and policies stay Meta's. Commercial terms (price, setup fee) are
 // agreed in writing per customer and are not restated here.
 
-export const TERMS_UPDATED_ISO = '2026-09-15';
+export const TERMS_UPDATED_ISO = '2026-09-23';
 
 const en = {
   title: 'Terms of Service',
-  updated: 'Last updated 15 September 2026',
+  updated: 'Last updated 23 September 2026',
   lead: 'These terms apply when a business uses BznsFlow and its WhatsApp assistant, Layla. By creating an account or connecting a WhatsApp number, you agree to them on behalf of your business.',
   sections: [
     {
@@ -33,6 +33,10 @@ const en = {
         'You connect WhatsApp through Meta\'s own sign-up window and choose which business portfolio, WhatsApp Business Account and number to share. You authorise BznsFlow to use that access to receive and send messages, read templates and check the connection on your behalf.',
         'Your use of WhatsApp remains subject to Meta\'s WhatsApp Business Terms, the WhatsApp Business Messaging Policy and Meta\'s Commerce Policy. Meta may charge your business for messages; those charges are between you and Meta unless we agree otherwise in writing.',
       ],
+    },
+    {
+      h: 'Connecting Instagram',
+      p: ['You may connect your professional Instagram account independently of WhatsApp. You authorise BznsFlow to identify that account, receive customer-initiated direct messages and send replies using approved business information. You can pause replies, take over conversations or disconnect the channel.', 'Instagram replies, including manual replies through this version of BznsFlow, are limited to the 24-hour messaging window. Instagram publishing, comment replies, campaigns and extended Human Agent access are not included. Your use remains subject to Meta’s applicable platform terms.'],
     },
     {
       h: 'Your responsibilities',
@@ -80,7 +84,7 @@ const en = {
 
 const ar = {
   title: 'شروط الخدمة',
-  updated: 'آخر تحديث ١٥ سبتمبر ٢٠٢٦',
+  updated: 'آخر تحديث ٢٣ سبتمبر ٢٠٢٦',
   lead: 'تنطبق هذه الشروط عندما يستخدم نشاط تجاري BznsFlow ومساعدتها على واتساب، ليلى. بإنشاء حساب أو ربط رقم واتساب فإنك توافق عليها نيابةً عن نشاطك.',
   sections: [
     {
@@ -103,6 +107,10 @@ const ar = {
         'تربط واتساب عبر نافذة التسجيل التابعة لـ Meta نفسها، وتختار محفظة الأعمال وحساب واتساب للأعمال والرقم الذي تشاركه. وتخوّل BznsFlow باستخدام هذا الوصول لاستقبال الرسائل وإرسالها وقراءة القوالب والتحقق من الربط نيابةً عنك.',
         'يظل استخدامك لواتساب خاضعاً لشروط واتساب للأعمال من Meta وسياسة المراسلة لواتساب للأعمال وسياسة التجارة لدى Meta. وقد تفرض Meta رسوماً على نشاطك مقابل الرسائل، وهذه الرسوم بينك وبين Meta ما لم نتفق كتابةً على غير ذلك.',
       ],
+    },
+    {
+      h: 'ربط إنستغرام',
+      p: ['يمكنك ربط حساب إنستغرام الاحترافي بشكل مستقل عن واتساب. تسمح لـ BznsFlow بالتعرّف على الحساب واستقبال الرسائل الخاصة التي يبدأها العملاء والرد بمعلومات النشاط المعتمدة. يمكنك إيقاف الردود أو تولّي المحادثة أو فصل القناة.', 'تقتصر ردود إنستغرام، بما فيها الردود اليدوية من هذا الإصدار، على نافذة المراسلة البالغة ٢٤ ساعة. لا يشمل هذا الإصدار النشر أو الرد على التعليقات أو الحملات أو نافذة الدعم البشري الممتدة. يخضع استخدامك لشروط منصة Meta المعمول بها.'],
     },
     {
       h: 'مسؤولياتك',

@@ -77,8 +77,9 @@ export function GuidedSetup({ lang = 'en', sectorId, busy = false, onApply, onDo
   }
 
   if (!open) {
-    return <section className="layla-answer" aria-labelledby="guided-heading">
-      <h3 id="guided-heading">{tr('Not sure what to write?', 'غير متأكد ماذا تكتب؟')}</h3>
+    return <section className="layla-answer layla-guided-panel" aria-labelledby="guided-heading">
+      <h3 id="guided-heading">{tr('Not sure what to write?', 'غير متأكد ماذا تكتب؟')}
+        <span className="layla-chip layla-chip--recommended">{tr('Recommended', 'موصى به')}</span></h3>
       <p>{tr('Answer a few short questions in your own words — Arabic or English — and we will fill this form in for you. You can still edit everything afterwards.',
         'أجب عن أسئلة قصيرة بكلماتك — بالعربية أو الإنجليزية — وسنملأ هذه الاستمارة لك. يمكنك تعديل كل شيء بعدها.')}</p>
       <button type="button" className="layla-primary" disabled={busy} onClick={() => setOpen(true)}>
@@ -86,11 +87,12 @@ export function GuidedSetup({ lang = 'en', sectorId, busy = false, onApply, onDo
           ? tr('Continue the guided setup', 'متابعة الإعداد الموجّه')
           : tr('Guide me through it', 'أرشدني خطوة بخطوة')}
       </button>
+      <p className="layla-guided-or">{tr('Or fill in the boxes below yourself.', 'أو املأ الخانات أدناه بنفسك.')}</p>
     </section>;
   }
 
   if (!rung) {
-    return <section className="layla-answer" aria-labelledby="guided-heading">
+    return <section className="layla-answer layla-guided-panel layla-guided-done" aria-labelledby="guided-heading">
       <h3 id="guided-heading">{tr('All done', 'تم')}</h3>
       <p>{tr('Your answers are in the form below. Read them through, then confirm at the bottom.',
         'إجاباتك موجودة في الاستمارة بالأسفل. راجعها ثم أكّد في الأسفل.')}</p>
@@ -98,8 +100,15 @@ export function GuidedSetup({ lang = 'en', sectorId, busy = false, onApply, onDo
     </section>;
   }
 
-  return <section className="layla-answer" aria-labelledby="guided-heading">
+  return <section className="layla-answer layla-guided-panel" aria-labelledby="guided-heading">
     <h3 id="guided-heading">{tr('Guided setup', 'الإعداد الموجّه')}</h3>
+    <div className="layla-guided-progress" style={{ '--total': total }} role="progressbar"
+      aria-valuemin={0} aria-valuemax={total} aria-valuenow={done}
+      aria-label={tr('Guided setup progress', 'تقدّم الإعداد الموجّه')}>
+      {Array.from({ length: total }, (_, i) => (
+        <span key={i} data-done={i < done ? '' : undefined} data-current={i === done ? '' : undefined} />
+      ))}
+    </div>
     <p className="layla-field-help" aria-live="polite">
       {tr(`Question ${Math.min(done + 1, total)} of ${total}`, `السؤال ${Math.min(done + 1, total)} من ${total}`)}
     </p>

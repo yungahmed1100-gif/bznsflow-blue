@@ -37,10 +37,10 @@ test('Instagram timestamps are milliseconds, not WhatsApp seconds', () => {
   assert.throws(() => parseEvents(raw(envelope(item({ timestamp: String(NOW) }))), ig(), NOW), /invalid_timestamp/);
 });
 
-test('a business echo is a takeover keyed on the contact, not the business account', () => {
+test('a business echo retains its provider identity so our own replies can be excluded', () => {
   const echo = item({ sender: { id: IG_ACCOUNT }, recipient: { id: IGSID },
     message: { mid: 'ig.mid.2', text: 'a human answered', is_echo: true } });
-  assert.deepEqual(parseEvents(raw(envelope(echo)), ig(), NOW), [{ kind: 'takeover', id: 'echo:ig.mid.2', from: IGSID }]);
+  assert.deepEqual(parseEvents(raw(envelope(echo)), ig(), NOW), [{ kind: 'echo', id: 'ig.mid.2', from: IGSID, at:NOW, text:'a human answered' }]);
 });
 
 test('unsent messages, self traffic and bodiless events create no reply work', () => {
@@ -48,7 +48,11 @@ test('unsent messages, self traffic and bodiless events create no reply work', (
   const self = item({ sender: { id: IG_ACCOUNT }, message: { mid: 'ig.mid.4', text: 'ours' } });
   const seen = item({ message: undefined, read: { mid: 'ig.mid.1' } });
   const empty = item({ message: { mid: 'ig.mid.5', text: '   ' } });
-  assert.deepEqual(parseEvents(raw(envelope(deleted, self, seen, empty)), ig(), NOW), []);
+  const events=parseEvents(raw(envelope(deleted, self, seen, empty)), ig(), NOW);
+  assert.equal(events[0].kind,'deleted');
+  assert.equal(events[1].handoff,true);
+  assert.equal(events[1].reply,null);
+  assert.equal(events.length,2);
 });
 
 test('a binding answers only for its own channel, in both directions', () => {

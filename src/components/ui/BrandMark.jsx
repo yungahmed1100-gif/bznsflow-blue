@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useId } from 'react';
 
-// Identity-provider logos for the sign-in buttons.
+// Brand logos: identity providers on the sign-in buttons, and the
+// Instagram and WhatsApp channel marks in onboarding and the dashboard.
 //
 // Deliberately NOT in Icon.jsx. That file is one monochrome set drawn with
 // `stroke="currentColor"` so every glyph inherits the surrounding text colour;
@@ -52,6 +53,39 @@ const MARKS = {
     </>
   ),
 
+  // Instagram glyph: rounded square, lens, flash dot, stroked in the brand
+  // gradient. The gradient is the logo itself, so the Ledger's no-gradient
+  // rule does not apply to it. Its id is per-instance (see BrandMark).
+  instagram: (gradientId) => (
+    <>
+      <defs>
+        <linearGradient id={gradientId} x1="2" y1="22" x2="22" y2="2" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#FEDA75" />
+          <stop offset=".3" stopColor="#F58529" />
+          <stop offset=".6" stopColor="#DD2A7B" />
+          <stop offset="1" stopColor="#8134AF" />
+        </linearGradient>
+      </defs>
+      <g fill="none" stroke={`url(#${gradientId})`} strokeWidth="2">
+        <rect x="3" y="3" width="18" height="18" rx="5.2" />
+        <circle cx="12" cy="12" r="4.2" />
+      </g>
+      <circle cx="17.4" cy="6.6" r="1.25" fill={`url(#${gradientId})`} />
+    </>
+  ),
+
+  // WhatsApp outline: speech bubble with a tail and a handset, brand green.
+  whatsapp: (
+    <g fill="none" stroke="#25D366" strokeLinejoin="round" strokeLinecap="round">
+      <path strokeWidth="1.8" d="M5.99 17.51L3.3 20.7l5.79-1.21A8.5 8.5 0 1 0 5.99 17.51z" />
+      <path
+        strokeWidth="3.6"
+        transform="translate(6.9 6.4) scale(.45)"
+        d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
+      />
+    </g>
+  ),
+
   // LinkedIn's "in" box, single brand blue.
   linkedin: (
     <path
@@ -66,7 +100,9 @@ const MARKS = {
  * Decorative: the button's text already names the provider.
  */
 export function BrandMark({ name, size = 18, className = '' }) {
-  const mark = MARKS[name];
+  // A gradient is referenced by id, so two marks on one page need two ids.
+  const gradientId = `bm-${useId().replace(/:/g, '')}`;
+  const mark = typeof MARKS[name] === 'function' ? MARKS[name](gradientId) : MARKS[name];
   if (!mark) return null;
 
   return (

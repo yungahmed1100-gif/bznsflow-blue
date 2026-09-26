@@ -59,7 +59,7 @@ export function createDashboardApi({ env = process.env, fetcher = fetch, now = D
         const overview = await store('overview', { sessionHash });
         // Template sync needs only the Vercel gate, so an approved template can be confirmed
         // before the durable Convex gate allows any campaign to be created.
-        return reply({ ...overview, account: { email: account.email }, dashboardAvailable: true, broadcastApiEnabled: broadcastAvailable(env), broadcastEnabled: broadcastAvailable(env) && overview.messaging.broadcastAvailable });
+        return reply({ ...overview, account: { email: account.email }, dashboardAvailable: true, broadcastApiEnabled: broadcastAvailable(env), broadcastEnabled: !!overview.integration && broadcastAvailable(env) && overview.messaging.broadcastAvailable });
       }
       if (!verifyCsrf(req)) throw new PilotError('csrf', 403);
       const body = readBody(req);
@@ -68,7 +68,7 @@ export function createDashboardApi({ env = process.env, fetcher = fetch, now = D
       if (BROADCAST_ACTIONS.has(action) && !broadcastAvailable(env)) throw new PilotError('broadcast_unavailable', 503);
 
       if (READ_ACTIONS.has(action)) {
-        const args = { sessionHash, cursor: optionalString(body.cursor, 100), search: optionalString(body.search, 80), status: optionalString(body.status, 20),
+        const args = { sessionHash, channel:['whatsapp','instagram'].includes(body.channel)?body.channel:undefined, cursor: optionalString(body.cursor, 100), search: optionalString(body.search, 80), status: optionalString(body.status, 20),
           conversationId: id(body.conversationId), campaignId: id(body.campaignId), before: Number.isSafeInteger(body.before) ? body.before : undefined,
           limit: Number.isSafeInteger(body.limit) ? body.limit : undefined };
         return reply(await store(action, Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined))));

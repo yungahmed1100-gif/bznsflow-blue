@@ -21,7 +21,7 @@ export function ContactPanel({ s, contact, pack, timezone, onSaved, onDeleted, o
   const displayName = contact.nameSource === 'number' ? formatPhone(contact.number) : contact.name;
   return (
     <form className="ld-contact-panel" onSubmit={save}>
-      <p className="ld-contact-summary"><bdi dir="ltr" className="ld-num">{formatPhone(contact.number)}</bdi> · {s.t(`source_${contact.source}`)} · {s.t('lastActivity')}: {formatDateTime(contact.lastActivityAt, s.lang, timezone)}</p>
+      <p className="ld-contact-summary"><bdi dir="ltr" className="ld-num">{contact.channel==='instagram'?'Instagram':formatPhone(contact.number)}</bdi> · {s.t(`source_${contact.source}`)} · {s.t('lastActivity')}: {formatDateTime(contact.lastActivityAt, s.lang, timezone)}</p>
       <dl className="ld-names">
         {[['customerName', 'name_customer'], ['profileName', 'name_whatsapp']].map(([key, label]) => contact[key] ? <div key={key}><dt>{s.t(label)}</dt><dd><bdi>{contact[key]}</bdi></dd></div> : null)}
       </dl>

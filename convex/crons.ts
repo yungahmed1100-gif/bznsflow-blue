@@ -5,4 +5,5 @@ crons.interval('recover Blue message jobs', {minutes:1}, internal.blueMessaging.
 crons.interval('start and recover Blue campaigns', {minutes:1}, internal.blueCampaign.maintain);
 crons.interval('expire Blue review records', { minutes: 15 }, internal.review.cleanup);
 crons.interval('expire blue auth codes', {minutes: 15}, internal.blueAuth.cleanup);
+crons.interval('maintain Instagram connections', {minutes:15}, internal.blueInstagram.maintain);
 export default crons;

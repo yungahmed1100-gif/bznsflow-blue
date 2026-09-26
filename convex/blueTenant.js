@@ -1,3 +1,4 @@
+import { instagramConnection, instagramRow } from './blueInstagramState.js';
 // Tenant resolution for dashboard and campaign operations. The only accepted
 // identity is the server-derived session hash of a verified account's draft;
 // a client-supplied account, integration or contact id is never trusted alone.
@@ -7,8 +8,10 @@ export async function resolveTenant(ctx, sessionHash, now) {
   if (!hash(sessionHash)) return { error: 'sign_in_required' };
   const row = await ctx.db.query('blueReviewSessions').withIndex('by_hash', q => q.eq('sessionHash', sessionHash)).unique();
   if (!row?.accountId || row.expiresAt <= now) return { error: 'sign_in_required' };
+  const ig=await instagramConnection(ctx,row.accountId);
+  const instagram=instagramRow(row,ig,now);
   const connected = !!row.integration && ['connected', 'paused'].includes(row.status);
-  return { row, accountId: row.accountId, integration: row.integration || null, connected };
+  return { row, accountId: row.accountId, integration: row.integration || null, connected:connected || !!instagram, instagram, instagramConnection:ig };
 }
 
 /** Load a document and prove it belongs to this account (and optionally integration). */
@@ -34,3 +37,5 @@ export function afterCursor(rows, cursor, field) {
   if (index >= 0) return rows.slice(index + 1);
   return rows.filter(r => (r[field] || 0) < cursor.at);
 }
+
+export const ownsIntegration = (tenant, id) => !!id && (tenant.integration?.id===id || tenant.instagram?.integration.id===id);

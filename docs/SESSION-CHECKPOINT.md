@@ -1,5 +1,78 @@
 # Resume checkpoint — 2026-09-12 (active repair)
 
+## Authorized Blue deployment and Desktop guide — 2026-09-23
+
+Ahmed explicitly authorized deployment and requested a detailed plain-English
+PDF. Backend deployment succeeded on isolated `quaint-nightingale-675`; Vercel
+release `dpl_5cUFHzN7jkx2iG7rPC6wjBNjYJ84` is READY on
+`https://bznsflow-blue.vercel.app`. The live signed-in onboarding was checked.
+Green was not deployed. No real messages were sent.
+
+Instagram Login app `bznsflowai-IG`, ID `1674756910890232`, was verified in Meta.
+Blue has that ID and graph version v25.0. The owner saved the OAuth secret as
+Sensitive for Production. BLUE_INSTAGRAM_ENABLED=true; sending remains false.
+OAuth redirect, deauthorization and deletion callbacks are saved. Meta verified
+the Instagram webhook and only messages is subscribed, at v26.0; other fields
+are off. The existing WhatsApp subscription is unchanged. Connect Instagram is
+active on the deployed onboarding. Signature verification uses the parent app
+Basic-settings secret by default, with an explicit override supported. The
+latest fix passed 26 focused tests; lint has zero errors and 12 existing warnings.
+Real consent, inbound DM, reply receipt, legal Basic settings/contact email and
+reviewer access remain pending. Owner next connects @bznsflow and sends a test
+DM from @yungramsis21. No messages were sent by the agent.
+
+Desktop PDF: `/Users/ramsis21/Desktop/BznsFlow - Meta Review and Screencast Guide.pdf`
+(20 pages, includes steps/reasons, exact captions and reviewer instructions).
+Source/render artifacts: `work/review-pdf/`. The official Meta recording guide
+says reviewers do not listen to audio: use on-screen captions. Earlier dated
+notes below describe the state before this authorized release.
+
+
+## Recording preparation — 2026-09-23
+
+Owner requested end-to-end onboarding for Meta review. Recording pack:
+[review-recording-pack.md](review-recording-pack.md). Corrected customer test
+account: **@yungramsis21**; professional business account: **@bznsflow**.
+Local onboarding wording now covers both channels and places Instagram on the
+channel step. A new synthetic EN/AR browser rehearsal passes 14 checks from
+preview approval through Instagram-only inbox access. It does not verify Meta
+consent or delivery. Existing private reviewer access file was found but not
+rotated, exposed or authenticated.
+
+Read-only Vercel check: **no BLUE_INSTAGRAM_* variables configured**. Meta still
+has placeholder terms/deletion URLs and unverified email. Deployment approval,
+secure Instagram credentials/callback configuration, and authorized live
+rehearsal are still needed before recording. No live state was changed.
+
+## Current decision and implementation — 2026-09-23
+
+WhatsApp messaging and management **Advanced Access approved**, verified with
+Meta's connected tool today. `business_management` was rejected; Ahmed chose to
+defer it and remove the optional portfolio lookup/display. The reviewer requested
+an ads account flow that does not match that optional feature. This supersedes
+only the older instruction to keep requesting `business_management`.
+
+Instagram DM-only client onboarding is implemented **locally, not deployed**,
+using Instagram Login and `instagram_business_basic` plus
+`instagram_business_manage_messages`. Each business can connect Instagram,
+WhatsApp, or both, with shared approved facts/inbox and separate reply controls.
+Test account: `@bznsflow`. Instagram settings, real consent/message evidence,
+recordings, review submission and Advanced Access remain pending.
+
+Use [Instagram setup and review guide](instagram-app-review-setup.md) for the
+current steps and [engineering notes](blue-instagram-engineering.md) for release
+order and rollback. Tests: `npm run verify` passes (137 Layla and 177 Blue tests,
+plus the legacy suites); Convex TypeScript passes; 32 Instagram and 80 dashboard
+synthetic browser assertions pass in English/Arabic. Lint has 12 existing hook
+warnings, zero errors. These are not live provider evidence.
+
+Meta's read-only settings check still showed the Green privacy URL, placeholder
+terms/deletion URLs and unverified contact email. No Meta settings, deployment,
+webhook binding, live message or submission was changed during implementation.
+Green stays frozen. The material below records earlier dates and may describe
+superseded permission/release state.
+
+
 ## Current implementation — Layla dashboard after activation (2026-09-14)
 
 **Deployed 2026-09-14 with authorization:** commits `45ed72b`, `5100f51`; Convex

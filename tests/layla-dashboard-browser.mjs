@@ -98,7 +98,7 @@ try {
     const state = fixture();
     const { page, context } = await openPage(browser, { width, path: '/layla/dashboard', handler: api(state) });
     await page.getByRole('heading', { name: 'Chats', exact: true }).waitFor();
-    assert.equal(await page.getByRole('navigation', { name: 'Dashboard sections' }).getByRole('link').allTextContents().then(t => t.join('|')), 'Broadcast|Chats|Contacts'); count++;
+    assert.equal(await page.getByRole('navigation', { name: 'Dashboard sections' }).getByRole('link').allTextContents().then(t => t.join('|')), 'Channels|Broadcast|Chats|Contacts|Business'); count++;
     assert.equal(await page.getByRole('link', { name: 'Chats' }).getAttribute('aria-current'), 'page'); count++;
     await page.getByRole('button', { name: /Aisha Al Balushi/ }).click();
     await page.getByRole('heading', { name: 'Aisha Al Balushi' }).waitFor();
@@ -180,7 +180,7 @@ try {
   // Account recovery: a dashboard visitor sent to sign-in returns once their connected account is restored.
   {
     const saved = { ok: true, csrfToken: 'a'.repeat(64), available: true, status: 'connected', profile: { businessName: 'Blue Studio Properties', sector: 'Real estate', services: 'Villas', prices: '', hours: '', location: '', humanContact: 'team@example.com', faqs: [], reviewed: true },
-      journeyStep: 3, profileVersion: 1, previewReviewedVersion: 1, capabilities: {}, integration: { id: 'i1', sender: '96890000000', path: 'new_number', status: 'connected' }, account: { email: 'owner@example.test' }, savedToAccount: true, accountSaveAvailable: true, catalog: { entries: [], cursor: null } };
+      journeyStep: 3, profileVersion: 1, capabilities: {}, integration: { id: 'i1', sender: '96890000000', path: 'new_number', status: 'connected' }, account: { email: 'owner@example.test' }, savedToAccount: true, accountSaveAvailable: true, catalog: { entries: [], cursor: null } };
     const { page, context } = await openPage(browser, { width: 390, path: '/layla/setup?next=dashboard', handler: api(fixture()), extra: surface => surface === 'customer' ? { status: 200, json: saved } : null });
     await page.waitForURL(/\/en\/layla\/dashboard$/); count++;
     await context.close();
@@ -193,7 +193,7 @@ try {
   // Activation success dialog on setup, then automatic navigation to the dashboard.
   {
     const setup = { ok: true, csrfToken: 'a'.repeat(64), review: false, available: true, status: 'connected', profile: { businessName: 'Blue Studio Properties', sector: 'Real estate', services: 'Villas', prices: '', hours: '', location: '', humanContact: 'team@example.com', faqs: [], reviewed: true },
-      journeyStep: 3, profileVersion: 1, previewReviewedVersion: 1, capabilities: {}, integration: { id: 'i1', sender: '96890000000', path: 'new_number', status: 'connected' }, account: { email: 'owner@example.test' }, savedToAccount: true, accountSaveAvailable: true };
+      journeyStep: 3, profileVersion: 1, capabilities: {}, integration: { id: 'i1', sender: '96890000000', path: 'new_number', status: 'connected' }, account: { email: 'owner@example.test' }, savedToAccount: true, accountSaveAvailable: true };
     let active = false;
     const handler = api(fixture());
     const { page, context } = await openPage(browser, { width: 1280, path: '/layla/setup', handler, extra: (surface, request) => {
@@ -205,6 +205,35 @@ try {
     await page.getByRole('alertdialog', { name: 'Layla is active' }).waitFor(); count++;
     await page.screenshot({ path: `${OUT}/activation-dialog-1280.png` });
     await page.waitForURL(/\/en\/layla\/dashboard$/, { timeout: 5000 }); count++;
+    await context.close();
+  }
+  // Dashboard → Business: edit the facts Layla answers from. Saving is the review.
+  for (const [lang, width] of [['en', 1280], ['ar', 375]]) {
+    const saves = [];
+    const setup = { ok: true, csrfToken: 'a'.repeat(64), available: true, status: 'connected', savedToAccount: true, profileVersion: 3,
+      profile: { businessName: 'Blue Studio', sector: 'Photography', services: 'Portraits', prices: '', hours: '', location: '', humanContact: 'team@example.test', faqs: [], reviewed: true } };
+    const { page, context } = await openPage(browser, { width, lang, path: '/layla/dashboard?tab=business', handler: api(fixture()), extra: (surface, request) => {
+      if (surface !== 'customer') return null;
+      const body = request.method() === 'POST' ? request.postDataJSON() : {};
+      if (body.action === 'profile') { saves.push(body); return { status: 200, json: { ...setup, profileVersion: 4, profile: { ...body.profile, businessName: body.businessName } } }; }
+      if (body.action === 'catalog_list') return { status: 200, json: { ...setup, catalog: { entries: [], cursor: null } } };
+      return { status: 200, json: setup };
+    } });
+    const ar = lang === 'ar', t = (en, arabic) => ar ? arabic : en;
+    await page.getByRole('heading', { name: t('Your business', 'نشاطك التجاري'), exact: true }).waitFor(); count++;
+    await page.getByText(t('Questions your customers ask (optional)', 'أسئلة يطرحها عملاؤك (اختياري)')).click();
+    const faq = page.getByLabel(t('Customer question', 'سؤال العميل'), { exact: true });
+    await faq.fill(t('Do you have parking?', 'هل لديكم موقف سيارات؟'));
+    await faq.press('Enter');
+    await page.waitForTimeout(300);
+    assert.deepEqual(saves, [], `${lang}: Enter in an optional field must not save`); count++;
+    await page.getByLabel(t('Short service summary', 'ملخص الخدمات')).fill(t('Portraits and weddings', 'صور شخصية وحفلات زفاف'));
+    assert.equal(await page.locator('label.layla-check').count(), 0, `${lang}: no second confirmation in the dashboard`); count++;
+    await page.getByRole('button', { name: t('Save changes', 'حفظ التغييرات') }).click();
+    await page.getByText(t('Saved. Layla now answers with these details.', 'تم الحفظ. تجيب ليلى الآن بهذه المعلومات.')).waitFor(); count++;
+    assert.equal(saves.length, 1); assert.equal(saves[0].profile.reviewed, true, 'saving is the review');
+    assert.equal(saves[0].profile.services, t('Portraits and weddings', 'صور شخصية وحفلات زفاف')); count += 2;
+    assert.equal(await noOverflow(page), true, `${lang} ${width}: no horizontal overflow`); count++;
     await context.close();
   }
   console.log(`${count} dashboard browser assertions passed at 320–1440px in English and Arabic. Synthetic API; no external network.`);

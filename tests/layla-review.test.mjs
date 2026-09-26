@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { detachIntegration, executeReview, resetAttempts } from '../convex/reviewState.js';
-import { createReviewHandler, inspectPortfolio, inspectReviewConnection } from '../api/_lib/layla/review-api.js';
+import { createReviewHandler, inspectReviewConnection } from '../api/_lib/layla/review-api.js';
 import { BLUE_CLOUD, reviewStore } from '../api/_lib/convex.js';
 import { PilotError } from '../api/_lib/layla/config.js';
 import { createSignupAttempt, signupInit, signupOptions } from '../src/lib/layla-signup.js';
@@ -278,26 +278,28 @@ test('preview-first accepts missing contact, persists answer and step, and does 
   const h = harness(), c = await client(h.handler);
   assert.equal((await c.call({action:'preview',text:'What services do you offer?'})).statusCode,409);
   const saved = await c.call({action:'profile',businessName:profile.businessName,profile:{...profile,humanContact:''}});
-  assert.equal(saved.body.journeyStep,2); assert.equal(saved.body.capabilities.preview,true); assert.equal(saved.body.capabilities.connect,false);
+  assert.equal(saved.body.journeyStep,1,'saved facts go straight to connecting a channel'); assert.equal(saved.body.capabilities.preview,true); assert.equal(saved.body.capabilities.connect,false);
   assert.equal((await c.call({action:'begin',path:'new_number'})).statusCode,409);
   const preview = await c.call({action:'preview',text:'What services do you offer?'});
   assert.equal(preview.body.preview,'Portraits'); assert.deepEqual(preview.body.sourceFields,['services']);
   assert.equal((await c.call()).body.lastPreview.text,'Portraits');
-  assert.equal((await c.call({action:'review_preview',profileVersion:preview.body.profileVersion})).body.journeyStep,3);
-  assert.equal((await c.call()).body.journeyStep,3); assert.equal(h.effects.length,0);
+  assert.equal((await c.call()).body.journeyStep,1,'trying a question never moves the owner back a step');
+  assert.equal((await c.call({action:'review_preview',profileVersion:preview.body.profileVersion})).statusCode,400,'there is no approval action any more');
+  assert.equal((await c.call({action:'save_progress',journeyStep:2})).statusCode,409,'the old separate preview step is gone');
+  assert.equal((await c.call({action:'save_progress',journeyStep:3})).body.journeyStep,3);
+  assert.equal('previewReviewedVersion' in (await c.call()).body,false,'no approval state reaches the browser');
+  assert.equal(h.effects.length,0);
 });
-test('editing facts during reconciliation preserves integration and invalidates preview approval', async () => {
+test('editing facts during reconciliation preserves the integration and clears the old preview', async () => {
   const h = harness({inspect:async()=>({isolated:true,connected:false})}), c = await client(h.handler);
   await c.call(await begin(c,'new_number'));
   await c.call({action:'register_number',pin:'654321',confirm:true});
   const before=(await c.call()).body;
   await c.call({action:'preview',text:'What are your prices?'});
-  await c.call({action:'review_preview',profileVersion:before.profileVersion});
   const edited=await c.call({action:'profile',businessName:profile.businessName,profile:{...profile,prices:'30 OMR'}});
   assert.equal(edited.body.status,'reconciliation_required'); assert.equal(edited.body.integration.id,before.integration.id);
-  assert.equal(edited.body.lastPreview,null); assert.equal(edited.body.previewReviewedVersion,null);
-  assert.equal((await c.call({action:'review_preview',profileVersion:before.profileVersion})).statusCode,409);
-  assert.equal((await c.call({action:'save_progress',journeyStep:3})).statusCode,409);
+  assert.equal(edited.body.lastPreview,null);
+  assert.equal((await c.call({action:'save_progress',journeyStep:3})).statusCode,200,'going live needs the confirmed facts, not a preview approval');
   assert.equal((await c.call({action:'preview',text:'What are your prices?'})).body.preview,'30 OMR');
   assert.equal(h.effects.filter(e=>e.path.endsWith('/register')).length,1);
 });
@@ -331,34 +333,15 @@ test('existing Cloud API setup cannot register the number, and diagnostics retai
   assert.equal((await c.call({action:'register_number',pin:'123456',confirm:true})).statusCode,409);
 });
 
-test('portfolio read uses the WABA owner and returns only a sanitised name and known status',async()=>{
-  const c={app:env.LAYLA_META_APP_ID,version:'v25.0'},integration={waba:'111',phone:'2',path:'new_number'};
-  const reads=[];
-  const meta=(responses)=>async url=>{const u=new URL(url);reads.push(u.pathname+u.search);const body=responses[u.pathname.split('/').pop()];return body instanceof Error?Promise.reject(body):{ok:true,text:async()=>JSON.stringify(body)};};
-  const owner={'111':{owner_business_info:{id:'4360221360973294',name:'ignored'}}};
-  const found=await inspectPortfolio({c,integration,token:'synthetic',fetcher:meta({...owner,'4360221360973294':{id:'4360221360973294',name:' Bznsflow\u0000 ',verification_status:'VERIFIED',access_token:'must-not-leak'}})});
-  assert.deepEqual(found,{id:'4360221360973294',name:'Bznsflow',verificationStatus:'verified'});
-  assert.ok(reads.some(r=>r.includes('/111?fields=owner_business_info')));
-  assert.ok(reads.some(r=>r.includes('/4360221360973294?fields=id%2Cname%2Cverification_status')||r.includes('/4360221360973294?fields=id,name,verification_status')));
-  assert.equal((await inspectPortfolio({c,integration,token:'t',fetcher:meta({...owner,'4360221360973294':{id:'999',name:'Other'}})})),null);
-  assert.equal((await inspectPortfolio({c,integration,token:'t',fetcher:meta({'111':{}})})),null);
-  assert.equal((await inspectPortfolio({c,integration,token:'t',fetcher:meta({...owner,'4360221360973294':new Error('network')})})),null);
-  assert.equal((await inspectPortfolio({c,integration,token:'t',fetcher:meta({...owner,'4360221360973294':{id:'4360221360973294',name:'X',verification_status:'SOMETHING_NEW'}})})).verificationStatus,'unknown');
-});
-test('connecting stores the business portfolio with the connection checks and refresh keeps it current',async()=>{
-  let status='not_verified';
-  const h=harness({portfolio:async({integration})=>({id:'4360221360973294',name:`Owner of ${integration.waba}`,verificationStatus:status})}),c=await client(h.handler);
+test('WhatsApp connection and refresh do not request business portfolio access',async()=>{
+  const h=harness({portfolio:()=>assert.fail('Optional portfolio lookup must not run')}),c=await client(h.handler);
   const done=await c.call(await begin(c));
-  assert.equal(done.statusCode,200);
-  assert.deepEqual(done.body.connectionChecks.portfolio,{id:'4360221360973294',name:'Owner of 1712714900182074',verificationStatus:'not_verified'});
-  assert(!JSON.stringify(done.body).includes('synthetic-token'));
-  status='verified';h.db.advance(60001);
-  assert.equal((await c.call({action:'refresh'})).body.connectionChecks.portfolio.verificationStatus,'verified');
-});
-test('a missing portfolio never blocks the connection',async()=>{
-  const h=harness({portfolio:async()=>null}),c=await client(h.handler);
-  const done=await c.call(await begin(c));
-  assert.equal(done.body.status,'connected');assert.equal(done.body.connectionChecks.portfolio,undefined);
+  assert.equal(done.body.status,'connected');
+  assert.equal(done.body.connectionChecks.portfolio,undefined);
+  h.db.advance(60001);
+  const refreshed=await c.call({action:'refresh'});
+  assert.equal(refreshed.body.status,'connected');
+  assert.equal(refreshed.body.connectionChecks.portfolio,undefined);
 });
 
 test('signup completion is accepted from Meta subdomains but never from look-alike or insecure origins',async()=>{

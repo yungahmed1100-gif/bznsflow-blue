@@ -12,7 +12,7 @@
 //   - retention comes from the prune intervals in the migrations
 // If any of those change, this file is wrong and must change with them.
 
-export const PRIVACY_UPDATED_ISO = '2026-09-15';
+export const PRIVACY_UPDATED_ISO = '2026-09-23';
 
 /** Shared across both languages — a table of who else touches the data. */
 const PROCESSORS = [
@@ -40,12 +40,12 @@ const PROCESSORS = [
     ar: ['Meta (Facebook)', 'يقيس أداء إعلاناتنا. يستقبل معرّفاً مستعاراً لا اسمك.', 'الولايات المتحدة / عالمي'],
   },
   {
-    en: ['Convex', 'The database for Layla business accounts: WhatsApp conversations, contacts, lead details, consent records and broadcasts.', 'European Union (Ireland)'],
-    ar: ['Convex', 'قاعدة بيانات حسابات ليلى للأنشطة: محادثات واتساب وجهات الاتصال وتفاصيل العملاء المحتملين وسجلات الموافقة والرسائل الجماعية.', 'الاتحاد الأوروبي (أيرلندا)'],
+    en: ['Convex', 'The database for Layla business accounts: WhatsApp and Instagram conversations, contacts, lead details, consent records and broadcasts.', 'European Union (Ireland)'],
+    ar: ['Convex', 'قاعدة بيانات حسابات ليلى للأنشطة: محادثات واتساب وإنستغرام وجهات الاتصال وتفاصيل العملاء المحتملين وسجلات الموافقة والرسائل الجماعية.', 'الاتحاد الأوروبي (أيرلندا)'],
   },
   {
-    en: ['Meta (WhatsApp Business Platform)', 'Carries WhatsApp messages between a business using Layla and its customers, including message text, phone numbers and WhatsApp profile names.', 'United States / global'],
-    ar: ['Meta (منصة واتساب للأعمال)', 'تنقل رسائل واتساب بين النشاط الذي يستخدم ليلى وعملائه، بما فيها نص الرسائل وأرقام الهواتف وأسماء ملفات واتساب.', 'الولايات المتحدة / عالمي'],
+    en: ['Meta (WhatsApp Business Platform and Instagram)', 'Carries WhatsApp and Instagram messages between a business and its customers, including text, channel-specific account identifiers, phone numbers for WhatsApp, and profile information.', 'United States / global'],
+    ar: ['Meta (واتساب للأعمال وإنستغرام)', 'تنقل رسائل واتساب وإنستغرام بين النشاط وعملائه، بما فيها النصوص ومعرّفات الحسابات وأرقام واتساب ومعلومات الملفات الشخصية.', 'الولايات المتحدة / عالمي'],
   },
   {
     en: ['Resend', 'Sends the sign-in code for the Layla business dashboard.', 'United States'],
@@ -90,7 +90,7 @@ const COOKIES = [
 
 const en = {
   title: 'Privacy Policy',
-  updated: 'Last updated 15 September 2026',
+  updated: 'Last updated 23 September 2026',
   lead: 'This explains what BznsFlow collects when you use this website, why, who else sees it, and what you can ask us to do about it. It is written to be read, not to be survived.',
   processorsHead: ['Who', 'What they do', 'Where'],
   cookiesHead: ['Name', 'Type', 'Lasts', 'What it does'],
@@ -144,7 +144,7 @@ const en = {
       ],
     },
     {
-      h: 'Layla for businesses: WhatsApp chats, contacts and broadcasts',
+      h: 'Layla for businesses: WhatsApp and Instagram messages',
       p: [
         'A business that connects its WhatsApp number to Layla decides why its customers\' data is processed. For that data the business is responsible, and BznsFlow processes it on the business\'s behalf. If you messaged a business that uses Layla, contact that business first; we will help them answer you.',
       ],
@@ -156,11 +156,15 @@ const en = {
           ],
           list: [
             'We receive an access token limited to the assets the owner shared. It is stored encrypted, used only by our server, and never sent to a browser or included in exports.',
-            'We read the shared business portfolio\'s ID, name and verification status, to confirm it owns the WhatsApp Business Account and to show the owner what is connected.',
             'We read the WhatsApp Business Account and phone number: their IDs, the number, its registration and display-name status and messaging limit, and the business\'s approved message templates.',
             'We do not receive the owner\'s Facebook password, profile, friends, email address or any other Facebook account data, and Facebook Login is not used to sign in to BznsFlow.',
             'The owner can remove our access at any time from the apps connected to their Meta business portfolio, or by emailing us. See our data deletion page at /en/data-deletion.',
           ],
+        },
+        {
+          h: 'Connecting Instagram',
+          p: ['You may connect an Instagram professional account through Instagram Login, independently of WhatsApp. We store the account ID and username, encrypted access credentials, customer-scoped identifiers and direct-message conversations. We refresh valid credentials so the connection can continue.'],
+          list: ['We use this access to answer customer-initiated DMs and let your team take over conversations. Instagram contacts are kept separate from WhatsApp contacts. We do not use this connection for public comments, publishing or marketing broadcasts.', 'Instagram message text and message records follow the 30-day retention below. Disconnecting stops replies and removes the saved access credential; it does not automatically delete existing conversations. You may delete contacts in the dashboard or request deletion. Removing access through Meta stops the connection; a Meta data-deletion request also schedules deletion of the associated Instagram conversations and contacts.'],
         },
         {
           h: 'What Layla stores for a business',
@@ -275,7 +279,7 @@ const en = {
 
 const ar = {
   title: 'سياسة الخصوصية',
-  updated: 'آخر تحديث ١٥ سبتمبر ٢٠٢٦',
+  updated: 'آخر تحديث ٢٣ سبتمبر ٢٠٢٦',
   lead: 'توضّح هذه الصفحة ما تجمعه BznsFlow عند استخدامك لهذا الموقع، ولماذا، ومن يطّلع عليه غيرنا، وما الذي يمكنك أن تطلبه منّا بشأنه. كُتبت لتُقرأ، لا لتُحتمل.',
   processorsHead: ['الجهة', 'ما تقوم به', 'أين'],
   cookiesHead: ['الاسم', 'النوع', 'المدة', 'وظيفته'],
@@ -329,7 +333,7 @@ const ar = {
       ],
     },
     {
-      h: 'ليلى للأنشطة: محادثات واتساب وجهات الاتصال والرسائل الجماعية',
+      h: 'ليلى للأنشطة: رسائل واتساب وإنستغرام',
       p: [
         'النشاط الذي يربط رقم واتساب الخاص به بليلى هو من يحدد سبب معالجة بيانات عملائه، وهو المسؤول عنها، وتعالجها BznsFlow نيابةً عنه. إذا راسلت نشاطاً يستخدم ليلى فتواصل مع ذلك النشاط أولاً، وسنساعده على الرد عليك.',
       ],
@@ -341,11 +345,15 @@ const ar = {
           ],
           list: [
             'نستلم رمز وصول مقصوراً على الأصول التي شاركها صاحب النشاط. يُحفظ مشفّراً، ولا يستخدمه إلا خادمنا، ولا يُرسل إلى المتصفح ولا يُضمَّن في التصدير.',
-            'نقرأ معرّف محفظة الأعمال المشاركة واسمها وحالة توثيقها، للتأكد من أنها تملك حساب واتساب للأعمال ولنُري صاحب النشاط ما هو مربوط.',
             'نقرأ حساب واتساب للأعمال ورقم الهاتف: معرّفاتهما، والرقم، وحالة تسجيله وحالة اسم العرض وحد المراسلة، وقوالب الرسائل المعتمدة للنشاط.',
             'لا نستلم كلمة مرور فيسبوك لصاحب النشاط ولا ملفه الشخصي ولا أصدقاءه ولا بريده الإلكتروني ولا أي بيانات أخرى من حسابه على فيسبوك، ولا يُستخدم تسجيل الدخول عبر فيسبوك للدخول إلى BznsFlow.',
             'يمكن لصاحب النشاط إلغاء وصولنا في أي وقت من التطبيقات المرتبطة بمحفظة أعماله في Meta، أو بمراسلتنا. راجع صفحة حذف البيانات على /data-deletion.',
           ],
+        },
+        {
+          h: 'ربط إنستغرام',
+          p: ['يمكنك ربط حساب إنستغرام احترافي عبر تسجيل الدخول بإنستغرام، بشكل مستقل عن واتساب. نحفظ معرّف الحساب واسم المستخدم وبيانات الوصول المشفّرة ومعرّفات العملاء ومحادثات الرسائل الخاصة. نجدّد بيانات الوصول الصالحة لاستمرار الاتصال.'],
+          list: ['نستخدم هذا الوصول للرد على الرسائل التي يبدأها العملاء ولتمكين فريقك من تولّي المحادثات. تبقى جهات اتصال إنستغرام منفصلة عن واتساب. لا نستخدم هذا الربط للتعليقات العامة أو النشر أو البث التسويقي.', 'تُحفظ نصوص رسائل إنستغرام وسجلاتها لمدة ٣٠ يوماً وفق التفاصيل أدناه. فصل الاتصال يوقف الردود ويحذف بيانات الوصول المحفوظة ولا يحذف المحادثات السابقة تلقائياً. يمكنك حذف جهات الاتصال من اللوحة أو طلب الحذف. إزالة الوصول من Meta توقف الاتصال؛ وطلب حذف البيانات عبر Meta يضيف محادثات إنستغرام وجهات اتصالها إلى قائمة الحذف.'],
         },
         {
           h: 'ما تحفظه ليلى للنشاط',

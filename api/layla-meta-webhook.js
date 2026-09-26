@@ -1,5 +1,6 @@
+import { instagramConfig } from './_lib/layla/instagram.js';
 import { settings, PilotError } from './_lib/layla/config.js';
-import { ingestBlueEnvelope, messagingStore } from './_lib/layla/blue-messaging.js';
+import { ingestBlueEnvelope, ingestInstagramEnvelope, messagingStore } from './_lib/layla/blue-messaging.js';
 import { safeEqual } from './_lib/cookies.js';
 import { send, sendPilotError } from './_lib/http.js';
 import { createStore, transact } from './_lib/layla/store.js';
@@ -47,20 +48,46 @@ export function createHandler({ store = createStore(), configuration = settings,
 }
 // Blue uses its own durable tenant queue only when its dedicated live flag is
 // enabled; otherwise authenticated notifications are discarded.
+//
+// One URL serves both channels. The payload's own `object` decides the route, so
+// Instagram works whether Meta saved the URL with or without ?channel=instagram;
+// the query only narrows which verify token a subscription check may use.
 export async function blueReviewWebhook(req, res, env = process.env) {
   try {
+    const instagramUrl=new URL(req.url || '/', 'https://local.invalid').searchParams.get('channel')==='instagram';
+    // Meta documents webhook signing with the owning app's Basic-settings secret.
+    // Blue's parent app owns the WhatsApp subscription. Instagram Login webhooks
+    // may be signed by either of our apps' secrets (parent or Instagram app), and
+    // BLUE_INSTAGRAM_WEBHOOK_SECRET overrides the parent one for other installs.
+    const secrets={
+      whatsapp:[env.LAYLA_META_APP_SECRET].filter(Boolean),
+      instagram:[env.BLUE_INSTAGRAM_WEBHOOK_SECRET || env.LAYLA_META_APP_SECRET,env.BLUE_INSTAGRAM_APP_SECRET].filter(Boolean),
+    };
     if (req.method === 'GET') {
       const q = new URL(req.url, 'https://callback.invalid').searchParams;
-      const challenge = q.get('hub.challenge');
-      if (!env.BLUE_REVIEW_VERIFY_TOKEN || q.get('hub.mode') !== 'subscribe' || !safeEqual(q.get('hub.verify_token') || '', env.BLUE_REVIEW_VERIFY_TOKEN) || !challenge || challenge.length > 200) throw new PilotError('verification_failed',403);
+      const challenge = q.get('hub.challenge'), given = q.get('hub.verify_token') || '';
+      const tokens = (instagramUrl ? [env.BLUE_INSTAGRAM_VERIFY_TOKEN] : [env.BLUE_REVIEW_VERIFY_TOKEN, env.BLUE_INSTAGRAM_VERIFY_TOKEN]).filter(Boolean);
+      if (q.get('hub.mode') !== 'subscribe' || !tokens.some(token => safeEqual(given, token)) || !challenge || challenge.length > 200) throw new PilotError('verification_failed',403);
       res.status(200); res.setHeader('Content-Type','text/plain'); res.setHeader('Cache-Control','no-store'); return res.end(challenge);
     }
     if (req.method !== 'POST') throw new PilotError('method',405);
     const raw = await rawBody(req);
-    if (!env.LAYLA_META_APP_SECRET) throw new PilotError('webhook_secret_missing',503);
-    if (!signatureValid(raw,req.headers['x-hub-signature-256'],env.LAYLA_META_APP_SECRET)) throw new PilotError('signature',403);
+    if (!secrets.whatsapp.length && !secrets.instagram.length) throw new PilotError('webhook_secret_missing',503);
+    const signedBy = channel => secrets[channel].some(secret => signatureValid(raw, req.headers['x-hub-signature-256'], secret));
+    const signedInstagram = signedBy('instagram'), signedWhatsapp = signedBy('whatsapp');
+    if (!signedInstagram && !signedWhatsapp) {
+      if (instagramUrl) console.error('instagram_webhook_rejected',JSON.stringify({reason:'signature',hasHeader:Boolean(req.headers['x-hub-signature-256'])}));
+      throw new PilotError('signature',403);
+    }
     const envelope = JSON.parse(raw.toString('utf8'));
-    if (envelope.object !== 'whatsapp_business_account' || !Array.isArray(envelope.entry)) throw new PilotError('invalid_envelope');
+    if (envelope?.object === 'instagram') {
+      if (!signedInstagram) throw new PilotError('signature',403);
+      await ingestInstagramEnvelope(envelope,{store:messagingStore({env}),app:instagramConfig(env).app,env});
+      return send(res,200,{ok:true,accepted:true});
+    }
+    // A WhatsApp payload must carry the WhatsApp app's signature, never only the Instagram app's.
+    if (!signedWhatsapp) throw new PilotError('signature',403);
+    if (envelope?.object !== 'whatsapp_business_account' || !Array.isArray(envelope.entry)) throw new PilotError('invalid_envelope');
     if (env.BLUE_LIVE_MESSAGING_ENABLED === 'true') {
       await ingestBlueEnvelope(envelope,{store:messagingStore({env})});
       return send(res,200,{ok:true,accepted:true});

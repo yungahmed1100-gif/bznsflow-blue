@@ -10,6 +10,7 @@ const text = (value, n) => typeof value === 'string' && value.length <= n && !/[
 
 /** A contact may receive a marketing template only with granted, unrevoked consent. */
 export function marketingEligibility(contact) {
+  if(contact?.channel==='instagram') return 'wrong_channel';
   if (!contact || contact.state !== 'active') return 'contact_deleted';
   if (contact.optout) return 'opted_out';
   if (contact.consent?.status === 'revoked') return 'consent_revoked';

@@ -1,3 +1,4 @@
+import { instagramConnection, instagramRow, rowForIntegration } from './blueInstagramState.js';
 // Atomic tenant messaging transitions. Network requests happen only after a
 // durable outbound intent has been claimed; uncertain sends are never retried.
 import { applyInbound, applyOptout, linkConversation, recordQuestions, sectorFor, TEXT_RETENTION_MS, MESSAGE_RETENTION_MS } from './blueContacts.js';
@@ -5,9 +6,13 @@ const DAY = 86400000;
 const terminal = new Set(['sent','delivered','read','failed','ambiguous','blocked']);
 const receiptRank = {attempting:0,ambiguous:0,submitted:1,failed:2,sent:3,delivered:4,read:5};
 const MAX_REPLY_LENGTH = 1000;
-/** A saved, reviewed and connected account whose latest facts were approved. */
+/**
+ * A saved and connected account whose owner confirmed the business facts when
+ * saving them. That confirmation is the one review: later edits go live as soon
+ * as they are saved, with no separate preview approval.
+ */
 export function messagingReady(row, now) {
-  return !!(row?.accountId && row.expiresAt>now && ['connected','paused'].includes(row.status) && row.profile?.reviewed && row.profile.humanContact && row.previewReviewedVersion===(row.profileVersion || 1));
+  return !!(row?.accountId && row.expiresAt>now && ['connected','paused'].includes(row.status) && row.profile?.reviewed && row.profile.humanContact);
 }
 export async function executeMessaging(ctx, a, now = Date.now()) {
   const ok = value => ({ok:true,value}), fail = reason => ({ok:false,reason});
@@ -34,7 +39,9 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     await ctx.db.patch(target._id,{status:e.status,providerId:e.id,updatedAt:now,...(e.status==='failed'&&Number.isSafeInteger(e.errorCode)?{errorCode:e.errorCode,reason:'provider_delivery_failed'}:{})});
   }
   async function rowForControl(control) {
-    return control && find('blueReviewSessions','by_hash','sessionHash',control.sessionHash);
+    if (!control) return null;
+    const row=await find('blueReviewSessions','by_hash','sessionHash',control.sessionHash);
+    return rowForIntegration(ctx,row,control.integrationId,now);
   }
   const ready = row => messagingReady(row, now);
   async function queue(row, person, text, key, manual = false, handoff = false) {
@@ -43,6 +50,13 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     const id=await ctx.db.insert('blueMessages',record);
     if(record.status==='queued') await schedule(id);
     return id;
+  }
+  if(a.operation==='binding' && a.channel==='instagram') {
+    const connection=await find('blueInstagramConnections','by_ig_account','igAccount',a.igAccount);
+    const row=connection && await find('blueReviewSessions','by_hash','sessionHash',connection.sessionHash);
+    const bound=instagramRow(row,connection,now);
+    // Server-only answer: the sealed credential lets the webhook look up the sender's @username.
+    return ok(bound && row.expiresAt>now ? {integrationId:connection.integrationId,channel:'instagram',app:connection.integration.app,igAccount:connection.igAccount,sessionHash:connection.sessionHash,integration:connection.integration,profile:row.profile,profileVersion:row.profileVersion || 1,catalog:await approvedCatalog(row.accountId,100)}:null);
   }
   if(a.operation==='binding') {
     const row=await ctx.db.query('blueReviewSessions').withIndex('by_phone',q=>q.eq('phone',a.phone)).unique();
@@ -57,10 +71,34 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     if(control && !a.connected) await ctx.db.patch(control._id,{active:false,reason:'connection_not_ready'});
     return ok(null);
   }
-  if(['state','activate','pause','resume_conversation','takeover','manual_reply'].includes(a.operation)) {
-    const row=await find('blueReviewSessions','by_hash','sessionHash',a.sessionHash);
+  if(['context','disconnect','state','activate','pause','resume_conversation','takeover','manual_reply'].includes(a.operation)) {
+    let row=await find('blueReviewSessions','by_hash','sessionHash',a.sessionHash);
+    if (row?.accountId && a.conversationId) {
+      const person=await ctx.db.get(a.conversationId);
+      if (!person || person.accountId!==row.accountId) return fail('conversation_not_found');
+      row=await rowForIntegration(ctx,row,person.integrationId,now);
+    } else if (row?.accountId && a.channel==='instagram') {
+      // A signed-in owner whose Instagram is missing, stopped or expired needs a
+      // reconnect; "sign in again" would send them the wrong way.
+      const bound=instagramRow(row,await instagramConnection(ctx,row.accountId),now);
+      if (!bound && row.expiresAt>now) return fail('instagram_reconnect_required');
+      row=bound;
+    }
     if(!row?.accountId || row.expiresAt<=now || !row.integration) return fail('sign_in_required');
+    if(a.operation==='context') return ok({channel:row.integration.channel || 'whatsapp'});
     let control=await controls(row.integration.id);
+    if(a.operation==='disconnect') {
+      if(a.confirm!==true || row.integration.channel==='instagram') return fail('confirmation_required');
+      await stopQueued(row.integration.id,null,'disconnected');
+      if(control) await ctx.db.delete(control._id);
+      const claim=await find('blueAssetClaims','by_phone','phone',row.integration.phone);
+      if(claim?.sessionHash===row.sessionHash) await ctx.db.delete(claim._id);
+      const templates=await ctx.db.query('blueTemplates').withIndex('by_account_template',q=>q.eq('accountId',row.accountId)).take(500);
+      for(const template of templates) if(template.integrationId===row.integration.id) await ctx.db.delete(template._id);
+      // Clear every connection field, as review:detach does, so the next connect starts clean.
+      await ctx.db.patch(row._id,{integration:undefined,phone:undefined,waba:undefined,connectionChecks:undefined,checkedAt:undefined,status:'draft',attempt:undefined,operation:undefined,operationAt:undefined,operationEffect:undefined,pendingSelection:undefined,diagnostic:undefined,subscriptionAttempted:undefined,registrationAttempted:undefined});
+      return ok({disconnected:true});
+    }
     if(a.operation==='activate') {
       if(!enabled) return fail('messaging_unavailable');
       const uncertain=await ctx.db.query('blueMessages').withIndex('by_integration_status',q=>q.eq('integrationId',row.integration.id).eq('status','ambiguous')).take(1);
@@ -96,7 +134,7 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     const people=await ctx.db.query('blueConversations').withIndex('by_account_updated',q=>q.eq('accountId',row.accountId)).order('desc').take(50);
     const msgs=await ctx.db.query('blueMessages').withIndex('by_account_at',q=>q.eq('accountId',row.accountId)).order('desc').take(100);
     const rate=await find('blueMessageRates','by_key','key',`day:${row.integration.id}:${Math.floor(now/DAY)}`);
-    const active=enabled && control?.active===true && ready(row) && control.profileVersion===(row.profileVersion || 1);
+    const active=enabled && control?.active===true && ready(row);
     return ok({available:enabled,active,reason:!enabled?'messaging_unavailable':active?'':control?.reason || (control?.active?'activation_not_ready':'not_activated'),limits:{perMinute:10,perDay:100,usedToday:rate?.count || 0},conversations:people.map(p=>({id:p._id,number:p.number,takeover:p.takeover,optout:p.optout,lastInbound:p.lastInbound})),messages:msgs.reverse().map(m=>({id:m._id,conversationId:m.conversationId,direction:m.direction,text:m.textExpiresAt>now?m.text:undefined,status:m.status,reason:m.reason,at:m.at}))});
   }
   if(a.operation==='ingest') {
@@ -104,10 +142,41 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     if(!row?.accountId || row.expiresAt<=now || row.integration?.id!==a.integrationId) return ok(null);
     if(a.profileVersion!==undefined && a.profileVersion!==(row.profileVersion || 1)) return fail('profile_changed');
     // Takeover and opt-out events are applied before any message in this batch.
-    const events=[...a.events].sort((x,y)=>Number(['optout','takeover'].includes(y.kind))-Number(['optout','takeover'].includes(x.kind)));
+    let incoming=a.events;
+    if(row.integration.channel==='instagram') {
+      const kept=[];
+      for(const e of incoming) {
+        if(e.kind==='echo') {
+          const known=await ctx.db.query('blueMessages').withIndex('by_provider',q=>q.eq('providerId',e.id)).unique();
+          if(known?.integrationId===a.integrationId && known.direction==='out') continue;
+          const pending=await ctx.db.query('blueMessages').withIndex('by_integration_status',q=>q.eq('integrationId',a.integrationId).eq('status','attempting')).take(1);
+          if(pending.length) return fail('echo_pending');
+        }
+        kept.push(e);
+      }
+      incoming=kept;
+    }
+    const deleted=new Set(incoming.filter(e=>e.kind==='deleted').map(e=>e.id));
+    const events=[...incoming].sort((x,y)=>Number(['optout','takeover'].includes(y.kind))-Number(['optout','takeover'].includes(x.kind)));
     const sectorId=sectorFor(row);
     let catalog=null;
     for(const e of events) {
+      if(e.kind==='deleted') {
+        const original=await message(`incoming:${a.integrationId}:${e.id}`);
+        if(!original && e.from) {
+          const key=`${a.integrationId}:${e.from}`;
+          let person=await conversation(key);
+          if(!person) person=await ctx.db.get(await ctx.db.insert('blueConversations',{key,integrationId:a.integrationId,accountId:row.accountId,channel:'instagram',igAccount:row.integration.igAccount,number:e.from,lastInbound:0,takeover:false,optout:false,updatedAt:now}));
+          await ctx.db.insert('blueMessages',{key:`incoming:${a.integrationId}:${e.id}`,integrationId:a.integrationId,accountId:row.accountId,conversationId:person._id,direction:'in',at:now,expiresAt:now+MESSAGE_RETENTION_MS,textExpiresAt:Number.MAX_SAFE_INTEGER,status:'deleted'});
+        }
+        if(original) {
+          await ctx.db.patch(original._id,{text:undefined,textExpiresAt:Number.MAX_SAFE_INTEGER});
+          const person=await ctx.db.get(original.conversationId);
+          if(person) {await stopQueued(a.integrationId,person._id,'message_deleted');await ctx.db.patch(person._id,{version:(person.version || 0)+1});}
+        }
+        continue;
+      }
+      if(e.kind==='message' && deleted.has(e.id)) continue;
       if(e.kind==='receipt') {
         let target=e.intent?await find('blueMessages','by_intent','intent',e.intent):null;
         if(!target) target=await ctx.db.query('blueMessages').withIndex('by_provider',q=>q.eq('providerId',e.id)).unique();
@@ -120,8 +189,8 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
       }
       const key=`${a.integrationId}:${e.from}`;
       let person=await conversation(key);
-      if(!person) person=await ctx.db.get(await ctx.db.insert('blueConversations',{key,integrationId:a.integrationId,accountId:row.accountId,number:e.from,lastInbound:0,takeover:false,optout:false,updatedAt:now}));
-      let contact=await linkConversation(ctx,person,{sectorId,now,secret:a.hashSecret});
+      if(!person) person=await ctx.db.get(await ctx.db.insert('blueConversations',{key,integrationId:a.integrationId,accountId:row.accountId,...(row.integration.channel==='instagram'?{channel:'instagram',igAccount:row.integration.igAccount}:{}),number:e.from,lastInbound:0,takeover:false,optout:false,updatedAt:now}));
+      let contact=await linkConversation(ctx,person,{sectorId,now,secret:a.hashSecret,igAccount:row.integration.igAccount});
       if(typeof e.profileName==='string' && e.profileName.trim() && contact.profileName!==e.profileName.trim().slice(0,80)) {
         contact={...contact,profileName:e.profileName.trim().slice(0,80)};
         await ctx.db.patch(contact._id,{profileName:contact.profileName,updatedAt:now});
@@ -149,7 +218,7 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
       catalog ??= await approvedCatalog(row.accountId);
       // Fields are captured even while a person has taken over the chat.
       const applied=await applyInbound(ctx,contact,{text:e.text,intent:e.intent,handoff:!!e.handoff,at:e.at,now,sectorId,catalog});
-      if(!enabled || !control.active || !ready(row) || control.profileVersion!==(row.profileVersion || 1) || person.optout || person.takeover || contact.optout || now-e.at>=DAY || !e.reply) continue;
+      if(!enabled || !control.active || !ready(row) || person.optout || person.takeover || contact.optout || now-e.at>=DAY || !e.reply) continue;
       const reply=applied.plan.text?`${e.reply}\n\n${applied.plan.text}`.slice(0,MAX_REPLY_LENGTH):e.reply;
       await queue(row,{...person,version},reply,`reply:${a.integrationId}:${e.id}`,false,!!e.handoff);
       await recordQuestions(ctx,applied.contact,reply.length>e.reply.length?applied.plan.keys:[],now);
@@ -163,7 +232,7 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     if(inflight.length) return ok(null);
     const control=await controls(job.integrationId), row=await rowForControl(control), person=await ctx.db.get(job.conversationId);
     if(job.profileVersion!==(row?.profileVersion || 1) || job.conversationVersion!==(person?.version || 0)) {await ctx.db.patch(job._id,{status:'blocked',reason:'conversation_or_profile_changed'});return ok(null);}
-    const reason=!enabled?'global_paused':!ready(row)?'activation_not_ready':!control?.active && !job.manual?'owner_paused':control?.profileVersion!==(row?.profileVersion || 1)?'profile_changed':person?.optout?'contact_opted_out':person?.takeover && !job.manual && !job.handoff?'human_takeover':!person || now-person.lastInbound>=DAY || now-job.at>=DAY?'window_expired':null;
+    const reason=!enabled?'global_paused':!ready(row)?'activation_not_ready':!control?.active && !job.manual?'owner_paused':person?.optout?'contact_opted_out':person?.takeover && !job.manual && !job.handoff?'human_takeover':!person || now-person.lastInbound>=DAY || now-job.at>=DAY?'window_expired':null;
     if(reason) {await ctx.db.patch(job._id,{status:'blocked',reason});return ok(null);}
     for(const [key,max,expiresAt] of [[`minute:${job.integrationId}:${Math.floor(now/60000)}`,10,now+120000],[`day:${job.integrationId}:${Math.floor(now/DAY)}`,100,now+2*DAY],[`global:${Math.floor(now/DAY)}`,500,now+2*DAY]]) {
       const r=await find('blueMessageRates','by_key','key',key);
@@ -175,7 +244,7 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
   }
   if(a.operation==='send_gate') {
     const job=await ctx.db.get(a.jobId), control=job && await controls(job.integrationId), row=await rowForControl(control), person=job && await ctx.db.get(job.conversationId);
-    return ok(!!(job?.status==='attempting' && job.intent===a.intent && job.profileVersion===(row?.profileVersion || 1) && job.conversationVersion===(person?.version || 0) && enabled && ready(row) && control.profileVersion===(row.profileVersion || 1) && (control.active || job.manual) && !person?.optout && (!person?.takeover || job.manual || job.handoff) && now-person.lastInbound<DAY));
+    return ok(!!(job?.status==='attempting' && job.intent===a.intent && job.profileVersion===(row?.profileVersion || 1) && job.conversationVersion===(person?.version || 0) && enabled && ready(row) && (control.active || job.manual) && !person?.optout && (!person?.takeover || job.manual || job.handoff) && now-person.lastInbound<DAY));
   }
   if(a.operation==='result') {
     const job=await ctx.db.get(a.jobId);

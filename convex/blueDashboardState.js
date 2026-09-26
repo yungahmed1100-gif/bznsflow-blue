@@ -1,7 +1,8 @@
 // Owner dashboard reads and owner-initiated contact changes. Every operation is
 // scoped by the tenant resolved from the verified session; results never carry
 // credentials, hashes or internal integration identifiers.
-import { resolveTenant, owned, encodeCursor, decodeCursor, afterCursor } from './blueTenant.js';
+import { publicInstagram } from './blueInstagramState.js';
+import { resolveTenant, ownsIntegration, owned, encodeCursor, decodeCursor, afterCursor } from './blueTenant.js';
 import { DAY, deleteContact, linkConversation, ownerContactPatch, publicContact, sectorFor } from './blueContacts.js';
 import { messagingReady } from './blueMessagingState.js';
 import { packDescription } from '../config/layla-qualification.js';
@@ -28,7 +29,7 @@ async function messagingState(ctx, tenant, now) {
   const enabled = global?.enabled === true;
   const control = tenant.integration && await ctx.db.query('blueMessagingControls').withIndex('by_integration', q => q.eq('integrationId', tenant.integration.id)).unique();
   const row = tenant.row, ready = messagingReady(row, now);
-  const active = enabled && control?.active === true && ready && control.profileVersion === (row.profileVersion || 1);
+  const active = enabled && control?.active === true && ready;
   const rate = tenant.integration && await ctx.db.query('blueMessageRates').withIndex('by_key', q => q.eq('key', `day:${tenant.integration.id}:${Math.floor(now / DAY)}`)).unique();
   return { available: enabled, active, broadcastAvailable: broadcast?.enabled === true,
     reason: !enabled ? 'messaging_unavailable' : active ? '' : control?.reason || (control?.active ? 'activation_not_ready' : 'not_activated'),
@@ -41,7 +42,7 @@ async function lastMessage(ctx, conversationId, now) {
 }
 async function conversationItem(ctx, person, tenant, now) {
   const contact = await linkConversation(ctx, person, { sectorId: sectorFor(tenant.row), now, secret: tenant.secret });
-  return { id: person._id, contact: publicContact(contact, person), lastMessage: await lastMessage(ctx, person._id, now),
+  return { id: person._id, channel:person.channel || 'whatsapp', contact: publicContact(contact, person), lastMessage: await lastMessage(ctx, person._id, now),
     updatedAt: person.updatedAt, takeover: person.takeover, optout: person.optout || contact.optout, windowOpenUntil: person.lastInbound ? person.lastInbound + DAY : 0 };
 }
 
@@ -94,6 +95,7 @@ export async function executeDashboard(ctx, a, now = Date.now()) {
     return ok({ business: { name: row.profile?.businessName || '', sector: row.profile?.sector || '', sectorId },
       connected: tenant.connected, integration: tenant.integration ? { sender: tenant.integration.sender, path: tenant.integration.path, status: row.status,
         checks: row.connectionChecks || null, checkedAt: row.checkedAt || null } : null,
+      instagram:publicInstagram(tenant.instagramConnection), instagramMessaging:tenant.instagram ? await messagingState(ctx,{...tenant,row:tenant.instagram,integration:tenant.instagram.integration},now) : null,
       messaging: await messagingState(ctx, tenant, now), timezone: settings?.timezone || null, migrationPending: unlinked,
       qualification: packDescription(sectorId) });
   }
@@ -112,7 +114,7 @@ export async function executeDashboard(ctx, a, now = Date.now()) {
       const items = [];
       for (const contact of await searchContacts(ctx, accountId, a.search.trim(), SEARCH_LIMIT)) {
         const person = await conversationFor(ctx, contact);
-        if (person?.integrationId === tenant.integration?.id) items.push(await conversationItem(ctx, person, tenant, now));
+        if (ownsIntegration(tenant,person?.integrationId) && (!a.channel || (person.channel || 'whatsapp')===a.channel)) items.push(await conversationItem(ctx, person, tenant, now));
       }
       return ok({ items, cursor: null });
     }
@@ -121,16 +123,16 @@ export async function executeDashboard(ctx, a, now = Date.now()) {
     // Chats belong to the currently connected number; an old number's threads stay out of the list.
     const rows = afterCursor(await query.order('desc').take(limit + 50), cursor, 'updatedAt').slice(0, limit);
     const items = [];
-    for (const person of rows) if (person.integrationId === tenant.integration?.id) items.push(await conversationItem(ctx, person, tenant, now));
+    for (const person of rows) if (ownsIntegration(tenant,person.integrationId) && (!a.channel || (person.channel || 'whatsapp')===a.channel)) items.push(await conversationItem(ctx, person, tenant, now));
     return ok({ items, cursor: rows.length === limit ? encodeCursor(rows.at(-1).updatedAt, rows.at(-1)._id) : null });
   }
   if (a.operation === 'thread') {
     const person = await owned(ctx, a.conversationId, accountId, 'blueConversations');
-    if (!person || person.integrationId !== tenant.integration?.id) return fail('conversation_not_found');
+    if (!person || !ownsIntegration(tenant,person.integrationId)) return fail('conversation_not_found');
     const contact = await linkConversation(ctx, person, { sectorId, now, secret: tenant.secret });
     const before = Number.isSafeInteger(a.before) && a.before > 0 ? a.before : null;
     const page = await threadMessages(ctx, person, contact, before, THREAD_PAGE, now);
-    return ok({ conversation: { id: person._id, takeover: person.takeover, optout: person.optout || contact.optout, windowOpenUntil: person.lastInbound ? person.lastInbound + DAY : 0 },
+    return ok({ conversation: { id: person._id, channel:person.channel || 'whatsapp', takeover: person.takeover, optout: person.optout || contact.optout, windowOpenUntil: person.lastInbound ? person.lastInbound + DAY : 0 },
       contact: publicContact(contact, person), ...page });
   }
 
@@ -175,7 +177,7 @@ export async function executeDashboard(ctx, a, now = Date.now()) {
 
   if (a.operation === 'export_chat') {
     const person = await owned(ctx, a.conversationId, accountId, 'blueConversations');
-    if (!person || person.integrationId !== tenant.integration?.id) return fail('conversation_not_found');
+    if (!person || !ownsIntegration(tenant,person.integrationId)) return fail('conversation_not_found');
     const contact = await linkConversation(ctx, person, { sectorId, now, secret: tenant.secret });
     const page = await threadMessages(ctx, person, contact, null, EXPORT_MESSAGES, now);
     return ok(exportChat(contact, person, page.messages));
@@ -192,7 +194,7 @@ export async function executeDashboard(ctx, a, now = Date.now()) {
     // Paged by conversation so one mutation stays inside Convex read limits.
     const cursor = decodeCursor(a.cursor);
     const query = ctx.db.query('blueConversations').withIndex('by_account_updated', q => cursor ? q.eq('accountId', accountId).lte('updatedAt', cursor.at) : q.eq('accountId', accountId));
-    const rows = afterCursor(await query.order('desc').take(60), cursor, 'updatedAt').filter(r => r.integrationId === tenant.integration?.id).slice(0, 10);
+    const rows = afterCursor(await query.order('desc').take(60), cursor, 'updatedAt').filter(r => ownsIntegration(tenant,r.integrationId)).slice(0, 10);
     const chats = [];
     for (const person of rows) {
       const contact = await linkConversation(ctx, person, { sectorId, now, secret: tenant.secret });
@@ -205,7 +207,7 @@ export async function executeDashboard(ctx, a, now = Date.now()) {
 
 // Export shapes contain only retained, human-readable data for this tenant.
 function exportContact(c) {
-  return { name: c.name, number: c.number ? `+${c.number}` : '', source: c.source, status: c.status, consent: c.consent.status,
+  return { name: c.name, number: c.number ? `+${c.number}` : '', channel:c.channel, instagramId:c.igId || '', source: c.source, status: c.status, consent: c.consent.status,
     consentSource: c.consent.source, consentDate: c.consent.date, consentPurpose: c.consent.purpose, optedOut: c.optout,
     lastActivity: c.lastActivityAt ? new Date(c.lastActivityAt).toISOString() : '', takeover: c.takeover,
     fields: Object.fromEntries(c.fields.map(f => [f.key, f.value])) };

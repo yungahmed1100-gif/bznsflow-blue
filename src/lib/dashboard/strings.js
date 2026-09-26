@@ -1,9 +1,9 @@
 // Dashboard copy, Arabic and English. Plain, specific and short; reasons map
 // server codes to what the owner can do next.
 const en = {
-  title: 'Layla dashboard', loadEarlier: 'Load earlier messages', nav: 'Dashboard sections', broadcast: 'Broadcast', chats: 'Chats', contacts: 'Contacts',
+  title: 'Layla dashboard', loadEarlier: 'Load earlier messages', nav: 'Dashboard sections', broadcast: 'Broadcast', chats: 'Chats', contacts: 'Contacts', business: 'Business',
   active: 'Layla is replying', paused: 'Layla is paused', pause: 'Pause Layla', activate: 'Activate Layla', checkConnection: 'Check connection',
-  connectionOk: 'Connection healthy', connectionAttention: 'Connection needs attention', portfolio: 'Business portfolio: {name}', portfolio_verified: 'Verified', portfolio_pending: 'Verification pending', portfolio_not_verified: 'Not verified', checkedAt: 'Checked {time}', repliesToday: '{used} of {limit} replies today',
+  connectionOk: 'Connection healthy', connectionAttention: 'Connection needs attention', checkedAt: 'Checked {time}', repliesToday: '{used} of {limit} replies today',
   signOut: 'Sign out', setup: 'Business setup', language: 'العربية', loading: 'Loading…', retry: 'Try again', loadMore: 'Load more', close: 'Close', back: 'Back', cancel: 'Cancel',
   save: 'Save', saved: 'Saved', delete: 'Delete', export: 'Export', exportCsv: 'CSV', exportPdf: 'PDF (print)', exportAll: 'Export all (ZIP)', exporting: 'Preparing export…',
   searchChats: 'Search name or number', noChats: 'No conversations yet. When a customer messages your WhatsApp number, the chat appears here.', noResults: 'Nothing matches that search.',
@@ -12,7 +12,8 @@ const en = {
   handling: 'You’re handling', optedOut: 'Opted out', composer: 'Reply to {name}', send: 'Send', sending: 'Sending…', replyPauses: 'Sending a reply also leaves this chat to you.',
   windowClosed: 'The 24-hour reply window closed {time}. WhatsApp only allows an approved template now.', sendTemplate: 'Send a template', windowOpen: 'Reply window open until {time}',
   optedOutComposer: 'This customer opted out. You can’t message them from BznsFlow.',
-  status_received: 'Received', status_queued: 'Queued', status_attempting: 'Sending', status_submitted: 'Sent to WhatsApp', status_sent: 'Sent', status_delivered: 'Delivered',
+  status_received: 'Received', status_queued: 'Queued', status_attempting: 'Sending', status_submitted: 'Sent to WhatsApp', status_submitted_instagram: 'Sent to Instagram',
+  issue_outside_window: 'Not sent: more than 24 hours since the customer last wrote. Wait for them to message again.', issue_recipient_unavailable: 'Not sent: this person can’t receive messages right now.', issue_messages_access_off: 'Not sent: message access for BznsFlow is off in Instagram settings (Messages → Connected tools).', issue_reconnect_required: 'Not sent: the Instagram connection expired. Reconnect Instagram.', issue_rate_limited: 'Not sent: Meta is limiting messages right now. Try again in a few minutes.', issue_invalid_recipient: 'Not sent: Meta did not recognise this customer.', issue_instagram_send_rejected: 'Not sent: Instagram refused this reply.', issue_test_recipient_not_allowed: 'Not sent: during testing, replies go only to approved test accounts.', issue_owner_paused: 'Not sent: replies were paused.', issue_window_expired: 'Not sent: the 24-hour reply window had closed.', issue_human_takeover: 'Not sent: you took over this chat.', issue_profile_changed: 'Not sent: your answers changed just before this reply went out. Layla uses the new answers from the next message.', issue_conversation_or_profile_changed: 'Not sent: your answers or this chat changed just before this reply went out. Layla uses the latest answers from the next message.', issue_connection_not_ready: 'Not sent: the connection needs checking.', status_sent: 'Sent', status_delivered: 'Delivered',
   status_read: 'Read', status_failed: 'Not delivered', status_ambiguous: 'Needs checking — not resent', status_blocked: 'Not sent', status_pending: 'Scheduled', status_cancelled: 'Cancelled',
   q_new: 'New', q_in_progress: 'In progress', q_qualified: 'Qualified', q_not_qualified: 'Not qualified', allStatuses: 'All statuses',
   source_inbound: 'Messaged you', source_manual: 'Added by you', source_import: 'Imported', consent_granted: 'Marketing consent', consent_unknown: 'No marketing consent', consent_revoked: 'Consent withdrawn',
@@ -45,9 +46,9 @@ const en = {
   dashboardUnavailable: 'The dashboard isn’t switched on yet. Your setup and Layla’s replies are unaffected.',
 };
 const ar = {
-  title: 'لوحة ليلى', loadEarlier: 'عرض الرسائل الأقدم', nav: 'أقسام اللوحة', broadcast: 'الرسائل الجماعية', chats: 'المحادثات', contacts: 'جهات الاتصال',
+  title: 'لوحة ليلى', loadEarlier: 'عرض الرسائل الأقدم', nav: 'أقسام اللوحة', broadcast: 'الرسائل الجماعية', chats: 'المحادثات', contacts: 'جهات الاتصال', business: 'نشاطك',
   active: 'ليلى ترد الآن', paused: 'ليلى متوقفة', pause: 'إيقاف ليلى', activate: 'تفعيل ليلى', checkConnection: 'فحص الاتصال',
-  connectionOk: 'الاتصال سليم', connectionAttention: 'الاتصال يحتاج مراجعة', portfolio: 'محفظة الأعمال: {name}', portfolio_verified: 'موثّقة', portfolio_pending: 'التوثيق قيد المراجعة', portfolio_not_verified: 'غير موثّقة', checkedAt: 'آخر فحص {time}', repliesToday: '{used} من {limit} رد اليوم',
+  connectionOk: 'الاتصال سليم', connectionAttention: 'الاتصال يحتاج مراجعة', checkedAt: 'آخر فحص {time}', repliesToday: '{used} من {limit} رد اليوم',
   signOut: 'تسجيل الخروج', setup: 'إعداد النشاط', language: 'English', loading: 'جارٍ التحميل…', retry: 'حاول مجدداً', loadMore: 'عرض المزيد', close: 'إغلاق', back: 'رجوع', cancel: 'إلغاء',
   save: 'حفظ', saved: 'تم الحفظ', delete: 'حذف', export: 'تصدير', exportCsv: 'CSV', exportPdf: 'PDF (طباعة)', exportAll: 'تصدير الكل (ZIP)', exporting: 'جارٍ تجهيز الملف…',
   searchChats: 'ابحث بالاسم أو الرقم', noChats: 'لا توجد محادثات بعد. عندما يراسل عميل رقم واتساب نشاطك ستظهر المحادثة هنا.', noResults: 'لا توجد نتائج مطابقة.',
@@ -56,7 +57,8 @@ const ar = {
   handling: 'تتولاها أنت', optedOut: 'ألغى الاشتراك', composer: 'رد على {name}', send: 'إرسال', sending: 'جارٍ الإرسال…', replyPauses: 'إرسال رد يجعلك تتولى هذه المحادثة.',
   windowClosed: 'انتهت نافذة الرد (٢٤ ساعة) {time}. يسمح واتساب الآن بقالب معتمد فقط.', sendTemplate: 'إرسال قالب', windowOpen: 'نافذة الرد مفتوحة حتى {time}',
   optedOutComposer: 'ألغى هذا العميل الاشتراك. لا يمكنك مراسلته من BznsFlow.',
-  status_received: 'مستلمة', status_queued: 'في الانتظار', status_attempting: 'جارٍ الإرسال', status_submitted: 'أُرسلت إلى واتساب', status_sent: 'أُرسلت', status_delivered: 'وصلت',
+  status_received: 'مستلمة', status_queued: 'في الانتظار', status_attempting: 'جارٍ الإرسال', status_submitted: 'أُرسلت إلى واتساب', status_submitted_instagram: 'أُرسلت إلى إنستغرام',
+  issue_outside_window: 'لم تُرسل: مرّت أكثر من ٢٤ ساعة منذ آخر رسالة من العميل. انتظر رسالته التالية.', issue_recipient_unavailable: 'لم تُرسل: لا يمكن لهذا الشخص استقبال الرسائل الآن.', issue_messages_access_off: 'لم تُرسل: وصول BznsFlow إلى الرسائل متوقف في إعدادات إنستغرام (الرسائل ← الأدوات المتصلة).', issue_reconnect_required: 'لم تُرسل: انتهت صلاحية ربط إنستغرام. أعد الربط.', issue_rate_limited: 'لم تُرسل: Meta تحدّ من الرسائل حالياً. حاول بعد دقائق.', issue_invalid_recipient: 'لم تُرسل: لم تتعرّف Meta على هذا العميل.', issue_instagram_send_rejected: 'لم تُرسل: رفض إنستغرام هذا الرد.', issue_test_recipient_not_allowed: 'لم تُرسل: أثناء الاختبار تصل الردود إلى حسابات الاختبار المعتمدة فقط.', issue_owner_paused: 'لم تُرسل: الردود متوقفة.', issue_window_expired: 'لم تُرسل: انتهت نافذة الرد البالغة ٢٤ ساعة.', issue_human_takeover: 'لم تُرسل: توليت هذه المحادثة بنفسك.', issue_profile_changed: 'لم تُرسل: تغيّرت إجاباتك قبل إرسال هذا الرد مباشرة. تستخدم ليلى الإجابات الجديدة من الرسالة التالية.', issue_conversation_or_profile_changed: 'لم تُرسل: تغيّرت إجاباتك أو هذه المحادثة قبل إرسال الرد مباشرة. تستخدم ليلى أحدث الإجابات من الرسالة التالية.', issue_connection_not_ready: 'لم تُرسل: الاتصال يحتاج إلى فحص.', status_sent: 'أُرسلت', status_delivered: 'وصلت',
   status_read: 'قُرئت', status_failed: 'لم تصل', status_ambiguous: 'تحتاج تحققاً — لم يُعد إرسالها', status_blocked: 'لم تُرسل', status_pending: 'مجدولة', status_cancelled: 'أُلغيت',
   q_new: 'جديد', q_in_progress: 'قيد التأهيل', q_qualified: 'مؤهل', q_not_qualified: 'غير مؤهل', allStatuses: 'كل الحالات',
   source_inbound: 'راسلك', source_manual: 'أضفته أنت', source_import: 'مستورد', consent_granted: 'موافق على التسويق', consent_unknown: 'لا توجد موافقة تسويق', consent_revoked: 'سحب الموافقة',
@@ -97,7 +99,7 @@ const reasons = {
     messaging_limit: 'That’s more than WhatsApp currently allows for this number today. Choose fewer recipients.', invalid_schedule: 'Choose a valid time within the next 30 days.',
     campaign_not_cancellable: 'Sending has already started, so it can’t be cancelled.', broadcast_unavailable: 'Broadcast is not switched on yet.', consent_required: 'Record the marketing consent to continue.',
     invalid_consent: 'Complete every consent field with a date that isn’t in the future.', invalid_import: 'The import couldn’t be read. Check the file and try again.', invalid_phone: 'One of the numbers isn’t valid.',
-    refresh_throttled: 'Please wait a few seconds before checking again.', send_outcome_unknown: 'A reply needs checking before Layla can restart.', activation_not_ready: 'Approve your latest answers and check the connection first.',
+    refresh_throttled: 'Please wait a few seconds before checking again.', send_outcome_unknown: 'A reply needs checking before Layla can restart.', activation_not_ready: 'Save your business answers with a team contact, and check the connection first.',
     import_file_too_large: 'Use a file under 5 MB.', import_file_type: 'Use a CSV or XLSX file.', import_file_empty: 'The file has no rows.', dashboard_unavailable: 'The dashboard isn’t available right now.' },
   ar: { sign_in_required: 'سجّل الدخول مجدداً للمتابعة.', setup_required: 'أكمل إعداد نشاطك أولاً.', connection_not_ready: 'اتصال واتساب يحتاج مراجعة. افحص الاتصال ثم حاول مجدداً.',
     reply_not_allowed: 'يتطلب الرد رسالة من هذا العميل خلال آخر ٢٤ ساعة.', invalid_text: 'اكتب رداً حتى ١٠٠٠ حرف.', conversation_not_found: 'هذه المحادثة لم تعد متاحة.',
@@ -106,7 +108,7 @@ const reasons = {
     messaging_limit: 'العدد أكبر مما يسمح به واتساب لهذا الرقم اليوم. اختر عدداً أقل.', invalid_schedule: 'اختر وقتاً صالحاً خلال الثلاثين يوماً القادمة.',
     campaign_not_cancellable: 'بدأ الإرسال بالفعل ولا يمكن إلغاؤه.', broadcast_unavailable: 'الرسائل الجماعية غير مفعّلة بعد.', consent_required: 'سجّل موافقة التسويق للمتابعة.',
     invalid_consent: 'أكمل كل حقول الموافقة بتاريخ ليس في المستقبل.', invalid_import: 'تعذّرت قراءة الاستيراد. تحقق من الملف وحاول مجدداً.', invalid_phone: 'أحد الأرقام غير صالح.',
-    refresh_throttled: 'انتظر بضع ثوانٍ قبل الفحص مجدداً.', send_outcome_unknown: 'يحتاج رد إلى تحقق قبل إعادة تشغيل ليلى.', activation_not_ready: 'اعتمد أحدث الإجابات وافحص الاتصال أولاً.',
+    refresh_throttled: 'انتظر بضع ثوانٍ قبل الفحص مجدداً.', send_outcome_unknown: 'يحتاج رد إلى تحقق قبل إعادة تشغيل ليلى.', activation_not_ready: 'احفظ إجابات نشاطك مع جهة اتصال للفريق، وافحص الاتصال أولاً.',
     import_file_too_large: 'استخدم ملفاً أصغر من ٥ ميجابايت.', import_file_type: 'استخدم ملف CSV أو XLSX.', import_file_empty: 'الملف لا يحتوي على صفوف.', dashboard_unavailable: 'اللوحة غير متاحة حالياً.' },
 };
 
@@ -116,5 +118,9 @@ export function createStrings(lang) {
   const reason = code => (lang === 'ar' ? reasons.ar : reasons.en)[code] || (lang === 'ar' ? 'تعذّر إكمال الخطوة. حاول مجدداً.' : 'That didn’t work. Please try again.');
   return { t, reason, lang, ar: lang === 'ar' };
 }
+/** "Submitted" names the channel Meta accepted the message on. */
+/** A plain-language reason for a message that was not sent, or null for unknown reasons. */
+export const issueKey = reason => (reason && Object.hasOwn(en, `issue_${reason}`) ? `issue_${reason}` : null);
+export const statusKey = (status, channel) => status === 'submitted' && channel === 'instagram' ? 'status_submitted_instagram' : `status_${status}`;
 export const STRING_KEYS = Object.keys(en);
 export const ARABIC_KEYS = Object.keys(ar);

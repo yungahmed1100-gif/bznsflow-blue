@@ -9,7 +9,7 @@ export const ACTIVATION_REDIRECT_MS = 1800;
  * Replaces the embedded inbox on the setup page: activation status and the
  * Activate control. After activation a short dialog opens the dashboard.
  */
-export function ActivationPanel({ lang, setup, onPreview }) {
+export function ActivationPanel({lang, setup}) {
   const s = createStrings(lang);
   const [state, setState] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [dialog, setDialog] = useState(false), [dashboardReady, setDashboardReady] = useState(false);
@@ -20,7 +20,6 @@ export function ActivationPanel({ lang, setup, onPreview }) {
     loadOverview().then(() => { if (live) setDashboardReady(true); }).catch(() => {});
     return () => { live = false; clearTimeout(timer.current); };
   }, []);
-  const approved = setup.previewReviewedVersion === setup.profileVersion;
   const activate = async () => {
     setBusy(true); setError('');
     try {
@@ -37,10 +36,9 @@ export function ActivationPanel({ lang, setup, onPreview }) {
       <h3 id="layla-activation-heading">{s.t('activate')}</h3>
       {error && <p role="alert" className="layla-error">{error}</p>}
       <p role="status">{state?.active ? s.t('active') : state ? s.t('paused') : s.t('loading')}</p>
-      {!approved && <button type="button" className="layla-secondary" onClick={onPreview}>{lang === 'ar' ? 'راجع الإجابات ووافق عليها' : 'Review and approve the answers'}</button>}
       {state?.active
         ? dashboardReady && <a className="ld-button ld-primary" href={dashboardPath(lang)}>{s.t('openDashboard')}</a>
-        : <button type="button" className="layla-primary" disabled={busy || !state?.available || !approved || !['connected', 'paused'].includes(setup.integration.status)} onClick={activate}>{busy ? s.t('loading') : s.t('activate')}</button>}
+        : <button type="button" className="layla-primary" disabled={busy || !state?.available || !['connected', 'paused'].includes(setup.integration.status)} onClick={activate}>{busy ? s.t('loading') : s.t('activate')}</button>}
       <p className="layla-help">{lang === 'ar' ? 'يرد التفعيل على العملاء الواردين باستخدام معلومات نشاطك المعتمدة. تدير المحادثات وجهات الاتصال والرسائل الجماعية من اللوحة.' : 'Activation replies to incoming customers using your approved business facts. Manage chats, contacts and broadcasts from the dashboard.'}</p>
       {dialog && (
         <Dialog s={s} title={s.t('activeDialog')} role="alertdialog">

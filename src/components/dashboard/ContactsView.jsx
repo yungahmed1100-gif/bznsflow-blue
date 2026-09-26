@@ -62,7 +62,7 @@ export function ContactsView({ s, overview, onOpenChat }) {
                     <th scope="row">
                       <button type="button" className="ld-row-open" onClick={() => setOpenId(c.id)}>
                         <bdi>{c.nameSource === 'number' ? formatPhone(c.number) : c.name}</bdi>
-                        <small><bdi dir="ltr" className="ld-num">{formatPhone(c.number)}</bdi> · {s.t(`name_${c.nameSource}`)}</small>
+                        <small>{c.channel==='instagram'?'Instagram':<><bdi dir="ltr" className="ld-num">{formatPhone(c.number)}</bdi> · {s.t(`name_${c.nameSource}`)}</>}</small>
                       </button>
                     </th>
                     <td data-label={s.t('status')}><QualificationChip s={s} status={c.status} /></td>

@@ -19,7 +19,7 @@ const templateRecord = v.object({ templateId: v.string(), name: v.string(), lang
 export const execute = internalMutation({
   args: {
     operation: v.union(...[...DASHBOARD, ...CAMPAIGNS, 'import_contacts'].map(s => v.literal(s))),
-    sessionHash: v.string(), cursor: v.optional(v.string()), search: v.optional(v.string()), limit: v.optional(v.number()), status: v.optional(v.string()),
+    sessionHash: v.string(), channel:v.optional(v.union(v.literal('whatsapp'),v.literal('instagram'))), cursor: v.optional(v.string()), search: v.optional(v.string()), limit: v.optional(v.number()), status: v.optional(v.string()),
     before: v.optional(v.number()), conversationId: v.optional(v.string()), contactId: v.optional(v.string()), confirm: v.optional(v.boolean()), timezone: v.optional(v.string()),
     patch: v.optional(v.object({ ownerName: v.optional(v.string()), fields: v.optional(v.array(field)), qualificationOverride: v.optional(v.union(v.string(), v.null())) })),
     requestId: v.optional(v.string()), origin: v.optional(v.string()), requireConsent: v.optional(v.boolean()),

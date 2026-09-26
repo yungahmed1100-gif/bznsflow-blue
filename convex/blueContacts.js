@@ -9,15 +9,17 @@ export const MESSAGE_RETENTION_MS = 30 * DAY;
 export const contactKey = (accountId, waId) => `${accountId}:${waId}`;
 const clean = (value, n) => typeof value === 'string' ? value.replace(/[\x00-\x1f\x7f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '';
 
-/** Owner edit → customer-provided name → WhatsApp profile name → number. */
+/** Owner edit → customer-provided name → channel profile name (WhatsApp name or Instagram @username) → number. */
 export function displayName(contact) {
-  for (const [field, source] of [['ownerName', 'owner'], ['customerName', 'customer'], ['profileName', 'whatsapp']]) {
+  const profileSource = contact?.channel === 'instagram' ? 'instagram' : 'whatsapp';
+  for (const [field, source] of [['ownerName', 'owner'], ['customerName', 'customer'], ['profileName', profileSource]]) {
     if (contact?.[field]) return { name: contact[field], source };
   }
+  if (contact?.channel==='instagram') return {name:`Instagram ${contact.igId || ''}`,source:'instagram'};
   return { name: contact?.waId ? `+${contact.waId}` : '', source: 'number' };
 }
 export function searchTextFor(contact) {
-  return [contact.ownerName, contact.customerName, contact.profileName, contact.waId, ...(contact.fields || []).map(f => f.value)]
+  return [contact.ownerName, contact.customerName, contact.profileName, contact.waId, contact.igId, ...(contact.fields || []).map(f => f.value)]
     .filter(Boolean).join(' ').slice(0, 1000);
 }
 export function sectorFor(row) { return sectorIdFor(row?.profile?.sector); }
@@ -31,9 +33,10 @@ async function tombstoneFor(ctx, accountId, hash) {
  * Find or create the active contact for a number. New contacts inherit a
  * deleted contact's opt-out through the keyed hash, never through the number.
  */
-export async function ensureContact(ctx, { accountId, waId, sectorId, source = 'inbound', now, secret, profileName, countryIso }) {
-  if (!/^\d{7,15}$/.test(waId || '')) throw new Error('invalid_wa_id');
-  const key = contactKey(accountId, waId);
+export async function ensureContact(ctx, { accountId, waId, sectorId, source = 'inbound', now, secret, profileName, countryIso, channel='whatsapp', igAccount }) {
+  if (!(channel==='instagram' ? /^\d{1,30}$/ : /^\d{7,15}$/).test(waId || '')) throw new Error('invalid_wa_id');
+  const identity=channel==='instagram'?`instagram:${igAccount}:${waId}`:waId;
+  const key = contactKey(accountId, identity);
   const existing = await ctx.db.query('blueContacts').withIndex('by_key', q => q.eq('key', key)).unique();
   if (existing) {
     const name = clean(profileName, 80);
@@ -44,9 +47,9 @@ export async function ensureContact(ctx, { accountId, waId, sectorId, source = '
     }
     return existing;
   }
-  const hash = numberHash(secret, accountId, waId);
+  const hash = numberHash(secret, accountId, identity);
   const tomb = await tombstoneFor(ctx, accountId, hash);
-  const record = { accountId, key, state: 'active', waId, numberHash: hash, source, sectorId, fields: [], qualificationStatus: 'new',
+  const record = { accountId, key, state: 'active', ...(channel==='instagram'?{channel,igId:waId,igAccount}:{waId}), numberHash: hash, source, sectorId, fields: [], qualificationStatus: 'new',
     consent: { status: tomb ? 'revoked' : 'unknown' }, optout: !!tomb, ...(tomb?.optoutAt ? { optoutAt: tomb.optoutAt } : {}),
     lastActivityAt: now, createdAt: now, updatedAt: now,
     ...(clean(profileName, 80) ? { profileName: clean(profileName, 80) } : {}), ...(countryIso ? { countryIso } : {}) };
@@ -56,12 +59,12 @@ export async function ensureContact(ctx, { accountId, waId, sectorId, source = '
 }
 
 /** Lazy migration: link a pre-dashboard conversation to its contact record. */
-export async function linkConversation(ctx, conversation, { sectorId, now, secret }) {
+export async function linkConversation(ctx, conversation, { sectorId, now, secret, igAccount=undefined }) {
   if (conversation.contactId) {
     const contact = await ctx.db.get(conversation.contactId);
     if (contact?.state === 'active') return contact;
   }
-  const contact = await ensureContact(ctx, { accountId: conversation.accountId, waId: conversation.number, sectorId, now, secret, source: 'inbound' });
+  const contact = await ensureContact(ctx, { accountId: conversation.accountId, waId: conversation.number, sectorId, now, secret, source: 'inbound',channel:conversation.channel || 'whatsapp',igAccount:igAccount || conversation.igAccount || conversation.integrationId });
   if (conversation.optout && !contact.optout) {
     await ctx.db.patch(contact._id, { optout: true, optoutAt: now, consent: { ...contact.consent, status: 'revoked' }, updatedAt: now });
     contact.optout = true;
@@ -158,7 +161,7 @@ export async function deleteContact(ctx, contact, now) {
     const unclaimed = ['pending', 'queued'].includes(job.status);
     await ctx.db.patch(job._id, { waId: undefined, name: undefined, parameters: [], ...(unclaimed ? { status: 'blocked', reason: 'contact_deleted' } : {}), updatedAt: now });
   }
-  await ctx.db.patch(contact._id, { state: 'deleted', key: `deleted:${contact._id}`, waId: undefined, countryIso: undefined, ownerName: undefined, customerName: undefined,
+  await ctx.db.patch(contact._id, { state: 'deleted', key: `deleted:${contact._id}`, waId: undefined, igId:undefined, igAccount:undefined, countryIso: undefined, ownerName: undefined, customerName: undefined,
     profileName: undefined, fields: [], asked: undefined, askCounts: undefined, qualificationOverride: undefined, searchText: undefined,
     consent: { status: contact.optout ? 'revoked' : 'unknown' }, deletedAt: now, updatedAt: now });
 }
@@ -167,7 +170,7 @@ export async function deleteContact(ctx, contact, now) {
 export function publicContact(contact, conversation) {
   const { name, source } = displayName(contact);
   const window = conversation?.lastInbound ? conversation.lastInbound + DAY : 0;
-  return { id: contact._id, name, nameSource: source, number: contact.waId, ownerName: contact.ownerName || '', customerName: contact.customerName || '',
+  return { id: contact._id, channel:contact.channel || 'whatsapp', igId:contact.igId, name, nameSource: source, number: contact.waId, ownerName: contact.ownerName || '', customerName: contact.customerName || '',
     profileName: contact.profileName || '', source: contact.source, sectorId: contact.sectorId,
     fields: contact.fields.map(({ key, value, source: from, confidence, at }) => ({ key, value, source: from, confidence, at })),
     qualificationStatus: contact.qualificationStatus, qualificationOverride: contact.qualificationOverride || null,

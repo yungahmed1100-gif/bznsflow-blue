@@ -12,8 +12,8 @@ export function chatCsv(chat) {
 export function contactsCsv(items, fieldKeys = []) {
   const keys = [...new Set([...fieldKeys, ...items.flatMap(c => Object.keys(c.fields || {}))])];
   return toCsv([
-    ['name', 'number', 'status', 'source', 'consent', 'consent_source', 'consent_date', 'consent_purpose', 'opted_out', 'handled_by_you', 'last_activity', ...keys],
-    ...items.map(c => [c.name, c.number, c.status, c.source, c.consent, c.consentSource, c.consentDate, c.consentPurpose, c.optedOut ? 'yes' : 'no', c.takeover ? 'yes' : 'no', c.lastActivity, ...keys.map(k => c.fields?.[k] || '')]),
+    ['name', 'number', 'channel', 'instagram_id', 'status', 'source', 'consent', 'consent_source', 'consent_date', 'consent_purpose', 'opted_out', 'handled_by_you', 'last_activity', ...keys],
+    ...items.map(c => [c.name, c.number, c.channel || 'whatsapp', c.instagramId || '', c.status, c.source, c.consent, c.consentSource, c.consentDate, c.consentPurpose, c.optedOut ? 'yes' : 'no', c.takeover ? 'yes' : 'no', c.lastActivity, ...keys.map(k => c.fields?.[k] || '')]),
   ]);
 }
 export function chatHtml(chat, { lang, business }) {
@@ -21,7 +21,7 @@ export function chatHtml(chat, { lang, business }) {
   const rows = chat.messages.map(m => `<tr><td>${escapeHtml(new Date(m.at).toLocaleString(ar ? 'ar-OM-u-nu-latn' : 'en-GB'))}</td><td>${escapeHtml(m.direction === 'in' ? (ar ? 'العميل' : 'Customer') : m.template ? `${ar ? 'قالب' : 'Template'}: ${m.template}` : (ar ? 'النشاط' : 'Business'))}</td><td dir="auto">${escapeHtml(m.text)}</td><td>${escapeHtml(m.status)}</td></tr>`).join('');
   return `<!doctype html><html lang="${lang}" dir="${ar ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><title>${escapeHtml(chat.contact.name)}</title>
 <style>body{font:14px/1.6 ${ar ? "'IBM Plex Sans Arabic'," : ''}Poppins,Arial,sans-serif;color:#1a1a1a;margin:32px}h1{font-size:20px;margin:0}p{color:#4b5563;margin:4px 0 20px}table{width:100%;border-collapse:collapse}th,td{text-align:start;vertical-align:top;border-bottom:1px solid rgba(0,0,0,.15);padding:8px}td:nth-child(3){white-space:pre-wrap;overflow-wrap:anywhere}th{font-size:12px}</style></head>
-<body><h1>${escapeHtml(chat.contact.name)} · ${escapeHtml(chat.contact.number)}</h1><p>${escapeHtml(business)}</p><table><thead><tr><th>${ar ? 'الوقت' : 'Time'}</th><th>${ar ? 'من' : 'From'}</th><th>${ar ? 'الرسالة' : 'Message'}</th><th>${ar ? 'الحالة' : 'Status'}</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+<body><h1>${escapeHtml(chat.contact.name)} · ${escapeHtml(chat.contact.channel==='instagram'?`Instagram ${chat.contact.instagramId || ''}`:chat.contact.number)}</h1><p>${escapeHtml(business)}</p><table><thead><tr><th>${ar ? 'الوقت' : 'Time'}</th><th>${ar ? 'من' : 'From'}</th><th>${ar ? 'الرسالة' : 'Message'}</th><th>${ar ? 'الحالة' : 'Status'}</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
 }
 
 export function download(filename, content, type) {

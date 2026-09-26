@@ -123,11 +123,20 @@ function instagramEvents(body, c, now) {
       // An echo is the business answering from the Instagram app itself, so the
       // contact is the recipient rather than the sender. Same meaning as a
       // WhatsApp smb_message_echo: a human has taken this thread over.
-      if (message.is_echo === true) { events.push({ kind: 'takeover', id: `echo:${message.mid}`, from: recipientId }); continue; }
+      if (message.is_self === true || item.is_self === true) continue;
+      if (message.is_echo === true) {
+        if (senderId !== account) throw new PilotError('wrong_sender',403);
+        events.push({kind:'echo',id:message.mid,from:recipientId,at:timestamp(item.timestamp),text:typeof message.text==='string'?message.text.slice(0,1000):'[Message needs human attention]'});
+        continue;
+      }
       if (senderId === account) continue;
+      if (recipientId !== account) throw new PilotError('wrong_sender',403);
       // An unsent message must never be answered after the fact.
-      if (message.is_deleted === true) continue;
-      if (typeof message.text !== 'string' || !message.text.trim() || message.text.length > 1000) continue;
+      if (message.is_deleted === true) { events.push({kind:'deleted',id:message.mid,from:senderId}); continue; }
+      if (typeof message.text !== 'string' || !message.text.trim() || message.text.length > 1000) {
+        events.push({kind:'message',id:message.mid,from:senderId,at:timestamp(item.timestamp),text:'[Message needs human attention]',handoff:true,reply:null,intent:'human'});
+        continue;
+      }
       events.push({ kind: 'message', id: message.mid, from: senderId, at: timestamp(item.timestamp), text: message.text });
     }
     if (events.length > 100) throw new PilotError('too_many_events', 413);
