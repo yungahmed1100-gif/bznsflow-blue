@@ -9,6 +9,10 @@ export const execute=internalMutation({args:{operation:v.union(...['list','match
   if(!/^[A-Za-z0-9_-]{20,100}$/.test(args.ownerKey)) return {ok:false,reason:'catalog_unauthorized'};
   const meta=await ctx.db.query('blueCatalogMeta').withIndex('by_owner',q=>q.eq('ownerKey',args.ownerKey)).unique();
   const revision=meta?.revision||1, now=Date.now();
+  // Products synced from Stock are edited in Stock only.
+  const managed=async(entryKey:string)=>(await ctx.db.query('blueCatalogEntries').withIndex('by_owner_key',q=>q.eq('ownerKey',args.ownerKey).eq('entryKey',entryKey)).unique())?.source==='hasib_stock';
+  if(['save','archive','approve'].includes(args.operation) && await managed(args.operation==='save'?args.entry?.entryKey||'':args.entryKey||'')) return {ok:false,reason:'managed_by_stock'};
+  if(args.operation==='saveMany'){for(const e of args.entries||[]) if(await managed(e.entryKey)) return {ok:false,reason:'managed_by_stock'};}
   if(args.operation==='list'){
     const rows=await ctx.db.query('blueCatalogEntries').withIndex('by_owner_status_order',q=>q.eq('ownerKey',args.ownerKey).eq('status','draft')).collect();
     const approved=await ctx.db.query('blueCatalogEntries').withIndex('by_owner_status_order',q=>q.eq('ownerKey',args.ownerKey).eq('status','approved')).collect();

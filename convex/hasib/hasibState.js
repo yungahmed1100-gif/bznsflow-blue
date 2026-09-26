@@ -68,7 +68,10 @@ export async function executeHasib(ctx, a, now = Date.now()) {
   if (a.operation === 'overview') {
     const settings = await settingsFor(ctx, tenant.accountId);
     const pending = await ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => q.eq('accountId', tenant.accountId).eq('status', 'pending')).take(200);
-    const layla = pending.filter(o => o.source === 'layla');
+    const confirmedAsks = [];
+    for (const status of ['confirmed', 'ready']) confirmedAsks.push(...(await ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => q.eq('accountId', tenant.accountId).eq('status', status)).take(200)));
+    // Waiting for the owner: Layla's orders she could not confirm, and confirmed ones the customer asked to change.
+    const layla = [...pending, ...confirmedAsks.filter(o => o.flags?.includes('change_requested'))].filter(o => o.source === 'layla');
     const low = (await ctx.db.query('hasibVariants').withIndex('by_account_low', q => q.eq('accountId', tenant.accountId).eq('low', true)).take(100)).filter(v => !v.archived);
     return ok({ pack: { id: pack.id, archetype: pack.archetype, version: pack.version, variantOptions: pack.variantOptions, orderFields: pack.orderFields, expenseCategories: pack.expenseCategories },
       plan, setupRequired: false, livePacks: livePackSummaries(), industries: industryCatalog(), modules: visibleModules(pack), settings: publicSettings(settings), counts: { pendingOrders: pending.length, lowStock: low.length, laylaWaiting: layla.length, laylaOverdue: layla.filter(o => now - o.createdAt > 86400000).length } });

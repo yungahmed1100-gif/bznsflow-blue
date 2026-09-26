@@ -165,7 +165,7 @@ export async function changeStatus(ctx, accountId, a, now) {
     await transitionOrderSerials(ctx, order, { to: a.to, effect, now });
     if (effect > 0 || a.to === 'cancelled') lines = lines.map(({ warrantyUntil, ...l }) => (l.serialized ? l : { ...l, ...(warrantyUntil ? { warrantyUntil } : {}) }));
   }
-  await ctx.db.patch(order._id, { status: a.to, lines, stockShort: short, history: [...order.history, { status: a.to, at: now }].slice(-HISTORY), version: order.version + 1, updatedAt: now });
+  await ctx.db.patch(order._id, { status: a.to, lines, stockShort: short, ...(order.flags?.length ? { flags: order.flags.filter(f => f !== 'change_requested' && f !== 'out_of_stock' && f !== 'needs_review' && (a.to === 'pending' || f !== 'options_unconfirmed')) } : {}), history: [...order.history, { status: a.to, at: now }].slice(-HISTORY), version: order.version + 1, updatedAt: now });
   return ok(await publicOrder(ctx, await ctx.db.get(order._id)));
 }
 
@@ -216,11 +216,12 @@ async function recordPayment(ctx, accountId, a, now) {
 async function listOrders(ctx, accountId, a) {
   const cursor = decodeCursor(a.cursor), limit = clampLimit(a.limit);
   const laylaWaiting = a.status === 'layla_waiting';
-  const status = laylaWaiting ? 'pending' : isStatus(a.status) ? a.status : null;
+  const status = laylaWaiting ? null : isStatus(a.status) ? a.status : null;
   const query = status
     ? ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => cursor ? q.eq('accountId', accountId).eq('status', status).lte('createdAt', cursor.at) : q.eq('accountId', accountId).eq('status', status))
     : ctx.db.query('hasibOrders').withIndex('by_account_created', q => cursor ? q.eq('accountId', accountId).lte('createdAt', cursor.at) : q.eq('accountId', accountId));
-  const rows = afterCursor(await query.order('desc').take(limit + 25), cursor, 'createdAt').filter(o => !laylaWaiting || o.source === 'layla').slice(0, limit);
+  const waiting = o => o.source === 'layla' && (o.status === 'pending' || o.flags?.includes('change_requested'));
+  const rows = afterCursor(await query.order('desc').take(laylaWaiting ? 400 : limit + 25), cursor, 'createdAt').filter(o => !laylaWaiting || waiting(o)).slice(0, limit);
   const items = [];
   for (const o of rows) {
     const p = await publicOrder(ctx, o);

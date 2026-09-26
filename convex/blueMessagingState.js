@@ -3,7 +3,9 @@ import { instagramConnection, instagramRow, rowForIntegration } from './blueInst
 // durable outbound intent has been claimed; uncertain sends are never retried.
 import { applyInbound, applyOptout, linkConversation, recordQuestions, sectorFor, TEXT_RETENTION_MS, MESSAGE_RETENTION_MS } from './blueContacts.js';
 import { recordDemand } from './hasib/demandState.js';
-import { captureOrder } from './hasib/laylaOrders.js';
+import { commerceTurn } from './hasib/laylaOrders.js';
+// Router intents whose generic answer is replaced by a live stock line when a product is named.
+const GENERIC_INTENTS=new Set(['prices','services','unknown']);
 const DAY = 86400000;
 const terminal = new Set(['sent','delivered','read','failed','ambiguous','blocked']);
 const receiptRank = {attempting:0,ambiguous:0,submitted:1,failed:2,sent:3,delivered:4,read:5};
@@ -237,13 +239,14 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
       // Hasib must never stop Layla replying: a failed signal is logged and the message carries on.
       try { await recordDemand(ctx,{accountId:row.accountId,contact:applied.contact,conversationId:person._id,updates:applied.updates,intent:e.intent,at:e.at}); }
       catch(err) { console.error('hasib_demand_failed',err?.message); }
-      // Layla files the order herself (Ascend); the same isolation applies.
-      let captured=null;
-      try { captured=await captureOrder(ctx,{row,person,text:e.text,intent:e.intent,now,secret:a.hashSecret}); }
+      // Layla's commerce turn (Ascend): answer from stock, file and confirm the order; the same isolation applies.
+      let commerce=null;
+      try { commerce=await commerceTurn(ctx,{row,person,contact:applied.contact,text:e.text,intent:e.intent,now,secret:a.hashSecret}); }
       catch(err) { console.error('hasib_order_failed',err?.message); }
       if(!enabled || !control.active || !ready(row) || person.optout || person.takeover || contact.optout || now-e.at>=DAY || !e.reply) continue;
-      // A new order is acknowledged once, right after Layla's answer and before any follow-up questions.
-      const reply=[e.reply,captured?.ack,applied.plan.text].filter(Boolean).join('\n\n').slice(0,MAX_REPLY_LENGTH);
+      // Stock facts replace a generic price/services/unknown answer and follow anything else (a greeting, hours).
+      const lead=commerce?.facts ? (GENERIC_INTENTS.has(e.intent) ? [commerce.facts] : [e.reply,commerce.facts]) : [e.reply];
+      const reply=[...lead,commerce?.ack,applied.plan.text].filter(Boolean).join('\n\n').slice(0,MAX_REPLY_LENGTH);
       await queue(row,{...person,version},reply,`reply:${a.integrationId}:${e.id}`,false,!!e.handoff);
       await recordQuestions(ctx,applied.contact,applied.plan.text && reply.endsWith(applied.plan.text)?applied.plan.keys:[],now);
     }

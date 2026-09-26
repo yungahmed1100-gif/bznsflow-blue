@@ -5,6 +5,7 @@ import { isMinor } from './money.js';
 import { MOVE_REASONS } from './stock.js';
 import { ok, fail, clean, bounded, clampLimit, REQUEST_ID, byRequest, isLow, precheckStock, writeMove, settingsFor } from './shared.js';
 import { moveSerializedStock, WARRANTY_BY } from './serialsState.js';
+import { syncCatalogEntry } from './stockSync.js';
 
 const MAX_VARIANTS = 50, MAX_OPTIONS = 3, MAX_DELTA = 100_000;
 const CLIENT_REASONS = { stock_in: 1, return: 1, adjustment: 0, damage: -1 };
@@ -90,6 +91,8 @@ async function saveItem(ctx, accountId, pack, a, now) {
   }
   const saved = await variantsOf(ctx, itemId);
   await ctx.db.patch(itemId, { searchText: searchText(item, saved) });
+  // Layla learns the product at once: one catalog entry, kept in step with stock.
+  await syncCatalogEntry(ctx, await ctx.db.get(itemId), saved, now);
   return ok({ item: publicItem({ ...item, _id: itemId, updatedAt: now }, saved), variants: saved.filter(v => !v.archived).map(publicVariant) });
 }
 
@@ -141,6 +144,7 @@ export async function executeCatalog(ctx, tenant, a, now) {
     if (!item || item.archived) return fail('item_not_found');
     await ctx.db.patch(item._id, { archived: true, updatedAt: now });
     for (const v of await variantsOf(ctx, item._id)) await ctx.db.patch(v._id, { archived: true, low: false, updatedAt: now });
+    await syncCatalogEntry(ctx, await ctx.db.get(item._id), [], now);
     return ok({ archived: true });
   }
   if (a.operation === 'stock_move') return moveStock(ctx, accountId, a, now);
