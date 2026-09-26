@@ -45,7 +45,7 @@ const SHAPES = {
   expenses: b => ({ period: str(b.period, 12) }),
   expense_void: b => ({ expenseId: id(b.expenseId) }),
   insights: b => ({ period: str(b.period, 12) }),
-  settings_update: b => ({ stockPolicy: str(b.stockPolicy, 10),
+  settings_update: b => ({ stockPolicy: str(b.stockPolicy, 10), packId: str(b.packId, 30),
     vat: b.vat && typeof b.vat === 'object' ? compact({ registered: bool(b.vat.registered), rateBps: int(b.vat.rateBps) ?? -1, pricesIncludeVat: bool(b.vat.pricesIncludeVat), vatin: str(b.vat.vatin, 20) }) : undefined }),
 };
 export const HASIB_ACTIONS = Object.keys(SHAPES);

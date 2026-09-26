@@ -69,3 +69,11 @@ export function hasibPack(sectorId) { return HASIB_PACKS[sectorId] || HASIB_PACK
 
 /** Only modules the owner can use today; planned ones stay hidden until they ship. */
 export const visibleModules = pack => Object.entries(pack.modules).filter(([, v]) => v === 'available').map(([k]) => k);
+
+// Sectors ship one at a time. A pack opens Hasib only once its setup, tests and
+// acceptance evidence exist; the others stay hidden even though they are configured.
+export const HASIB_LIVE_PACKS = Object.freeze(['retail']);
+const LIVE_LABELS = { retail: { en: 'Retail and fashion', ar: 'التجزئة والأزياء' } };
+export const isLivePack = id => HASIB_LIVE_PACKS.includes(id);
+export const livePackSummaries = () => HASIB_LIVE_PACKS.map(id => ({ id, ...LIVE_LABELS[id] }));
+

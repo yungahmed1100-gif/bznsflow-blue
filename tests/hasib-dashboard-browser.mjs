@@ -23,7 +23,7 @@ const contact = { id: 'k1', name: 'Mariam Al Balushi', nameSource: 'whatsapp', n
 function fixture() {
   const variant = { id: 'v1', sku: 'AB-52', options: [{ key: 'size', value: '52' }, { key: 'colour', value: 'Black' }], priceMinor: 25000, costMinor: 12000, onHand: 1, reorderPoint: 2, low: true };
   const item = { id: 'i1', kind: 'product', nameAr: 'عباية سوداء', nameEn: 'Black abaya', category: 'Abayas', unit: 'piece', trackStock: true, catalogEntryKey: null, variants: [variant], updatedAt: now };
-  return { item, orders: [], payments: [], calls: [] };
+  return { item, orders: [], payments: [], calls: [], needsSetup: false, chosen: false };
 }
 
 function publicOrder(o) { return { ...o, balanceMinor: o.totalMinor - o.paidMinor }; }
@@ -33,7 +33,8 @@ function api(state) {
     business: { name: 'Noor Abayas', sector: 'Retail', sectorId: 'retail' }, integration: { sender: '96890000000', path: 'new_number', status: 'connected', checks: { routing: true, registered: true, path: true }, checkedAt: now },
     messaging: { available: true, active: true, reason: '', broadcastAvailable: false, limits: { perMinute: 10, perDay: 100, usedToday: 3 } }, timezone: 'Asia/Muscat', migrationPending: false,
     qualification: { id: 'retail', archetype: 'catalog', sensitive: false, fields: [{ key: 'item', kind: 'catalog', en: 'Item', ar: 'المنتج', required: true, options: [] }] } };
-  const hasibOverview = () => ({ pack: packRetail, modules: ['orders', 'stock'], settings: { currency: 'OMR', vatRegistered: false, vatRateBps: 500, pricesIncludeVat: false, vatin: '', stockPolicy: 'warn' },
+  const livePacks = [{ id: 'retail', en: 'Retail and fashion', ar: 'التجزئة والأزياء' }];
+  const hasibOverview = () => state.needsSetup && !state.chosen ? { setupRequired: true, livePacks, modules: [], settings: { currency: 'OMR', vatRegistered: false, vatRateBps: 500, pricesIncludeVat: false, vatin: '', stockPolicy: 'warn' } } : ({ setupRequired: false, livePacks, pack: packRetail, modules: ['orders', 'stock'], settings: { currency: 'OMR', vatRegistered: false, vatRateBps: 500, pricesIncludeVat: false, vatin: '', stockPolicy: 'warn' },
     counts: { pendingOrders: state.orders.filter(o => o.status === 'pending').length, lowStock: state.item.variants.filter(v => v.low).length } });
   return async (surface, method, body) => {
     state.calls.push({ surface, method, action: body?.action });
@@ -75,6 +76,7 @@ function api(state) {
         o.paymentStatus = o.paidMinor >= o.totalMinor ? 'paid' : o.paidMinor > 0 ? 'partial' : 'unpaid';
         return ok({ order: publicOrder(o) });
       }
+      case 'settings_update': if (body.packId !== 'retail') return { status: 409, json: { ok: false, reason: 'pack_not_live' } }; state.chosen = true; return ok({ settings: {} });
       case 'item_save': return ok({ item: state.item, variants: state.item.variants });
       case 'stock_move': { const v = state.item.variants[0]; v.onHand += body.delta; v.low = v.onHand <= v.reorderPoint; return ok({ variant: v }); }
       default: return { status: 400, json: { ok: false, reason: 'invalid_action' } };
@@ -168,6 +170,21 @@ try {
       assert.equal(new URL(page.url()).searchParams.get('fromChat'), null, 'hand-off parameter consumed'); count++;
       await context.close();
     }
+  }
+  // First run for a business whose Layla sector is not live: pick Retail, then the tabs appear.
+  for (const [lang, width] of [['en', 1280], ['ar', 375]]) {
+    const state = { ...fixture(), needsSetup: true };
+    const { page, context } = await openPage(browser, { width, lang, path: '/layla/dashboard?tab=insights', handler: api(state) });
+    await page.getByRole('heading', { name: lang === 'ar' ? 'إعداد الطلبات والمخزون' : 'Set up orders and stock' }).waitFor();
+    const links = await page.getByRole('navigation').first().getByRole('link').allTextContents();
+    assert.ok(!links.includes(T[lang].orders) && !links.includes(T[lang].stock), 'no Hasib tabs before an industry is chosen'); count++;
+    assert.deepEqual(await axe(page), [], `setup axe ${lang}`); count++;
+    assert.equal(await noOverflow(page), true); count++;
+    await page.screenshot({ path: `${OUT}/setup-${lang}-${width}.png` });
+    await page.getByRole('button', { name: lang === 'ar' ? 'استخدام التجزئة والأزياء' : 'Use Retail and fashion' }).click();
+    await page.getByRole('link', { name: T[lang].orders }).waitFor();
+    assert.ok(state.calls.some(c => c.action === 'settings_update'), 'the choice is saved to Hasib settings'); count++;
+    await context.close();
   }
   // RTL: the rail sits on the right in Arabic.
   {

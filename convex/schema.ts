@@ -9,7 +9,7 @@ export const instagramCredential = v.object({v:v.number(),iv:v.string(),data:v.s
 export const instagramIntegration = v.object({id:v.string(),channel:v.literal('instagram'),app:v.string(),igAccount:v.string(),oauthUserId:v.optional(v.string()),username:v.string(),credential:v.optional(instagramCredential)});
 export default defineSchema({
   // ── Hasib: orders, stock and payments (docs/hasib-engineering.md). Money is integer baisa. ──
-  hasibSettings: defineTable({accountId:v.id('accounts'),packId:v.string(),currency:v.string(),vatRegistered:v.boolean(),vatRateBps:v.number(),pricesIncludeVat:v.boolean(),vatin:v.optional(v.string()),stockPolicy:v.union(v.literal('warn'),v.literal('block')),updatedAt:v.number()}).index('by_account',['accountId']),
+  hasibSettings: defineTable({accountId:v.id('accounts'),packId:v.optional(v.string()),currency:v.string(),vatRegistered:v.boolean(),vatRateBps:v.number(),pricesIncludeVat:v.boolean(),vatin:v.optional(v.string()),stockPolicy:v.union(v.literal('warn'),v.literal('block')),updatedAt:v.number()}).index('by_account',['accountId']),
   hasibCounters: defineTable({accountId:v.id('accounts'),kind:v.string(),next:v.number()}).index('by_account_kind',['accountId','kind']),
   hasibItems: defineTable({accountId:v.id('accounts'),requestId:v.optional(v.string()),kind:v.union(v.literal('product'),v.literal('service')),nameAr:v.string(),nameEn:v.string(),category:v.string(),unit:v.string(),catalogEntryKey:v.optional(v.string()),trackStock:v.boolean(),archived:v.boolean(),searchText:v.string(),createdAt:v.number(),updatedAt:v.number()})
     .index('by_account_archived_updated',['accountId','archived','updatedAt']).index('by_account_request',['accountId','requestId'])

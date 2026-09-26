@@ -17,6 +17,7 @@ import { OrdersView } from '../components/hasib/OrdersView';
 import { StockView } from '../components/hasib/StockView';
 import { InsightsView } from '../components/hasib/InsightsView';
 import { ExpensesView } from '../components/hasib/ExpensesView';
+import { IndustrySetup } from '../components/hasib/IndustrySetup';
 import { browserTimezone } from '../lib/dashboard/format';
 import { createStrings } from '../lib/dashboard/strings';
 import '../styles/layla-dashboard.css';
@@ -33,9 +34,11 @@ export default function LaylaDashboard({ lang = 'ar' }) {
   // Hasib is optional: when it is off (or unavailable) its tabs simply do not appear.
   const hasibState = usePolling(loadHasib, [], { interval: 60000, enabled: ready && !!overview.data?.connected });
   const hasibOverview = hasibState.data?.modules ? hasibState.data : null;
+  // Until the owner picks a live industry, Hasib shows one entry that opens the picker.
+  const hasibTabs = hasibOverview ? (hasibOverview.setupRequired ? ['insights'] : hasibOverview.modules) : [];
   const h = useMemo(() => createHasibStrings(lang), [lang]);
   const requested = params.get('tab');
-  const tab = TABS.includes(requested) && (!HASIB_TABS.includes(requested) || hasibOverview?.modules.includes(requested)) ? requested : 'chats';
+  const tab = TABS.includes(requested) && (!HASIB_TABS.includes(requested) || hasibTabs.includes(requested)) ? requested : 'chats';
 
   // Client-only: the prerendered HTML is a neutral loading shell.
   useEffect(() => { setReady(true); }, []);
@@ -69,13 +72,14 @@ export default function LaylaDashboard({ lang = 'ar' }) {
         <a className="ld-lang" href={`${s.ar ? '/en' : ''}/layla/dashboard${params.toString() ? `?${params}` : ''}`} lang={s.ar ? 'en' : 'ar'}>{s.t('language')}</a>
       </header>
       <HasibProvider lang={lang} overview={hasibOverview} onCreateOrderFromChat={createOrderFromChat}>
-      <DashboardNav s={s} tab={tab} onSelect={go} hasib={hasibOverview ? { modules: hasibOverview.modules, h } : null} />
+      <DashboardNav s={s} tab={tab} onSelect={go} hasib={hasibOverview ? { modules: hasibTabs, h } : null} />
       <main id="ld-main" className="ld-main" tabIndex={-1} data-tab={tab}>
         {!ready || (overview.loading && !data) ? <p className="ld-state" role="status">{s.t('loading')}</p>
           : unavailable ? <div className="ld-state"><p>{s.t('dashboardUnavailable')}</p><a className="ld-button" href={setupPath(lang)}>{s.t('setup')}</a></div>
           : overview.error && !data ? <div className="ld-state" role="alert"><p>{s.reason(overview.error.reason)}</p><button className="ld-button" onClick={() => overview.refresh()}>{s.t('retry')}</button></div>
           : data?.connected ? (
-            tab === 'insights' ? <InsightsView s={s} h={h} overview={hasibOverview} />
+            tab === 'insights' && hasibOverview?.setupRequired ? <IndustrySetup s={s} h={h} livePacks={hasibOverview.livePacks} onChosen={() => hasibState.refresh({ quiet: true })} />
+            : tab === 'insights' ? <InsightsView s={s} h={h} overview={hasibOverview} />
             : tab === 'expenses' ? <ExpensesView s={s} h={h} overview={hasibOverview} timezone={data.timezone} />
             : tab === 'orders' ? <OrdersView s={s} h={h} overview={hasibOverview} business={data.business.name} timezone={data.timezone} fromChat={params.get('fromChat')} onConsumedChat={() => setParams(new URLSearchParams({ tab: 'orders' }), { replace: true })} />
             : tab === 'stock' ? <StockView s={s} h={h} overview={hasibOverview} onChanged={() => hasibState.refresh({ quiet: true })} />

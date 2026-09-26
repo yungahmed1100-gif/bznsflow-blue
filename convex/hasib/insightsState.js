@@ -6,8 +6,6 @@
 //   revenue         sales without VAT; delivery fees count as revenue
 //   cost of goods   quantity × the unit cost fixed when stock left the shelf
 //   operating cost  expenses except stock purchases (those are inventory and reach profit as cost of goods)
-import { hasibPack } from '../../config/hasib-packs.js';
-import { sectorFor } from '../blueContacts.js';
 import { ok, fail } from './shared.js';
 import { periodRange } from './period.js';
 import { businessTimezone, expensesIn } from './expensesState.js';
@@ -141,7 +139,7 @@ export async function executeInsights(ctx, tenant, a, now) {
   const operatingMinor = live.filter(e => e.category !== 'stock_purchase').reduce((n, e) => n + exVat(e), 0);
   const stockPurchasesMinor = live.filter(e => e.category === 'stock_purchase').reduce((n, e) => n + exVat(e), 0);
   const byCategory = [...live.reduce((m, e) => m.set(e.category, (m.get(e.category) || 0) + exVat(e)), new Map())].map(([category, amountMinor]) => ({ category, amountMinor })).sort((x, y) => y.amountMinor - x.amountMinor);
-  const pack = hasibPack(sectorFor(tenant.row));
+  const pack = tenant.pack;
   return ok({
     range: { period: range.period, fromDate: range.fromDate, toDate: range.toDate, timezone: tz },
     sales: figures,

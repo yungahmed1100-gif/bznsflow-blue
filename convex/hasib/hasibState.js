@@ -2,11 +2,10 @@
 // The tenant is always resolved from the verified session hash; ids in the
 // request are re-checked against it by `owned()` inside each executor.
 import { resolveTenant } from '../blueTenant.js';
-import { sectorFor } from '../blueContacts.js';
-import { hasibPack, visibleModules } from '../../config/hasib-packs.js';
+import { visibleModules, isLivePack, livePackSummaries } from '../../config/hasib-packs.js';
 import { STOCK_POLICIES } from './stock.js';
 import { hasibEnabled } from './gate.js';
-import { ok, fail, settingsFor } from './shared.js';
+import { ok, fail, settingsFor, packFor } from './shared.js';
 import { executeCatalog } from './catalogState.js';
 import { executeOrders } from './ordersState.js';
 import { executeExpenses } from './expensesState.js';
@@ -19,7 +18,7 @@ export { hasibEnabled };
 
 const publicSettings = s => ({ currency: s.currency, vatRegistered: s.vatRegistered, vatRateBps: s.vatRateBps, pricesIncludeVat: s.pricesIncludeVat, vatin: s.vatin || '', stockPolicy: s.stockPolicy });
 
-async function updateSettings(ctx, accountId, packId, a, now) {
+async function updateSettings(ctx, accountId, a, now) {
   const current = await ctx.db.query('hasibSettings').withIndex('by_account', q => q.eq('accountId', accountId)).unique();
   const next = { ...(await settingsFor(ctx, accountId)) };
   if (a.vat !== undefined) {
@@ -32,7 +31,12 @@ async function updateSettings(ctx, accountId, packId, a, now) {
     if (!STOCK_POLICIES.includes(a.stockPolicy)) return fail('invalid_settings');
     next.stockPolicy = a.stockPolicy;
   }
-  const row = { accountId, packId, currency: next.currency, vatRegistered: next.vatRegistered, vatRateBps: next.vatRateBps, pricesIncludeVat: next.pricesIncludeVat,
+  // The Hasib industry is the owner's explicit choice; Layla's own sector is never written here.
+  if (a.packId !== undefined) {
+    if (!isLivePack(a.packId)) return fail('pack_not_live');
+    next.packId = a.packId;
+  }
+  const row = { accountId, ...(next.packId ? { packId: next.packId } : {}), currency: next.currency, vatRegistered: next.vatRegistered, vatRateBps: next.vatRateBps, pricesIncludeVat: next.pricesIncludeVat,
     ...(next.vatin ? { vatin: next.vatin } : {}), stockPolicy: next.stockPolicy, updatedAt: now };
   if (current) await ctx.db.replace(current._id, row); else await ctx.db.insert('hasibSettings', row);
   return ok({ settings: publicSettings(row) });
@@ -43,16 +47,20 @@ export async function executeHasib(ctx, a, now = Date.now()) {
   const tenant = await resolveTenant(ctx, a.sessionHash, now);
   if (tenant.error) return fail(tenant.error);
   tenant.secret = a.hashSecret;
-  const pack = hasibPack(sectorFor(tenant.row));
+  const pack = tenant.pack = await packFor(ctx, tenant);
+  if (a.operation === 'settings_update') return updateSettings(ctx, tenant.accountId, a, now);
+  if (!isLivePack(pack.id)) {
+    // Only live packs open Hasib; the owner can choose one without changing Layla's sector.
+    return a.operation === 'overview' ? ok({ setupRequired: true, livePacks: livePackSummaries(), modules: [], settings: publicSettings(await settingsFor(ctx, tenant.accountId)) }) : fail('pack_not_live');
+  }
 
   if (a.operation === 'overview') {
     const settings = await settingsFor(ctx, tenant.accountId);
     const pending = await ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => q.eq('accountId', tenant.accountId).eq('status', 'pending')).take(100);
     const low = (await ctx.db.query('hasibVariants').withIndex('by_account_low', q => q.eq('accountId', tenant.accountId).eq('low', true)).take(100)).filter(v => !v.archived);
     return ok({ pack: { id: pack.id, archetype: pack.archetype, version: pack.version, variantOptions: pack.variantOptions, orderFields: pack.orderFields, expenseCategories: pack.expenseCategories },
-      modules: visibleModules(pack), settings: publicSettings(settings), counts: { pendingOrders: pending.length, lowStock: low.length } });
+      setupRequired: false, livePacks: livePackSummaries(), modules: visibleModules(pack), settings: publicSettings(settings), counts: { pendingOrders: pending.length, lowStock: low.length } });
   }
-  if (a.operation === 'settings_update') return updateSettings(ctx, tenant.accountId, pack.id, a, now);
   const result = (await executeCatalog(ctx, tenant, a, now)) || (await executeOrders(ctx, tenant, a, now))
     || (await executeExpenses(ctx, tenant, a, now)) || (await executeInsights(ctx, tenant, a, now));
   return result || fail('invalid_action');

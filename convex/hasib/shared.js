@@ -2,6 +2,8 @@
 // stock ledger write. Every helper takes the resolved accountId explicitly.
 import { owned } from '../blueTenant.js';
 import { applyStockPolicy } from './stock.js';
+import { sectorFor } from '../blueContacts.js';
+import { hasibPack } from '../../config/hasib-packs.js';
 
 export const ok = value => ({ ok: true, value }), fail = reason => ({ ok: false, reason });
 export const PAGE = 25;
@@ -16,6 +18,11 @@ export const DEFAULT_SETTINGS = Object.freeze({ currency: 'OMR', vatRegistered: 
 export async function settingsFor(ctx, accountId) {
   const row = await ctx.db.query('hasibSettings').withIndex('by_account', q => q.eq('accountId', accountId)).unique();
   return row ? { ...DEFAULT_SETTINGS, ...row } : { ...DEFAULT_SETTINGS };
+}
+/** The Hasib industry pack: the owner's explicit Hasib choice, otherwise the pack for Layla's sector. */
+export async function packFor(ctx, tenant) {
+  const settings = await settingsFor(ctx, tenant.accountId);
+  return hasibPack(settings.packId || sectorFor(tenant.row));
 }
 export const vatOf = s => ({ registered: s.vatRegistered, rateBps: s.vatRateBps, pricesIncludeVat: s.pricesIncludeVat });
 

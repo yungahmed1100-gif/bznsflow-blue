@@ -1,8 +1,6 @@
 // Expenses: what left the business, dated by the owner in business time.
 // Voided, never deleted, so a mistaken entry stays visible in the history.
 import { owned } from '../blueTenant.js';
-import { hasibPack } from '../../config/hasib-packs.js';
-import { sectorFor } from '../blueContacts.js';
 import { isMinor } from './money.js';
 import { ok, fail, bounded, REQUEST_ID, byRequest, nextNumber } from './shared.js';
 import { periodRange, validDate, dayNoon, timezoneOr } from './period.js';
@@ -22,7 +20,7 @@ async function createExpense(ctx, tenant, a, now) {
   if (!REQUEST_ID.test(a.requestId || '')) return fail('invalid_request');
   const replay = await byRequest(ctx, 'hasibExpenses', accountId, a.requestId);
   if (replay) return ok(publicExpense(replay));
-  const categories = hasibPack(sectorFor(tenant.row)).expenseCategories.map(c => c.key);
+  const categories = tenant.pack.expenseCategories.map(c => c.key);
   const vatMinor = a.vatMinor ?? 0, vendor = bounded(a.vendor ?? '', 80), note = bounded(a.note ?? '', 200);
   if (!categories.includes(a.category) || !isMinor(a.amountMinor) || !a.amountMinor || !isMinor(vatMinor) || vatMinor > a.amountMinor
     || !EXPENSE_METHODS.includes(a.method) || !validDate(a.paidOn) || vendor === null || note === null) return fail('invalid_expense');

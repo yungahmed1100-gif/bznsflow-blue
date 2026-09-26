@@ -36,6 +36,7 @@ const en = {
   readyBy: 'Ready by (optional)', depositNow: 'Deposit taken now (OMR, optional)', depositMethod: 'Deposit method', copyReceipt: 'Copy receipt', copied: 'Copied', exchange: 'Exchange',
   exchangeHelp: 'Marks this order returned (stock comes back) and starts a new order for the same customer.', due: 'Due {date}', depositFailed: 'The order was saved, but the deposit wasn’t recorded. Record it from the order.',
   amountCol: 'Amount', paidTo: 'Paid to', outOfStock: 'Out of stock',
+  industryTitle: 'Set up orders and stock', industryIntro: 'Hasib is being released one industry at a time. Choose the industry that fits your shop to open orders, stock, expenses and insights.', industryLayla: 'This only changes Hasib. Layla keeps her current business details and replies.', chooseIndustry: 'Use {name}', industry: 'Industry: {name}', choosing: 'Setting up…',
   currency: 'OMR', invalidAmount: 'Enter an amount like 12.500',
 };
 const ar = {
@@ -73,17 +74,18 @@ const ar = {
   readyBy: 'جاهز بتاريخ (اختياري)', depositNow: 'عربون مستلم الآن (ر.ع.، اختياري)', depositMethod: 'طريقة دفع العربون', copyReceipt: 'نسخ الإيصال', copied: 'تم النسخ', exchange: 'استبدال',
   exchangeHelp: 'يسجّل هذا الطلب كمرتجع (يعود المخزون) ويبدأ طلباً جديداً للعميل نفسه.', due: 'موعده {date}', depositFailed: 'حُفظ الطلب لكن لم يُسجَّل العربون. سجّله من صفحة الطلب.',
   amountCol: 'المبلغ', paidTo: 'المدفوع له', outOfStock: 'نفد',
+  industryTitle: 'إعداد الطلبات والمخزون', industryIntro: 'نطلق حاسب لقطاع تلو الآخر. اختر القطاع المناسب لمتجرك لفتح الطلبات والمخزون والمصروفات والتقارير.', industryLayla: 'هذا يغيّر حاسب فقط. تحتفظ ليلى ببيانات نشاطك وردودها الحالية.', chooseIndustry: 'استخدام {name}', industry: 'القطاع: {name}', choosing: 'جارٍ الإعداد…',
   currency: 'ر.ع.', invalidAmount: 'أدخل مبلغاً مثل 12.500',
 };
 const reasons = {
   en: { insufficient_stock: 'Not enough stock. Switch the stock rule to “warn” or receive stock first.', order_conflict: 'This order changed in another tab. It has been reloaded.',
     invalid_transition: 'That status change isn’t allowed from here.', refund_exceeds_paid: 'A refund can’t be more than what was paid.', order_closed: 'This order is closed. Only refunds are possible.',
     duplicate_sku: 'Another product already uses that SKU.', invalid_item: 'Check the product: a name and a price are needed for each variant.', invalid_order_lines: 'Check the lines: quantities and prices must be valid.',
-    variant_not_found: 'That product is no longer available.', hasib_unavailable: 'Orders and stock are not switched on for this account yet.', invalid_amount: 'Enter a valid amount.', invalid_expense: 'Check the expense: category, amount and date are needed, and VAT can’t exceed the amount.' },
+    variant_not_found: 'That product is no longer available.', hasib_unavailable: 'Orders and stock are not switched on for this account yet.', invalid_amount: 'Enter a valid amount.', invalid_expense: 'Check the expense: category, amount and date are needed, and VAT can’t exceed the amount.', pack_not_live: 'Choose an available industry to use orders and stock.' },
   ar: { insufficient_stock: 'الكمية غير كافية. غيّر قاعدة المخزون إلى «تنبيه» أو استلم بضاعة أولاً.', order_conflict: 'تغيّر هذا الطلب في نافذة أخرى، وتمت إعادة تحميله.',
     invalid_transition: 'لا يمكن تغيير الحالة بهذا الشكل.', refund_exceeds_paid: 'لا يمكن أن يتجاوز الاسترداد المبلغ المدفوع.', order_closed: 'هذا الطلب مغلق، ويمكن فقط تسجيل استرداد.',
     duplicate_sku: 'رمز SKU مستخدم لمنتج آخر.', invalid_item: 'راجع المنتج: يلزم اسم وسعر لكل خيار.', invalid_order_lines: 'راجع البنود: يجب أن تكون الكميات والأسعار صحيحة.',
-    variant_not_found: 'هذا المنتج لم يعد متاحاً.', hasib_unavailable: 'الطلبات والمخزون غير مفعّلة لهذا الحساب بعد.', invalid_amount: 'أدخل مبلغاً صحيحاً.', invalid_expense: 'راجع المصروف: يلزم الفئة والمبلغ والتاريخ، ولا يمكن أن تتجاوز الضريبة المبلغ.' },
+    variant_not_found: 'هذا المنتج لم يعد متاحاً.', hasib_unavailable: 'الطلبات والمخزون غير مفعّلة لهذا الحساب بعد.', invalid_amount: 'أدخل مبلغاً صحيحاً.', invalid_expense: 'راجع المصروف: يلزم الفئة والمبلغ والتاريخ، ولا يمكن أن تتجاوز الضريبة المبلغ.', pack_not_live: 'اختر قطاعاً متاحاً لاستخدام الطلبات والمخزون.' },
 };
 
 const GROUPED = new Intl.NumberFormat('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });

@@ -17,6 +17,13 @@
 .ld-toolbar .ld-check input { flex: none; inline-size: 18px; min-inline-size: 0; margin-block-start: 0; }
 .hb-currency { margin-inline-start: .3em; }
 
+/* First-run industry picker */
+.hb-setup { max-inline-size: 60ch; display: grid; gap: 12px; padding-block: 8px; }
+.hb-setup h1 { margin: 0; }
+.hb-setup p { margin: 0; }
+.hb-setup-list { list-style: none; margin: 4px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.hb-industry { vertical-align: middle; font-size: 12px; margin-inline-start: 8px; }
+
 /* Orders */
 .hb-order-table td:nth-child(5), .hb-order-table td:nth-child(6) { white-space: nowrap; }
 .hb-order-table .ld-row-open { font-weight: 700; }

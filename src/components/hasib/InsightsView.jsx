@@ -47,7 +47,7 @@ export function InsightsView({ s, h, overview }) {
   return (
     <div className="hb-insights">
       <div className="ld-page-head">
-        <h1>{h.t('insights')}</h1>
+        <h1>{h.t('insights')} {(() => { const live = overview.livePacks?.find(p => p.id === overview.pack.id); return live ? <span className="ld-chip hb-industry">{h.t('industry', { name: s.ar ? live.ar : live.en })}</span> : null; })()}</h1>
         <div className="ld-segmented hb-periods" role="radiogroup" aria-label={h.t('insights')}>
           {PERIODS.map(p => <label key={p}><input type="radio" name="hb-period" checked={period === p} onChange={() => setPeriod(p)} /><span>{h.t(`period_${p}`)}</span></label>)}
         </div>

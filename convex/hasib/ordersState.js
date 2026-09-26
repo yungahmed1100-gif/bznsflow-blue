@@ -2,7 +2,6 @@
 // stock moves only on the transitions the order machine defines.
 import { owned, encodeCursor, decodeCursor, afterCursor } from '../blueTenant.js';
 import { displayName, linkConversation, sectorFor } from '../blueContacts.js';
-import { hasibPack } from '../../config/hasib-packs.js';
 import { isMinor, normalizeDigits } from './money.js';
 import { matchItem } from './matching.js';
 import { orderTotals, paymentStatus, MAX_QTY } from './totals.js';
@@ -93,7 +92,7 @@ async function createOrder(ctx, tenant, a, now) {
   if (!REQUEST_ID.test(a.requestId || '')) return fail('invalid_request');
   const replay = await byRequest(ctx, 'hasibOrders', accountId, a.requestId);
   if (replay) return ok(await publicOrder(ctx, replay));
-  const input = orderInput(a, hasibPack(sectorFor(tenant.row)));
+  const input = orderInput(a, tenant.pack);
   if (!input) return fail('invalid_order');
   const who = await contactFor(ctx, tenant, a);
   if (who.error) return fail(who.error);
