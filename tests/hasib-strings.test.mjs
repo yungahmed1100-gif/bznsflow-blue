@@ -19,7 +19,32 @@ test('every status, payment method, channel and fulfilment type has a label', ()
 
 test('money reads as three-decimal OMR in both languages', () => {
   assert.equal(createHasibStrings('en').money(12500), '12.500 OMR');
+  assert.equal(createHasibStrings('en').money(1282000), '1,282.000 OMR');
+  assert.equal(createHasibStrings('en').money(-5), '-0.005 OMR');
   assert.equal(createHasibStrings('ar').money(12500), '12.500 ر.ع.');
   assert.equal(createHasibStrings('ar').name({ nameAr: 'عباية', nameEn: 'Abaya' }), 'عباية');
   assert.equal(createHasibStrings('en').name({ nameAr: 'عباية', nameEn: '' }), 'عباية');
 });
+
+test('receipts and CSV exports carry the saved figures, in the owner’s language', async () => {
+  const { receiptText, ordersCsv, expensesCsv } = await import('../src/lib/hasib/exports.js');
+  const order = { number: 7, status: 'confirmed', paymentStatus: 'partial', channel: 'whatsapp', contact: { name: '=HYPERLINK("x")' }, customerName: '', createdAt: 0,
+    lines: [{ name: 'عباية سوداء — 52', sku: 'AB-52', qty: 2, unitPriceMinor: 25000, netMinor: 50000, vatMinor: 0 }], deliveryMinor: 1500, vatMinor: 0, pricesIncludeVat: false,
+    totalMinor: 51500, paidMinor: 20000, balanceMinor: 31500 };
+  const ar = receiptText(order, createHasibStrings('ar'), 'Noor Abayas');
+  assert.match(ar, /طلب رقم 7/);
+  assert.match(ar, /2 × عباية سوداء — 52 — 50.000 ر.ع./);
+  assert.match(ar, /المتبقي: 31.500 ر.ع./);
+  assert.match(receiptText(order, createHasibStrings('en'), 'Noor Abayas'), /Balance: 31.500 OMR/);
+  const csv = ordersCsv([order]);
+  assert.match(csv, /51\.500/);
+  assert(!/^=HYPERLINK/m.test(csv.split('\n')[1].split(',')[5] || ''), 'formula injection is neutralised');
+  assert.match(expensesCsv([{ number: 1, paidOn: '2027-01-15', category: 'rent', amountMinor: 30000, vatMinor: 0, method: 'cash', vendor: '', note: '', voided: false }]), /30\.000/);
+});
+
+test('order counts agree with the number in both languages', () => {
+  const ar = createHasibStrings('ar'), en = createHasibStrings('en');
+  assert.deepEqual([1, 2, 3, 10, 11, 71].map(ar.orders), ['طلب واحد', 'طلبان', '3 طلبات', '10 طلبات', '11 طلباً', '71 طلباً']);
+  assert.deepEqual([0, 1, 2].map(en.orders), ['0 orders', '1 order', '2 orders']);
+});
+

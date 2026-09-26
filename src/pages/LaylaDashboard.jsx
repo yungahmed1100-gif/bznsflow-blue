@@ -15,13 +15,15 @@ import { createHasibStrings } from '../lib/hasib/strings';
 import { HasibProvider } from '../components/hasib/HasibContext';
 import { OrdersView } from '../components/hasib/OrdersView';
 import { StockView } from '../components/hasib/StockView';
+import { InsightsView } from '../components/hasib/InsightsView';
+import { ExpensesView } from '../components/hasib/ExpensesView';
 import { browserTimezone } from '../lib/dashboard/format';
 import { createStrings } from '../lib/dashboard/strings';
 import '../styles/layla-dashboard.css';
 import '../styles/hasib.css';
 
-const TABS = ['broadcast', 'chats', 'contacts', 'orders', 'stock', 'channels', 'business'];
-const HASIB_TABS = ['orders', 'stock'];
+const TABS = ['broadcast', 'chats', 'contacts', 'insights', 'orders', 'stock', 'expenses', 'channels', 'business'];
+const HASIB_TABS = ['insights', 'orders', 'stock', 'expenses'];
 
 export default function LaylaDashboard({ lang = 'ar' }) {
   const s = useMemo(() => createStrings(lang), [lang]);
@@ -73,7 +75,9 @@ export default function LaylaDashboard({ lang = 'ar' }) {
           : unavailable ? <div className="ld-state"><p>{s.t('dashboardUnavailable')}</p><a className="ld-button" href={setupPath(lang)}>{s.t('setup')}</a></div>
           : overview.error && !data ? <div className="ld-state" role="alert"><p>{s.reason(overview.error.reason)}</p><button className="ld-button" onClick={() => overview.refresh()}>{s.t('retry')}</button></div>
           : data?.connected ? (
-            tab === 'orders' ? <OrdersView s={s} h={h} overview={hasibOverview} timezone={data.timezone} fromChat={params.get('fromChat')} onConsumedChat={() => setParams(new URLSearchParams({ tab: 'orders' }), { replace: true })} />
+            tab === 'insights' ? <InsightsView s={s} h={h} overview={hasibOverview} />
+            : tab === 'expenses' ? <ExpensesView s={s} h={h} overview={hasibOverview} timezone={data.timezone} />
+            : tab === 'orders' ? <OrdersView s={s} h={h} overview={hasibOverview} business={data.business.name} timezone={data.timezone} fromChat={params.get('fromChat')} onConsumedChat={() => setParams(new URLSearchParams({ tab: 'orders' }), { replace: true })} />
             : tab === 'stock' ? <StockView s={s} h={h} overview={hasibOverview} onChanged={() => hasibState.refresh({ quiet: true })} />
             : tab === 'channels' ? <ChannelConnections s={s} data={data} onChange={()=>overview.refresh({quiet:true})} />
             : tab === 'business' ? <BusinessDetails s={s} />

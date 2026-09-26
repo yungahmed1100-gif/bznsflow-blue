@@ -2,6 +2,7 @@ import { instagramConnection, instagramRow, rowForIntegration } from './blueInst
 // Atomic tenant messaging transitions. Network requests happen only after a
 // durable outbound intent has been claimed; uncertain sends are never retried.
 import { applyInbound, applyOptout, linkConversation, recordQuestions, sectorFor, TEXT_RETENTION_MS, MESSAGE_RETENTION_MS } from './blueContacts.js';
+import { recordDemand } from './hasib/demandState.js';
 const DAY = 86400000;
 const terminal = new Set(['sent','delivered','read','failed','ambiguous','blocked']);
 const receiptRank = {attempting:0,ambiguous:0,submitted:1,failed:2,sent:3,delivered:4,read:5};
@@ -218,6 +219,10 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
       catalog ??= await approvedCatalog(row.accountId);
       // Fields are captured even while a person has taken over the chat.
       const applied=await applyInbound(ctx,contact,{text:e.text,intent:e.intent,handoff:!!e.handoff,at:e.at,now,sectorId,catalog});
+      // Hasib's lost-demand report: a product question becomes a PII-free signal (no-op while Hasib is off).
+      // Hasib must never stop Layla replying: a failed signal is logged and the message carries on.
+      try { await recordDemand(ctx,{accountId:row.accountId,contact:applied.contact,conversationId:person._id,updates:applied.updates,intent:e.intent,at:e.at}); }
+      catch(err) { console.error('hasib_demand_failed',err?.message); }
       if(!enabled || !control.active || !ready(row) || person.optout || person.takeover || contact.optout || now-e.at>=DAY || !e.reply) continue;
       const reply=applied.plan.text?`${e.reply}\n\n${applied.plan.text}`.slice(0,MAX_REPLY_LENGTH):e.reply;
       await queue(row,{...person,version},reply,`reply:${a.integrationId}:${e.id}`,false,!!e.handoff);

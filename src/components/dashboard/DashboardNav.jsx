@@ -10,8 +10,10 @@ const ITEMS = [
 
 // Hasib tabs appear only for modules the account's industry pack has made available.
 const HASIB_ITEMS = [
+  ['insights', 'M4 20V10h3v10H4zm6 0V4h3v16h-3zm6 0v-7h3v7h-3z'],
   ['orders', 'M6 2h12l2 4v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6l2-4zm0 4h12l-1-2H7L6 6zm2 5v2h8v-2H8zm0 4v2h5v-2H8z'],
   ['stock', 'M12 2 3 7v10l9 5 9-5V7l-9-5zm0 2.3L18.6 8 12 11.7 5.4 8 12 4.3zM5 9.7l6 3.4v6.6l-6-3.3V9.7zm8 10v-6.6l6-3.4v6.7l-6 3.3z'],
+  ['expenses', 'M3 6h18v12H3V6zm2 2v8h14V8H5zm7 1.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM6 9h2v2H6V9zm10 4h2v2h-2v-2z'],
 ];
 
 /** Fixed start-side rail on desktop; a top tab bar on phones. */
@@ -19,7 +21,7 @@ export function DashboardNav({ s, tab, onSelect, hasib = null }) {
   const items = [...ITEMS.slice(0, 3), ...HASIB_ITEMS.filter(([id]) => hasib?.modules.includes(id)), ...ITEMS.slice(3)];
   const label = id => id === 'channels' ? (s.ar ? 'القنوات' : 'Channels') : hasib && HASIB_ITEMS.some(([x]) => x === id) ? hasib.h.t(id) : s.t(id);
   return (
-    <nav className="ld-nav" aria-label={s.t('nav')}>
+    <nav className={`ld-nav ${hasib ? 'has-hasib' : ''}`} aria-label={s.t('nav')}>
       <ul>
         {items.map(([id, path]) => (
           <li key={id}>

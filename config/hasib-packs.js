@@ -9,8 +9,8 @@ import { SECTOR_PACKS } from './layla-sector-packs.js';
 export const HASIB_PACK_VERSION = 'hasib-packs-v1';
 const t = (key, en, ar) => ({ key, en, ar });
 
-// Expenses and Insights ship in P2; they stay hidden until their tests and UI exist.
-const CORE = { orders: 'available', stock: 'available', expenses: 'planned', insights: 'planned', demand: 'planned', digest: 'planned' };
+// Demand needs Layla to capture an `item`, which only catalog sectors do; it is switched on per archetype below.
+const CORE = { orders: 'available', stock: 'available', expenses: 'available', insights: 'available', demand: 'planned', digest: 'planned' };
 const OFF = { appointments: 'off', plans: 'off', recipes: 'off', batches: 'off', jobCards: 'off', enrolments: 'off', quotes: 'off' };
 
 const EXPENSES = [
@@ -22,7 +22,7 @@ const extra = (...rows) => [...EXPENSES.slice(0, -1), ...rows, EXPENSES.at(-1)];
 
 // Per-archetype defaults, refined per sector below.
 const ARCHETYPE = {
-  catalog: { modules: { ...CORE, ...OFF }, variantOptions: [t('size', 'Size', 'المقاس'), t('colour', 'Colour', 'اللون')], orderFields: [], expenseCategories: EXPENSES },
+  catalog: { modules: { ...CORE, ...OFF, demand: 'available' }, variantOptions: [t('size', 'Size', 'المقاس'), t('colour', 'Colour', 'اللون')], orderFields: [], expenseCategories: EXPENSES },
   booking: { modules: { ...CORE, ...OFF, appointments: 'planned', plans: 'planned' }, variantOptions: [], orderFields: [], expenseCategories: extra(t('supplies', 'Supplies', 'المستلزمات')) },
   project: { modules: { ...CORE, ...OFF, quotes: 'planned', plans: 'planned' }, variantOptions: [], orderFields: [], expenseCategories: extra(t('materials', 'Materials', 'المواد'), t('subcontract', 'Subcontractors', 'المقاولون من الباطن')) },
 };

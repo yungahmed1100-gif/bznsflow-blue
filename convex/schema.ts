@@ -25,6 +25,11 @@ export default defineSchema({
     fulfilment:v.object({type:v.string(),area:v.optional(v.string()),dueAt:v.optional(v.number())}),customFields:v.array(v.object({key:v.string(),value:v.string()})),notes:v.optional(v.string()),stockShort:v.boolean(),
     history:v.array(v.object({status:v.string(),at:v.number()})),version:v.number(),createdAt:v.number(),updatedAt:v.number()})
     .index('by_account_created',['accountId','createdAt']).index('by_account_status_created',['accountId','status','createdAt']).index('by_account_request',['accountId','requestId']).index('by_contact_created',['contactId','createdAt']),
+  hasibExpenses: defineTable({accountId:v.id('accounts'),requestId:v.string(),number:v.number(),category:v.string(),amountMinor:v.number(),vatMinor:v.number(),vendor:v.optional(v.string()),method:v.string(),paidOn:v.string(),paidAt:v.number(),note:v.optional(v.string()),voided:v.boolean(),voidedAt:v.optional(v.number()),createdAt:v.number()})
+    .index('by_account_paid',['accountId','paidAt']).index('by_account_request',['accountId','requestId']),
+  // A customer asked Layla about a product. PII-free: contact id only; removed when the contact is deleted.
+  hasibDemandSignals: defineTable({accountId:v.id('accounts'),contactId:v.id('blueContacts'),conversationId:v.optional(v.id('blueConversations')),itemId:v.optional(v.id('hasibItems')),text:v.string(),key:v.string(),kind:v.string(),outOfStock:v.boolean(),at:v.number()})
+    .index('by_account_at',['accountId','at']).index('by_contact_at',['contactId','at']),
   // Signed amounts: refunds are negative. Recorded only — BznsFlow never holds funds.
   hasibPayments: defineTable({accountId:v.id('accounts'),orderId:v.id('hasibOrders'),requestId:v.string(),amountMinor:v.number(),method:v.string(),reference:v.optional(v.string()),at:v.number()})
     .index('by_order_at',['orderId','at']).index('by_account_request',['accountId','requestId']).index('by_account_at',['accountId','at']),

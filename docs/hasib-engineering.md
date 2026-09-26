@@ -115,6 +115,41 @@ idempotency, consent, opt-out and retry rules, and needs approved utility templa
 - The item list refreshes by polling.
 - The owner-typed customer name, delivery area, notes and custom fields are removed from orders when the contact is deleted; amounts stay.
 
+## Retail MVP — P2, P3 and retail P4 (2026-09-26, local only)
+
+**What was added.**
+- **Expenses:** categories come from the pack; an entry is voided, never deleted; each expense is dated in business time (Muscat midnight).
+- **Insights:**
+  - figures: sales, revenue without VAT, cost of goods, gross profit, operating costs (stock purchases excluded and shown separately), net profit, cash by method, money owed, best sellers, stock value, low/out-of-stock counts, buyers/returning/walk-in;
+  - periods: today, 7 days, 30 days, this month, last month.
+- **Demand signals:** Layla's ingest records a PII-free signal when a customer asks about a product, with the stock on hand at that moment. The report shows most wanted, asked while out of stock, asked but didn't buy, and asked for but not in your products.
+- **Retail orders:** a ready-by date (pre-orders and made-to-measure), a deposit taken at order time, Copy receipt (AR/EN) and Exchange (return + a new order for the same customer).
+- **Exports:** accountant CSVs for orders and expenses (formula-injection-safe).
+
+**Design choices.**
+- A demand signal matches a product only by exact or contained name (Arabic-normalised), never one shared word.
+- A failure inside the demand hook is caught and logged in Layla's ingest. Hasib cannot stop Layla replying; there is a test that forces the failure.
+- `src/lib/timezone.js` now holds the pure timezone helpers (previously `api/_lib/layla/timezone.js`, which re-exports it), so browser code no longer imports from the server folder.
+
+**Evidence (local, 2026-09-26).**
+- `npm test`: 187/187 existing; `npm run test:hasib` 46/46.
+- Both type-checks pass. Lint has 0 errors; the 12 warnings are all in files Hasib did not create. `npm run build` passes.
+- `tests/hasib-dashboard-browser.mjs` (synthetic API): 150 assertions.
+- `tests/hasib-demo-browser.mjs` against `scripts/hasib-demo.mjs`, where **the real Convex state code** runs on an in-memory database: 72 assertions.
+  - Insights at 5 widths × 2 languages, with no overflow, zero serious/critical axe violations and no page errors.
+  - An expense added in the UI moves operating costs and net profit by exactly its amount.
+  - A UI sale moves sales by 8.000 and gross profit by 5.000.
+  - A live chat becomes a prefilled order.
+  - Sold-out sizes are flagged on a phone.
+
+**Demo.** `npm run build && npm run demo:hasib`, then open `http://localhost:5310/layla/dashboard?tab=insights` (English under `/en/...`). It seeds 30 days of a fictional Muscat abaya boutique ("Noor Abayas"), with chats and orders replayed in true time order. It is local only, sends nothing, and the demo data is invented; it is not a client record.
+
+**Known limits.**
+- The demand report works at item level, not size level: Layla captures the product, not the size.
+- There are no receipt photo uploads yet (SEC-02 applies before adding them).
+- COD courier settlement is not built yet; receivables cover unpaid COD.
+- Insights reads at most 3,000 orders per period and flags when it hits that cap; daily rollups come only after a measured need.
+
 ## Rollout order (each step needs authorization)
 
 1. Push the Convex schema/functions to `quaint-nightingale-675`.

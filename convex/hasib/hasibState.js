@@ -5,17 +5,17 @@ import { resolveTenant } from '../blueTenant.js';
 import { sectorFor } from '../blueContacts.js';
 import { hasibPack, visibleModules } from '../../config/hasib-packs.js';
 import { STOCK_POLICIES } from './stock.js';
+import { hasibEnabled } from './gate.js';
 import { ok, fail, settingsFor } from './shared.js';
 import { executeCatalog } from './catalogState.js';
 import { executeOrders } from './ordersState.js';
+import { executeExpenses } from './expensesState.js';
+import { executeInsights } from './insightsState.js';
 
 export const HASIB_OPERATIONS = ['overview', 'settings_update', 'items', 'item_save', 'item_archive', 'stock_move', 'stock_moves', 'low_stock',
-  'order_create', 'order_status', 'orders', 'order', 'payment_record', 'contact_summary', 'chat_prefill'];
+  'order_create', 'order_status', 'orders', 'order', 'payment_record', 'contact_summary', 'chat_prefill', 'expense_create', 'expenses', 'expense_void', 'insights'];
 
-export async function hasibEnabled(ctx) {
-  const row = await ctx.db.query('blueMessagingSettings').withIndex('by_key', q => q.eq('key', 'hasib')).unique();
-  return row?.enabled === true;
-}
+export { hasibEnabled };
 
 const publicSettings = s => ({ currency: s.currency, vatRegistered: s.vatRegistered, vatRateBps: s.vatRateBps, pricesIncludeVat: s.pricesIncludeVat, vatin: s.vatin || '', stockPolicy: s.stockPolicy });
 
@@ -53,6 +53,7 @@ export async function executeHasib(ctx, a, now = Date.now()) {
       modules: visibleModules(pack), settings: publicSettings(settings), counts: { pendingOrders: pending.length, lowStock: low.length } });
   }
   if (a.operation === 'settings_update') return updateSettings(ctx, tenant.accountId, pack.id, a, now);
-  const result = (await executeCatalog(ctx, tenant, a, now)) || (await executeOrders(ctx, tenant, a, now));
+  const result = (await executeCatalog(ctx, tenant, a, now)) || (await executeOrders(ctx, tenant, a, now))
+    || (await executeExpenses(ctx, tenant, a, now)) || (await executeInsights(ctx, tenant, a, now));
   return result || fail('invalid_action');
 }

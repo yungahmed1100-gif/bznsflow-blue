@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { hasib } from '../../lib/dashboard/api';
 import { useDebounced } from '../../hooks/usePolling';
 import { parseAmount, formatMinor } from '../../../convex/hasib/money.js';
+import { dayNoon, validDate } from '../../../convex/hasib/period.js';
 import { orderTotals } from '../../../convex/hasib/totals.js';
 import { Dialog } from '../dashboard/Dialog';
 import { Money } from './Badges';
@@ -59,13 +60,16 @@ function ItemPicker({ s, h, onPick }) {
  * New order. `prefill` comes from `chat_prefill`; the owner always reviews it.
  * The request id is fixed for the life of the dialog so a double submit makes one order.
  */
-export function OrderComposer({ s, h, overview, prefill, onClose, onSaved }) {
+export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSaved }) {
   const [rows, setRows] = useState(() => prefill ? fromPrefill(prefill) : []);
   const [type, setType] = useState(prefill?.fulfilment.type || 'pickup'), [area, setArea] = useState(prefill?.fulfilment.area || '');
-  const [fee, setFee] = useState(''), [customerName, setCustomerName] = useState(''), [notes, setNotes] = useState(''), [confirm, setConfirm] = useState(true);
+  const [fee, setFee] = useState(''), [customerName, setCustomerName] = useState(prefill?.customerName || ''), [notes, setNotes] = useState(''), [confirm, setConfirm] = useState(true);
   const [fields, setFields] = useState({}), [busy, setBusy] = useState(false), [error, setError] = useState('');
-  const [requestId] = useState(newId);
+  const [readyBy, setReadyBy] = useState(''), [deposit, setDeposit] = useState(''), [depositMethod, setDepositMethod] = useState('cash');
+  const [requestId] = useState(newId), [depositRequestId] = useState(newId);
+  const depositMinor = deposit.trim() ? parseAmount(deposit) : 0;
   const settings = overview.settings;
+  const linked = !!(prefill?.conversationId || prefill?.contactId);
   const lines = toLines(rows), feeMinor = fee.trim() ? parseAmount(fee) : 0;
   const totals = previewTotals(lines, feeMinor, settings);
   const set = (key, patch) => setRows(rs => rs.map(r => r.key === key ? { ...r, ...patch } : r));
@@ -73,23 +77,30 @@ export function OrderComposer({ s, h, overview, prefill, onClose, onSaved }) {
 
   const save = async e => {
     e.preventDefault();
-    if (!totals) return;
+    if (!totals || depositMinor === null) return;
     setBusy(true); setError('');
     try {
+      const dueAt = validDate(readyBy) ? dayNoon(readyBy, timezone || 'Asia/Muscat') : undefined;
+      const who = prefill?.conversationId ? { conversationId: prefill.conversationId } : prefill?.contactId ? { contactId: prefill.contactId } : {};
       const order = await hasib('order_create', { requestId, channel: prefill?.channel || 'walk_in', confirm, lines, deliveryFeeMinor: feeMinor || undefined,
-        fulfilment: { type, ...(type === 'delivery' && area.trim() ? { area: area.trim() } : {}) }, ...(prefill ? { conversationId: prefill.conversationId } : {}),
-        ...(!prefill && customerName.trim() ? { customerName: customerName.trim() } : {}), ...(notes.trim() ? { notes: notes.trim() } : {}),
+        fulfilment: { type, ...(type === 'delivery' && area.trim() ? { area: area.trim() } : {}), ...(dueAt ? { dueAt } : {}) }, ...who,
+        ...(!linked && customerName.trim() ? { customerName: customerName.trim() } : {}), ...(notes.trim() ? { notes: notes.trim() } : {}),
         customFields: Object.entries(fields).filter(([, v]) => String(v).trim()).map(([key, value]) => ({ key, value: String(value).trim() })) });
-      onSaved(order);
+      // A deposit is a separate payment record; if it fails the order still exists and says so.
+      let depositFailed = false;
+      if (depositMinor > 0) {
+        try { await hasib('payment_record', { requestId: depositRequestId, orderId: order.id, amountMinor: depositMinor, method: depositMethod }); } catch { depositFailed = true; }
+      }
+      onSaved(order, { depositFailed });
     } catch (err) { setError(h.reason(err.reason) || s.reason(err.reason)); setBusy(false); }
   };
 
   return (
     <Dialog s={s} title={h.t('newOrder')} onClose={onClose} wide>
       <form className="hb-composer" onSubmit={save}>
-        {prefill && <p className="ld-help" role="status">{h.t('fromChat')} · <bdi>{prefill.contact.name}</bdi></p>}
+        {linked && <p className="ld-help" role="status">{prefill.conversationId ? `${h.t('fromChat')} · ` : ''}<bdi>{prefill.contact.name}</bdi></p>}
         {prefill?.unmatched && <p className="ld-help">{h.t('unmatched', { text: prefill.unmatched })}</p>}
-        {!prefill && <label className="ld-field">{h.t('customerName')}<input value={customerName} maxLength={80} onChange={e => setCustomerName(e.target.value)} dir="auto" /></label>}
+        {!linked && <label className="ld-field">{h.t('customerName')}<input value={customerName} maxLength={80} onChange={e => setCustomerName(e.target.value)} dir="auto" /></label>}
         <ItemPicker s={s} h={h} onPick={add} />
         <table className="ld-table hb-lines">
           <thead><tr><th scope="col">{h.t('items')}</th><th scope="col">{h.t('qty')}</th><th scope="col">{h.t('unitPrice')}</th><th scope="col"><span className="ld-visually-hidden">{h.t('remove')}</span></th></tr></thead>
@@ -123,6 +134,12 @@ export function OrderComposer({ s, h, overview, prefill, onClose, onSaved }) {
               : <>{s.ar ? f.ar : f.en}<input type={f.type === 'date' ? 'date' : f.type === 'datetime' ? 'datetime-local' : 'text'} maxLength={f.max || 120} value={fields[f.key] || ''} dir="auto" onChange={e => setFields({ ...fields, [f.key]: e.target.value })} /></>}
           </label>
         ))}
+        <div className="hb-grid-2">
+          <label className="ld-field">{h.t('readyBy')}<input type="date" value={readyBy} onChange={e => setReadyBy(e.target.value)} /></label>
+          <label className="ld-field">{h.t('depositNow')}<input className="hb-money" inputMode="decimal" dir="ltr" value={deposit} aria-invalid={depositMinor === null} onChange={e => setDeposit(e.target.value)} /></label>
+          {depositMinor > 0 && <label className="ld-field">{h.t('depositMethod')}<select value={depositMethod} onChange={e => setDepositMethod(e.target.value)}>
+            {['cash', 'bank_transfer', 'card', 'payment_link'].map(m => <option key={m} value={m}>{h.t(`pm_${m}`)}</option>)}</select></label>}
+        </div>
         <label className="ld-field">{h.t('notes')}<textarea value={notes} maxLength={500} rows={2} dir="auto" onChange={e => setNotes(e.target.value)} /></label>
         <label className="ld-check"><input type="checkbox" checked={confirm} onChange={e => setConfirm(e.target.checked)} /> {h.t('confirmNow')}</label>
         {totals && <dl className="hb-totals">
@@ -134,7 +151,7 @@ export function OrderComposer({ s, h, overview, prefill, onClose, onSaved }) {
         {error && <p className="ld-inline-error" role="alert">{error}</p>}
         <div className="ld-actions">
           <button type="button" className="ld-button ld-quiet" onClick={onClose}>{h.t('cancel')}</button>
-          <button type="submit" className="ld-button ld-primary" disabled={busy || !totals}>{busy ? h.t('saving') : h.t('saveOrder')}</button>
+          <button type="submit" className="ld-button ld-primary" disabled={busy || !totals || depositMinor === null}>{busy ? h.t('saving') : h.t('saveOrder')}</button>
         </div>
       </form>
     </Dialog>

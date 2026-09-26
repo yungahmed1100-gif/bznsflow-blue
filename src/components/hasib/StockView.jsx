@@ -49,7 +49,7 @@ export function StockView({ s, h, overview, onChanged }) {
                     </th>}
                     <td>{v.options.map(o => o.value).join(' / ') || '—'}{v.sku && <span className="ld-help"> · <bdi dir="ltr">{v.sku}</bdi></span>}</td>
                     <td><Money h={h} minor={v.priceMinor} /></td>
-                    <td>{item.trackStock ? <><span className="ld-num">{v.onHand}</span>{v.low && <span className="ld-chip is-coral">{h.t('lowStock')}</span>}</> : '—'}</td>
+                    <td>{item.trackStock ? <><span className="ld-num">{v.onHand}</span>{v.onHand <= 0 ? <span className="ld-chip is-coral">{h.t('outOfStock')}</span> : v.low && <span className="ld-chip is-yellow">{h.t('lowStock')}</span>}</> : '—'}</td>
                     <td>{item.trackStock && <button type="button" className="ld-button ld-quiet ld-compact" onClick={() => setMoving({ item, variant: v })}>{h.t('adjustStock')}</button>}</td>
                   </tr>
                 )))}

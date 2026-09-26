@@ -20,8 +20,8 @@ const item = i => i && typeof i === 'object' ? compact({ kind: str(i.kind, 20) |
   unit: str(i.unit, 20) || 'piece', trackStock: bool(i.trackStock), catalogEntryKey: uuid(i.catalogEntryKey) }) : undefined;
 
 /** Actions whose id-bearing argument is required; a malformed id is refused rather than dropped. */
-const REQUIRED = { order: 'orderId', order_status: 'orderId', payment_record: 'orderId', item_archive: 'itemId', stock_moves: 'variantId', stock_move: 'variantId', contact_summary: 'contactId', chat_prefill: 'conversationId' };
-const NEEDS_REQUEST = new Set(['order_create', 'payment_record', 'stock_move']);
+const REQUIRED = { order: 'orderId', order_status: 'orderId', payment_record: 'orderId', item_archive: 'itemId', stock_moves: 'variantId', stock_move: 'variantId', contact_summary: 'contactId', chat_prefill: 'conversationId', expense_void: 'expenseId' };
+const NEEDS_REQUEST = new Set(['order_create', 'payment_record', 'stock_move', 'expense_create']);
 
 const SHAPES = {
   items: b => ({ search: str(b.search, 80), cursor: str(b.cursor, 100), limit: int(b.limit) }),
@@ -40,6 +40,11 @@ const SHAPES = {
   payment_record: b => ({ requestId: uuid(b.requestId), orderId: id(b.orderId), amountMinor: int(b.amountMinor), method: str(b.method, 20), reference: str(b.reference, 80) }),
   contact_summary: b => ({ contactId: id(b.contactId) }),
   chat_prefill: b => ({ conversationId: id(b.conversationId) }),
+  expense_create: b => ({ requestId: uuid(b.requestId), category: str(b.category, 40), amountMinor: int(b.amountMinor), vatMinor: int(b.vatMinor), vendor: str(b.vendor, 80),
+    method: str(b.method, 20), paidOn: str(b.paidOn, 10), note: str(b.note, 200) }),
+  expenses: b => ({ period: str(b.period, 12) }),
+  expense_void: b => ({ expenseId: id(b.expenseId) }),
+  insights: b => ({ period: str(b.period, 12) }),
   settings_update: b => ({ stockPolicy: str(b.stockPolicy, 10),
     vat: b.vat && typeof b.vat === 'object' ? compact({ registered: bool(b.vat.registered), rateBps: int(b.vat.rateBps) ?? -1, pricesIncludeVat: bool(b.vat.pricesIncludeVat), vatin: str(b.vat.vatin, 20) }) : undefined }),
 };

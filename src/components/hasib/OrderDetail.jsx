@@ -3,6 +3,7 @@ import { hasib } from '../../lib/dashboard/api';
 import { formatDateTime } from '../../lib/dashboard/format';
 import { parseAmount } from '../../../convex/hasib/money.js';
 import { nextStatuses } from '../../../convex/hasib/orderMachine.js';
+import { receiptText } from '../../lib/hasib/exports';
 import { Dialog } from '../dashboard/Dialog';
 import { Money, OrderStatus, PaymentChip } from './Badges';
 
@@ -37,9 +38,9 @@ function PaymentForm({ h, order, onRecorded }) {
 }
 
 /** One order: lines, totals, the statuses it may move to, and its payments. */
-export function OrderDetail({ s, h, pack, orderId, timezone, onClose, onChanged }) {
+export function OrderDetail({ s, h, pack, business, orderId, timezone, onClose, onChanged, onExchange }) {
   const fieldLabel = key => { const f = pack.orderFields.find(x => x.key === key); return f ? (s.ar ? f.ar : f.en) : key; };
-  const [order, setOrder] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState('');
+  const [order, setOrder] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(''), [copied, setCopied] = useState(false);
   const load = useCallback(() => hasib('order', { orderId }).then(setOrder).catch(e => setError(h.reason(e.reason) || s.reason(e.reason))), [orderId, h, s]);
   useEffect(() => { load(); }, [load]);
 
@@ -49,6 +50,14 @@ export function OrderDetail({ s, h, pack, orderId, timezone, onClose, onChanged 
     catch (e) { setError(h.reason(e.reason) || s.reason(e.reason)); if (e.reason === 'order_conflict') load(); } finally { setBusy(''); }
   };
 
+  const copyReceipt = async () => {
+    try { await navigator.clipboard.writeText(receiptText(order, h, business)); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setError(s.reason('copy_failed')); }
+  };
+  const exchange = async () => {
+    setBusy('exchange'); setError('');
+    try { const next = await hasib('order_status', { orderId, to: 'returned', version: order.version }); onChanged(); onExchange({ ...order, ...next }); }
+    catch (e) { setError(h.reason(e.reason) || s.reason(e.reason)); setBusy(''); }
+  };
   return (
     <Dialog s={s} title={order ? h.t('orderNumber', { number: order.number }) : h.t('loading')} onClose={onClose} wide>
       {!order ? <p className="ld-state" role={error ? 'alert' : 'status'}>{error || h.t('loading')}</p> : (
@@ -58,6 +67,8 @@ export function OrderDetail({ s, h, pack, orderId, timezone, onClose, onChanged 
             {order.stockShort && <span className="ld-chip is-coral">{h.t('stockShort')}</span>}
             <span>{h.t(`ch_${order.channel}`)} · {h.t(`ful_${order.fulfilment.type}`)}{order.fulfilment.area ? ` · ${order.fulfilment.area}` : ''}</span>
             <span><bdi>{order.contact?.name || order.customerName || h.t('walkIn')}</bdi></span>
+            {order.fulfilment.dueAt && <span className="ld-chip is-yellow">{h.t('due', { date: formatDateTime(order.fulfilment.dueAt, s.lang, timezone).split(',')[0] })}</span>}
+            <button type="button" className="ld-button ld-quiet ld-compact" onClick={copyReceipt} aria-live="polite">{copied ? h.t('copied') : h.t('copyReceipt')}</button>
           </p>
           <table className="ld-table hb-lines">
             <thead><tr><th scope="col">{h.t('items')}</th><th scope="col">{h.t('qty')}</th><th scope="col">{h.t('unitPrice')}</th><th scope="col">{h.t('total')}</th></tr></thead>
@@ -76,6 +87,9 @@ export function OrderDetail({ s, h, pack, orderId, timezone, onClose, onChanged 
           {order.notes && <p className="ld-help"><bdi>{order.notes}</bdi></p>}
           {nextStatuses(order.status).length > 0 && (
             <div className="ld-actions" role="group" aria-label={h.t('moveTo')}>
+              {['delivered', 'completed'].includes(order.status) && onExchange && (
+                <button type="button" className="ld-button ld-quiet" disabled={!!busy} onClick={exchange} title={h.t('exchangeHelp')} aria-describedby="hb-exchange-help">{h.t('exchange')}</button>
+              )}
               {nextStatuses(order.status).map(to => (
                 <button key={to} type="button" className={`ld-button ${to === 'cancelled' || to === 'returned' || to === 'failed_delivery' ? 'ld-quiet ld-danger' : 'ld-quiet'}`} disabled={!!busy} onClick={() => move(to)}>
                   {h.t('moveTo')}: {h.t(`st_${to}`)}
@@ -83,6 +97,7 @@ export function OrderDetail({ s, h, pack, orderId, timezone, onClose, onChanged 
               ))}
             </div>
           )}
+          {['delivered', 'completed'].includes(order.status) && onExchange && <p id="hb-exchange-help" className="ld-help">{h.t('exchangeHelp')}</p>}
           {error && <p className="ld-inline-error" role="alert">{error}</p>}
           <section className="hb-payments" aria-labelledby="hb-payments-title">
             <h3 id="hb-payments-title">{h.t('payments')}</h3>

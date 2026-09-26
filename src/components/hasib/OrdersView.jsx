@@ -12,7 +12,7 @@ const FILTERS = ['', 'pending', 'confirmed', 'ready', 'out_for_delivery', 'deliv
  * Orders tab. `fromChat` is a conversation id handed over from a chat thread:
  * the composer opens prefilled with what Layla captured there.
  */
-export function OrdersView({ s, h, overview, timezone, fromChat, onConsumedChat }) {
+export function OrdersView({ s, h, overview, business, timezone, fromChat, onConsumedChat }) {
   const [status, setStatus] = useState(''), [more, setMore] = useState({ items: [], cursor: undefined });
   const [composer, setComposer] = useState(null), [openId, setOpenId] = useState(null), [notice, setNotice] = useState('');
   const list = usePolling(() => hasib('orders', status ? { status } : {}), [status], { interval: 15000 });
@@ -42,7 +42,7 @@ export function OrdersView({ s, h, overview, timezone, fromChat, onConsumedChat 
           <button type="button" className="ld-button ld-primary" onClick={() => setComposer({ prefill: null })}>{h.t('newOrder')}</button>
         </div>
       </div>
-      {notice && <p className={notice === h.t('shortWarning') ? 'ld-help' : 'ld-inline-error'} role="status">{notice}</p>}
+      {notice && <p className={notice === h.t('depositFailed') ? 'ld-inline-error' : 'ld-help'} role="status">{notice}</p>}
       {list.loading && !list.data ? <p className="ld-state" role="status">{h.t('loading')}</p>
         : list.error && !list.data ? <div className="ld-state" role="alert"><p>{h.reason(list.error.reason) || s.reason(list.error.reason)}</p><button className="ld-button" onClick={() => list.refresh()}>{h.t('retry')}</button></div>
         : !items.length ? <p className="ld-state">{h.t('noOrders')}</p>
@@ -57,8 +57,8 @@ export function OrdersView({ s, h, overview, timezone, fromChat, onConsumedChat 
                 {items.map(o => (
                   <tr key={o.id}>
                     <td><button type="button" className="ld-row-open ld-num" onClick={() => setOpenId(o.id)} aria-label={h.t('orderNumber', { number: o.number })}>{o.number}</button></td>
-                    <td><bdi>{o.contact?.name || o.customerName || h.t('walkIn')}</bdi><span className="ld-help"> · {h.t(`ch_${o.channel}`)}</span></td>
-                    <td><OrderStatus h={h} status={o.status} />{o.stockShort && <span className="ld-chip is-coral">{h.t('stockShort')}</span>}</td>
+                    <td>{o.contact?.name || o.customerName ? <><bdi>{o.contact?.name || o.customerName}</bdi><span className="ld-help"> · {h.t(`ch_${o.channel}`)}</span></> : <span className="ld-help">{h.t(`ch_${o.channel}`)}</span>}</td>
+                    <td><OrderStatus h={h} status={o.status} />{o.stockShort && <span className="ld-chip is-coral">{h.t('stockShort')}</span>}{o.fulfilment.dueAt && !['delivered', 'completed', 'cancelled', 'returned'].includes(o.status) && <span className="ld-chip is-yellow">{h.t('due', { date: listTimestamp(o.fulfilment.dueAt, s.lang, timezone) })}</span>}</td>
                     <td><PaymentChip h={h} status={o.paymentStatus} /></td>
                     <td><Money h={h} minor={o.totalMinor} /></td>
                     <td><Money h={h} minor={o.balanceMinor} /></td>
@@ -70,9 +70,11 @@ export function OrdersView({ s, h, overview, timezone, fromChat, onConsumedChat 
             {cursor && <button type="button" className="ld-button ld-quiet ld-more" onClick={loadMore}>{h.t('loadMore')}</button>}
           </div>
         )}
-      {composer && <OrderComposer s={s} h={h} overview={overview} prefill={composer.prefill} onClose={() => setComposer(null)}
-        onSaved={order => { setComposer(null); setNotice(order.stockShort ? h.t('shortWarning') : ''); reset(); setOpenId(order.id); }} />}
-      {openId && <OrderDetail s={s} h={h} pack={overview.pack} orderId={openId} timezone={timezone} onClose={() => setOpenId(null)} onChanged={reset} />}
+      {composer && <OrderComposer s={s} h={h} overview={overview} prefill={composer.prefill} timezone={timezone} onClose={() => setComposer(null)}
+        onSaved={(order, { depositFailed } = {}) => { setComposer(null); setNotice(depositFailed ? h.t('depositFailed') : order.stockShort ? h.t('shortWarning') : ''); reset(); setOpenId(order.id); }} />}
+      {openId && <OrderDetail s={s} h={h} pack={overview.pack} business={business} orderId={openId} timezone={timezone} onClose={() => setOpenId(null)} onChanged={reset}
+        onExchange={order => { setOpenId(null); setComposer({ prefill: { customerName: order.contact ? '' : order.customerName, contact: order.contact || { name: order.customerName || h.t('walkIn') }, contactId: order.contact?.id, conversationId: order.conversationId,
+          channel: order.channel, lines: [], unmatched: '', fulfilment: { type: order.fulfilment.type, ...(order.fulfilment.area ? { area: order.fulfilment.area } : {}) } } }); }} />}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { owned, encodeCursor, decodeCursor, afterCursor } from '../blueTenant.js
 import { displayName, linkConversation, sectorFor } from '../blueContacts.js';
 import { hasibPack } from '../../config/hasib-packs.js';
 import { isMinor, normalizeDigits } from './money.js';
+import { matchItem } from './matching.js';
 import { orderTotals, paymentStatus, MAX_QTY } from './totals.js';
 import { canTransition, isStatus, stockEffect, deductsStock } from './orderMachine.js';
 import { ok, fail, clean, bounded, clampLimit, REQUEST_ID, byRequest, settingsFor, vatOf, nextNumber, sellableVariant, precheckStock, writeMove } from './shared.js';
@@ -206,7 +207,7 @@ async function chatPrefill(ctx, tenant, a, now) {
   const type = /deliver|توصيل/.test(how) ? 'delivery' : /pick|استلام/.test(how) ? 'pickup' : area ? 'delivery' : 'pickup';
   const lines = [];
   if (itemText) {
-    const [item] = await ctx.db.query('hasibItems').withSearchIndex('search_items', q => q.search('searchText', itemText.toLowerCase()).eq('accountId', tenant.accountId).eq('archived', false)).take(1);
+    const item = await matchItem(ctx, tenant.accountId, itemText);
     const variant = item && (await ctx.db.query('hasibVariants').withIndex('by_item', q => q.eq('itemId', item._id)).take(50)).find(v => !v.archived);
     if (variant) lines.push({ variantId: variant._id, itemId: item._id, nameAr: item.nameAr, nameEn: item.nameEn, qty, unitPriceMinor: variant.priceMinor, onHand: variant.onHand });
   }

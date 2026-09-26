@@ -1,6 +1,8 @@
+import { removeDemandFor } from './demandState.js';
 // Called from contact deletion. Orders are tax and business records, so their
 // amounts stay; anything that identifies the person is removed.
 export async function anonymizeContactOrders(ctx, contact, now) {
+  await removeDemandFor(ctx, contact._id);
   const rows = await ctx.db.query('hasibOrders').withIndex('by_contact_created', q => q.eq('contactId', contact._id)).take(2000);
   for (const o of rows) {
     if (o.accountId !== contact.accountId) continue;

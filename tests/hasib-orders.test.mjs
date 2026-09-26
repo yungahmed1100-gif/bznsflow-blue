@@ -39,7 +39,7 @@ test('overview reports the retail pack, VAT off by default and only available mo
   const o = (await hasib(a, 'overview')).value;
   assert.equal(o.pack.id, 'retail');
   assert.deepEqual(o.pack.variantOptions.map(v => v.key), ['size', 'length', 'colour']);
-  assert.deepEqual(o.modules.sort(), ['orders', 'stock']);
+  assert.deepEqual(o.modules.sort(), ['demand', 'expenses', 'insights', 'orders', 'stock']);
   assert.equal(o.settings.vatRegistered, false);
   assert.equal(o.settings.stockPolicy, 'warn');
 });

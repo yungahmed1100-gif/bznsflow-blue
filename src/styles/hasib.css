@@ -72,7 +72,49 @@
 .hb-contact-orders p { margin: 0 0 6px; font-size: 13px; }
 .hb-contact-orders .ld-list { margin: 0; font-size: 13px; }
 
+/* Insights. Stat tiles and the hero use proportional figures; only table columns are tabular. */
+.hb-insights-body { display: grid; gap: 24px; transition: opacity .2s; }
+.hb-insights-body.is-refreshing { opacity: .6; }
+.hb-periods { margin: 0; flex-wrap: wrap; }
+.hb-hero { padding-block: 4px 8px; }
+.hb-hero-label { margin: 0; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.hb-hero-value { margin: 0; font-size: clamp(40px, 6vw, 56px); font-weight: 600; line-height: 1.1; letter-spacing: -.01em; }
+.hb-hero-value .hb-currency { font-size: .4em; font-weight: 600; color: var(--ink-2); }
+.hb-hero-value.is-negative { color: var(--coral); }
+.hb-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; margin: 0; background: var(--rule-strong); border: 1px solid var(--rule-strong); border-radius: var(--radius); overflow: hidden; }
+.hb-tile { background: var(--card); padding: 14px 16px; margin: 0; }
+.hb-tile dt { font-size: 12px; font-weight: 700; color: var(--ink-2); }
+.hb-tile dd { margin: 4px 0 0; }
+.hb-tile-value { display: block; font-size: 22px; font-weight: 600; }
+.hb-tile-note { display: block; margin-block-start: 2px; font-size: 12px; font-weight: 400; }
+.hb-tile dd .ld-num, .hb-hero .ld-num { font-variant-numeric: normal; }
+.hb-tile dd .hb-currency { font-size: 12px; color: var(--ink-2); }
+.hb-tiles-small .hb-tile-value { font-size: 18px; }
+.hb-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; align-items: start; }
+.hb-panel { background: var(--card); border: 1px solid var(--rule-strong); border-radius: var(--radius); padding: 14px 16px; min-inline-size: 0; }
+.hb-panel-title, .hb-bars caption { font-size: 15px; font-weight: 700; text-align: start; margin: 0 0 8px; }
+.hb-demand .hb-bars + .hb-bars { margin-block-start: 18px; }
+.hb-bars th[scope=row] { font-weight: 500; min-inline-size: 12ch; }
+.hb-bar-label { display: block; }
+/* One hue, thin, with a rounded data end; the value is always also printed in the row. */
+.hb-bar { display: block; block-size: 6px; margin-block-start: 6px; background: var(--paper-ruled); border-radius: 3px; overflow: hidden; }
+.hb-bar > span { display: block; block-size: 100%; background: var(--blue); border-start-end-radius: 3px; border-end-end-radius: 3px; }
+.hb-num-col { text-align: end; white-space: nowrap; }
+.hb-definitions { max-inline-size: 72ch; }
+/* Expenses */
+.ld-table tr.is-voided td { color: var(--ink-muted); text-decoration: line-through; }
+.ld-table tr.is-voided td .ld-chip, .ld-table tr.is-voided td .ld-button { text-decoration: none; }
+.ld-table tfoot th, .ld-table tfoot td { font-weight: 700; border-block-start: 1px solid var(--rule-strong); }
+.hb-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px; margin-block-end: 12px; border: 1px solid var(--coral); border-radius: var(--radius); background: var(--card); }
+.hb-confirm p { margin: 0; flex: 1 1 240px; }
+
 @media (max-width: 768px) {
+  /* With Hasib the phone tab bar has up to nine items: it scrolls sideways inside itself. */
+  .ld-nav.has-hasib { overflow-x: auto; scrollbar-width: thin; }
+  .ld-nav.has-hasib li { flex: 0 0 auto; min-inline-size: 68px; }
+  .hb-hero-value { font-size: 40px; }
+  .hb-periods { flex-wrap: nowrap; overflow-x: auto; max-inline-size: 100%; }
+  .hb-periods label span { white-space: nowrap; }
   .hb-totals { max-inline-size: none; }
   .hb-money, .hb-qty { inline-size: 100%; }
   .hb-lines td, .hb-variants td { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

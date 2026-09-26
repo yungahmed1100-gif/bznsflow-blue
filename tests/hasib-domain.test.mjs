@@ -116,8 +116,8 @@ test('every Layla sector has a valid Hasib pack; retail is the first full pack',
   for (const id of [...PRIMARY_SECTOR_IDS, 'other']) {
     const pack = hasibPack(id);
     assert(pack, id);
-    for (const core of ['orders', 'stock']) assert.equal(pack.modules[core], 'available', `${id} ${core}`);
-    for (const later of ['expenses', 'insights', 'demand']) assert.equal(pack.modules[later], 'planned', `${id} ${later}`);
+    for (const core of ['orders', 'stock', 'expenses', 'insights']) assert.equal(pack.modules[core], 'available', `${id} ${core}`);
+    assert.equal(pack.modules.demand, pack.archetype === 'catalog' ? 'available' : 'planned', `${id} demand follows Layla's item capture`);
     for (const f of pack.variantOptions) assert(f.key && f.en && f.ar, `${id} variant option`);
     for (const c of pack.expenseCategories) assert(c.key && c.en && c.ar, `${id} expense category`);
     for (const [k, v] of Object.entries(pack.modules)) assert(['available', 'planned', 'off'].includes(v), `${id} ${k}=${v}`);
