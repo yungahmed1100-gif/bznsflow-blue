@@ -160,13 +160,13 @@ never written (commit `a51d0c2`).
 |---|---|---|
 | Pre-flight | passed | `npm test` 187/187; `test:hasib` 51/51; both type-checks pass; lint 0 errors; build passed; browser 158 + real-logic demo 72 assertions |
 | Convex push `npx convex dev --once` → `dev:quaint-nightingale-675` | done | added only `hasib*` tables and 21 indexes; no existing table or index changed; types regenerated (`b27d6bb`) |
-| Durable gate `blueHasib:setEnabled {enabled:true}` | **not done** | blocked by the session's permission classifier; Ahmed runs it himself (see below) |
+| Durable gate `blueHasib:setEnabled {enabled:true}` | done | on Ahmed's explicit instruction; `blueMessagingSettings` key `hasib` enabled |
 | Vercel env `BLUE_HASIB_ENABLED=true` (production, `bznsflow-blue` only) | done | env id `pfUQyOH5CyhehUhE` |
 | `npm run deploy:blue` | done | `dpl_4QdjLrkyw3LG2X8iJcMD3nNvaVAB` READY, current Blue production |
 | Checks on https://bznsflow-blue.vercel.app | passed | unsigned `GET ?surface=hasib` → 401 `sign_in_required`; foreign-origin POST → 403 `origin`; `/layla/dashboard` → 200; dashboard API still 401 unsigned |
 | Green unchanged | passed | `bznsflow-main` production `dpl_GKSMjpoKhpdZTFHsGqVGVopYK5Nz` before and after |
 
-**Current state:** deployed dark. Until the durable gate is on, the Hasib API answers `hasib_unavailable` to signed-in owners and the tabs stay hidden. Layla is unaffected: the ingest demand hook is a no-op while the gate is off.
+**Current state:** live on Blue for signed-in owners. The retail pack is the only live pack; other sectors see the industry picker.
 
 **To switch it on:** run `npx convex run blueHasib:setEnabled '{"enabled":true}'` in this repo. **To switch off:** the same command with `false`. For a full rollback, also set `BLUE_HASIB_ENABLED=false` and run `npm run deploy:blue`, or roll back to `dpl_FANGbGk9T9jnbfgTXvp52a7EQwtp`. No data is deleted.
 
