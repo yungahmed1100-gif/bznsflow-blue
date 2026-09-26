@@ -10,6 +10,8 @@ export const instagramIntegration = v.object({id:v.string(),channel:v.literal('i
 export default defineSchema({
   // ── Hasib: orders, stock and payments (docs/hasib-engineering.md). Money is integer baisa. ──
   hasibSettings: defineTable({accountId:v.id('accounts'),packId:v.optional(v.string()),currency:v.string(),vatRegistered:v.boolean(),vatRateBps:v.number(),pricesIncludeVat:v.boolean(),vatin:v.optional(v.string()),stockPolicy:v.union(v.literal('warn'),v.literal('block')),updatedAt:v.number()}).index('by_account',['accountId']),
+  // Plan grants: Hasib opens only for Ascend/Apex accounts. Operator-managed, never deletes data.
+  blueEntitlements: defineTable({accountId:v.id('accounts'),plan:v.string(),status:v.string(),grantedAt:v.number(),revokedAt:v.optional(v.number()),note:v.optional(v.string())}).index('by_account',['accountId']),
   hasibCounters: defineTable({accountId:v.id('accounts'),kind:v.string(),next:v.number()}).index('by_account_kind',['accountId','kind']),
   hasibItems: defineTable({accountId:v.id('accounts'),requestId:v.optional(v.string()),kind:v.union(v.literal('product'),v.literal('service')),nameAr:v.string(),nameEn:v.string(),category:v.string(),unit:v.string(),catalogEntryKey:v.optional(v.string()),trackStock:v.boolean(),archived:v.boolean(),searchText:v.string(),createdAt:v.number(),updatedAt:v.number()})
     .index('by_account_archived_updated',['accountId','archived','updatedAt']).index('by_account_request',['accountId','requestId'])

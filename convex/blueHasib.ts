@@ -1,6 +1,7 @@
 import { internalMutation } from './_generated/server';
 import { v, type Value } from 'convex/values';
 import { executeHasib, HASIB_OPERATIONS } from './hasib/hasibState.js';
+import { grantPlan as grant, revokePlan as revoke } from './hasib/plans.js';
 
 type Result = Promise<{ ok: boolean; value?: Value; reason?: string }>;
 const option = v.object({ key: v.string(), value: v.string() });
@@ -33,3 +34,11 @@ export const setEnabled = internalMutation({ args: { enabled: v.boolean() }, han
   if (row) await ctx.db.patch(row._id, { enabled: args.enabled }); else await ctx.db.insert('blueMessagingSettings', { key: 'hasib', enabled: args.enabled });
   return { enabled: args.enabled };
 } });
+
+/** Operator: give an account Ascend or Apex (Hasib included), optionally straight into a live pack. */
+export const grantPlan = internalMutation({ args: { email: v.string(), plan: v.string(), packId: v.optional(v.string()), note: v.optional(v.string()) },
+  handler: (ctx, args) => grant(ctx, args, Date.now()) });
+
+/** Operator: end an account's Hasib plan. Its orders, stock and expenses are kept. */
+export const revokePlan = internalMutation({ args: { email: v.string() }, handler: (ctx, args) => revoke(ctx, args, Date.now()) });
+

@@ -16,6 +16,7 @@ import { executeMessaging } from '../convex/blueMessagingState.js';
 import { executeDashboard } from '../convex/blueDashboardState.js';
 import { executeCampaigns } from '../convex/blueCampaignState.js';
 import { executeHasib } from '../convex/hasib/hasibState.js';
+import { grantPlan } from '../convex/hasib/plans.js';
 
 const PORT = Number(process.argv[2] || 5310), DIST = new URL('../dist/', import.meta.url).pathname;
 const DAY = 86400000, HOUR = 3600000, CSRF = 'd'.repeat(64);
@@ -25,6 +26,7 @@ const m = convexMemory({ start: Date.now() - 30 * DAY });
 const tenant = await seedTenant(m, { name: 'n', sector: 'Retail' });
 await m.db.patch(tenant.rowId, { profile: { businessName: 'Noor Abayas', sector: 'Retail', services: 'Abayas, shaylas and tailoring', prices: 'From 8 OMR', hours: '10–10', location: 'Al Khuwair, Muscat', humanContact: 'owner@noor.example', reviewed: true } });
 for (const key of ['global', 'broadcast', 'hasib']) await m.db.insert('blueMessagingSettings', { key, enabled: key !== 'broadcast' });
+await grantPlan(m.ctx, { email: 'n@example.com', plan: 'ascend', packId: 'retail' }, m.now());
 await m.db.insert('blueBusinessSettings', { accountId: tenant.accountId, timezone: 'Asia/Muscat', updatedAt: m.now() });
 const call = (fn, operation, args = {}, at = m.now()) => fn(m.ctx, { operation, sessionHash: tenant.sessionHash, hashSecret: SECRET, workerFunction: 'dispatch', ...args }, at);
 const hasib = async (operation, args, at) => { const r = await call(executeHasib, operation, args, at); if (!r.ok) throw Error(`${operation}: ${r.reason}`); return r.value; };

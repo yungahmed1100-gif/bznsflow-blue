@@ -10,6 +10,7 @@ import { executeCatalog } from './catalogState.js';
 import { executeOrders } from './ordersState.js';
 import { executeExpenses } from './expensesState.js';
 import { executeInsights } from './insightsState.js';
+import { planFor, HASIB_PLANS } from './plans.js';
 
 export const HASIB_OPERATIONS = ['overview', 'settings_update', 'items', 'item_save', 'item_archive', 'stock_move', 'stock_moves', 'low_stock',
   'order_create', 'order_status', 'orders', 'order', 'payment_record', 'contact_summary', 'chat_prefill', 'expense_create', 'expenses', 'expense_void', 'insights'];
@@ -47,11 +48,14 @@ export async function executeHasib(ctx, a, now = Date.now()) {
   const tenant = await resolveTenant(ctx, a.sessionHash, now);
   if (tenant.error) return fail(tenant.error);
   tenant.secret = a.hashSecret;
+  // Hasib is part of Ascend and Apex; Layla-only accounts have no grant.
+  const plan = await planFor(ctx, tenant.accountId);
+  if (!HASIB_PLANS.includes(plan)) return fail('plan_required');
   const pack = tenant.pack = await packFor(ctx, tenant);
   if (a.operation === 'settings_update') return updateSettings(ctx, tenant.accountId, a, now);
   if (!isLivePack(pack.id)) {
     // Only live packs open Hasib; the owner can choose one without changing Layla's sector.
-    return a.operation === 'overview' ? ok({ setupRequired: true, livePacks: livePackSummaries(), modules: [], settings: publicSettings(await settingsFor(ctx, tenant.accountId)) }) : fail('pack_not_live');
+    return a.operation === 'overview' ? ok({ plan, setupRequired: true, livePacks: livePackSummaries(), modules: [], settings: publicSettings(await settingsFor(ctx, tenant.accountId)) }) : fail('pack_not_live');
   }
 
   if (a.operation === 'overview') {
@@ -59,7 +63,7 @@ export async function executeHasib(ctx, a, now = Date.now()) {
     const pending = await ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => q.eq('accountId', tenant.accountId).eq('status', 'pending')).take(100);
     const low = (await ctx.db.query('hasibVariants').withIndex('by_account_low', q => q.eq('accountId', tenant.accountId).eq('low', true)).take(100)).filter(v => !v.archived);
     return ok({ pack: { id: pack.id, archetype: pack.archetype, version: pack.version, variantOptions: pack.variantOptions, orderFields: pack.orderFields, expenseCategories: pack.expenseCategories },
-      setupRequired: false, livePacks: livePackSummaries(), modules: visibleModules(pack), settings: publicSettings(settings), counts: { pendingOrders: pending.length, lowStock: low.length } });
+      plan, setupRequired: false, livePacks: livePackSummaries(), modules: visibleModules(pack), settings: publicSettings(settings), counts: { pendingOrders: pending.length, lowStock: low.length } });
   }
   const result = (await executeCatalog(ctx, tenant, a, now)) || (await executeOrders(ctx, tenant, a, now))
     || (await executeExpenses(ctx, tenant, a, now)) || (await executeInsights(ctx, tenant, a, now));

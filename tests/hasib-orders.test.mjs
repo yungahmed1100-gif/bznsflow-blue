@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { blueHarness, seedTenant } from './helpers/blue-tenant.mjs';
 import { executeHasib } from '../convex/hasib/hasibState.js';
+import { grantPlan } from '../convex/hasib/plans.js';
 import { SECRET } from './helpers/convex-memory.mjs';
 
 async function setup({ gate = true } = {}) {
@@ -14,6 +15,8 @@ async function setup({ gate = true } = {}) {
   const a = await seedTenant(h.m, { name: 'a', sector: 'Retail' });
   const b = await seedTenant(h.m, { name: 'b', sector: 'Retail', phone: '9999', waba: '8888', sender: '96890000001' });
   await h.messaging('activate', { sessionHash: a.sessionHash });
+  await grantPlan(h.m.ctx, { email: 'a@example.com', plan: 'ascend' }, h.m.now());
+  await grantPlan(h.m.ctx, { email: 'b@example.com', plan: 'ascend' }, h.m.now());
   const hasib = (tenant, operation, args = {}) => executeHasib(h.m.ctx, { operation, sessionHash: tenant.sessionHash, hashSecret: SECRET, ...args }, h.m.now());
   return { h, a, b, hasib };
 }

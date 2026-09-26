@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { blueHarness, seedTenant } from './helpers/blue-tenant.mjs';
 import { SECRET } from './helpers/convex-memory.mjs';
 import { executeHasib } from '../convex/hasib/hasibState.js';
+import { grantPlan } from '../convex/hasib/plans.js';
 import { HASIB_LIVE_PACKS, isLivePack } from '../config/hasib-packs.js';
 
 async function setup(sector) {
@@ -13,6 +14,7 @@ async function setup(sector) {
   await h.enable();
   await h.m.db.insert('blueMessagingSettings', { key: 'hasib', enabled: true });
   const t = await seedTenant(h.m, { name: 'a', sector });
+  await grantPlan(h.m.ctx, { email: 'a@example.com', plan: 'ascend' }, h.m.now());
   const hasib = (operation, args = {}) => executeHasib(h.m.ctx, { operation, sessionHash: t.sessionHash, hashSecret: SECRET, ...args }, h.m.now());
   return { h, t, hasib };
 }

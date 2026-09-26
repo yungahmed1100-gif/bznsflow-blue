@@ -38,7 +38,7 @@
     "dev:hasib": "node scripts/hasib-demo.mjs 5310 & vite --config scripts/vite.hasib-demo.config.js",
     "demo:hasib": "node scripts/hasib-demo.mjs",
     "test:hasib-demo-browser": "node tests/hasib-demo-browser.mjs",
-    "test:hasib": "node --test tests/hasib-domain.test.mjs tests/hasib-orders.test.mjs tests/hasib-api.test.mjs tests/hasib-strings.test.mjs tests/hasib-insights.test.mjs tests/hasib-packs-gate.test.mjs",
+    "test:hasib": "node --test tests/hasib-domain.test.mjs tests/hasib-orders.test.mjs tests/hasib-api.test.mjs tests/hasib-strings.test.mjs tests/hasib-insights.test.mjs tests/hasib-packs-gate.test.mjs tests/hasib-plans.test.mjs",
     "test:dashboard-browser": "node tests/layla-dashboard-browser.mjs",
     "convex:dev": "convex dev",
     "convex:setup": "convex dev --once",
