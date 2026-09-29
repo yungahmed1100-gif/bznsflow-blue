@@ -6,6 +6,7 @@
  *   node scripts/eval-intents.mjs --gate          exit 1 below the macro-F1 floor
  *   node scripts/eval-intents.mjs --min=0.75      move the floor
  *   node scripts/eval-intents.mjs --quiet         write files, print only the summary
+ *   node scripts/eval-intents.mjs --gate-on=regex gate the regex classifier instead of route()
  *
  * Inputs
  *   config/eval-questions.js          the hand-reviewed labels
@@ -45,6 +46,7 @@ function fail(msg) {
 const args = process.argv.slice(2);
 const gate = args.includes('--gate');
 const quiet = args.includes('--quiet');
+const gateOnRegex = args.includes('--gate-on=regex');
 const minF1 = Number((args.find((a) => a.startsWith('--min=')) || '--min=0.90').slice(6));
 if (!Number.isFinite(minF1) || minF1 < 0 || minF1 > 1) fail('--min must be between 0 and 1.');
 
@@ -263,8 +265,9 @@ console.log(`  routed  accuracy ${pct(routed.accuracy)} · macro-F1 ${pct(routed
 console.log(`  report  ${mdPath.replace(`${ROOT}/`, '')}`);
 console.log(`  data    ${jsonPath.replace(`${ROOT}/`, '')}\n`);
 
-if (gate && routed.macroF1 < minF1) {
-  fail(`macro-F1 ${pct(routed.macroF1)} is below the ${pct(minF1)} gate.\n` +
+const gated = gateOnRegex ? strict : routed;
+if (gate && gated.macroF1 < minF1) {
+  fail(`macro-F1 ${pct(gated.macroF1)} is below the ${pct(minF1)} gate.\n` +
     `  See ${mdPath.replace(`${ROOT}/`, '')} for the misroutes.`);
 }
 if (!existsSync(jsonPath)) fail('report was not written.');

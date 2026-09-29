@@ -66,3 +66,69 @@ test('refusals name the real reason', async () => {
   await s.h.m.db.patch(s.a.rowId, { status: 'reconciliation_required' });
   assert.equal((await s.reply()).reason, 'connection_not_ready');
 });
+
+test('an owner reply still queued is never cancelled by the owner’s next reply, a takeover or a hand-back', async () => {
+  const { h, a, person, reply, job } = await setup();
+  assert.equal((await reply('First')).ok, true);
+  assert.equal((await reply('Second')).ok, true);
+  assert.equal(job('First').status, 'queued', 'a second quick reply keeps the first');
+  await h.messaging('resume_conversation', { sessionHash: a.sessionHash, conversationId: person._id });
+  await h.messaging('takeover', { sessionHash: a.sessionHash, conversationId: person._id });
+  for (const text of ['First', 'Second']) {
+    assert.equal(job(text).status, 'queued', `${text} survives hand-back and takeover`);
+    await sendsThrough(h, job(text));
+    assert.equal((await h.messaging('result', { jobId: job(text)._id, intent: 'intent-1', status: 'submitted', providerId: `wamid.${text}` })).ok, true);
+  }
+});
+
+test('opting out still stops the owner’s queued replies', async () => {
+  const { h, a, reply, job } = await setup();
+  assert.equal((await reply('Before stop')).ok, true);
+  await h.inbound(a, { from: '96891111111', text: 'STOP', intent: 'optout' });
+  assert.equal(job('Before stop').status, 'blocked');
+});
+
+test('pausing Layla keeps the owner’s queued reply', async () => {
+  const { h, a, reply, job } = await setup();
+  assert.equal((await reply('Before pause')).ok, true);
+  await h.messaging('pause', { sessionHash: a.sessionHash });
+  assert.equal(job('Before pause').status, 'queued');
+  await sendsThrough(h, job('Before pause'));
+});
+
+// A reply the owner types on their phone's WhatsApp/Instagram app arrives as an echo.
+// The owner has then answered live, so a dashboard reply still waiting must not go out after it.
+const phoneEcho = (h, a, kind = 'echo') => h.messaging('ingest', { integrationId: a.integration.id,
+  events: [{ kind, id: `echo-${randomUUID()}`, from: '96891111111', at: h.m.now(), text: 'Answered from my phone' }] });
+
+test('a reply from the owner’s phone cancels a dashboard reply still waiting to send', async () => {
+  const { h, a, reply, job } = await setup();
+  assert.equal((await reply('Queued in dashboard')).ok, true);
+  await phoneEcho(h, a);
+  assert.equal(job('Queued in dashboard').status, 'blocked');
+});
+
+test('a reply from the owner’s phone stops a dashboard reply that is already being sent', async () => {
+  const { h, a, reply, job } = await setup();
+  assert.equal((await reply('In flight')).ok, true);
+  const claimed = await h.messaging('claim', { jobId: job('In flight')._id, intent: 'intent-1' });
+  assert.ok(claimed.value);
+  await phoneEcho(h, a, 'takeover');
+  assert.equal((await h.messaging('send_gate', { jobId: job('In flight')._id, intent: 'intent-1' })).value, false);
+});
+
+test('a platform opt-out blocks the owner’s queued reply with the opt-out reason', async () => {
+  const { h, a, reply, job } = await setup();
+  assert.equal((await reply('Before platform stop')).ok, true);
+  await phoneEcho(h, a, 'optout');
+  assert.equal(job('Before platform stop').status, 'blocked');
+  assert.equal(job('Before platform stop').reason, 'contact_opted_out');
+});
+
+test('a customer asking for a person does not cancel the owner’s waiting reply', async () => {
+  const { h, a, reply, job } = await setup();
+  assert.equal((await reply('On my way to help')).ok, true);
+  await h.inbound(a, { from: '96891111111', text: 'I want to talk to a person', handoff: true, intent: 'human' });
+  assert.equal(job('On my way to help').status, 'queued');
+  await sendsThrough(h, job('On my way to help'));
+});

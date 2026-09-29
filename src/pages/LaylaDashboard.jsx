@@ -43,12 +43,16 @@ export default function LaylaDashboard({ lang = 'ar' }) {
   const [previewIndustry, setPreviewIndustry] = useState('');
   const overview = usePolling(loadOverview, [], { interval: 30000, enabled: ready });
   // Hasib is optional: when it is off (or unavailable) its tabs simply do not appear.
-  const hasibState = usePolling(loadHasib, [], { interval: 60000, enabled: ready && !!overview.data?.connected });
+  // Catalyst has no operations capability; asking Hasib would only earn a plan_required refusal every minute.
+  const hasibAllowed = !!overview.data?.capabilities?.operations || !!overview.data?.founderPreview;
+  const hasibState = usePolling(loadHasib, [], { interval: 60000, enabled: ready && !!overview.data?.connected && hasibAllowed });
   const hasibOverview = hasibState.data?.modules ? hasibState.data : null;
   // Eight plain sections; Hasib's appear only when Business Setup selects a live pack.
   const map = useMemo(() => dashboardMap(hasibOverview, overview.data?.capabilities || hasibOverview?.capabilities), [hasibOverview, overview.data?.capabilities]);
   const h = useMemo(() => createHasibStrings(lang), [lang]);
-  const { tab, view } = resolveTab(params.get('tab'), params.get('view'), map);
+  // The prerendered shell has no URL, so resolving the tab before mount bakes "chats" into
+  // the markup and hydration keeps that stale aria-current/data-tab. Resolve after mount.
+  const { tab, view } = ready ? resolveTab(params.get('tab'), params.get('view'), map) : { tab: null, view: null };
 
   // Client-only: the prerendered HTML is a neutral loading shell.
   useEffect(() => { setReady(true); }, []);

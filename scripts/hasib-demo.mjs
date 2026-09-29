@@ -23,6 +23,8 @@ import { grantPlan } from '../convex/hasib/plans.js';
 const PORT = Number(process.argv.find(a => /^\d+$/.test(a)) || 5310), DIST = new URL('../dist/', import.meta.url).pathname;
 // --pack=retail-tech seeds a Muscat phone and electronics store instead of the abaya boutique.
 const PACK = (process.argv.find(a => a.startsWith('--pack=')) || '--pack=retail').slice(7);
+// --plan=catalyst runs a Layla-only account: no plan grant, no Hasib, real chat controls.
+const CATALYST = process.argv.includes('--plan=catalyst');
 const DAY = 86400000, HOUR = 3600000, CSRF = 'd'.repeat(64);
 const m = convexMemory({ start: Date.now() - 30 * DAY });
 // Server-owned context flag, never accepted from an HTTP argument or live Convex.
@@ -32,7 +34,7 @@ m.ctx.hasibPreview = true;
 const tenant = await seedTenant(m, { name: 'n', sector: 'Retail' });
 await m.db.patch(tenant.rowId, { profile: PACK === 'retail-tech' ? { businessName: 'Muscat Mobile', sector: 'Retail', services: 'Phones, accessories and repairs', prices: 'From 3 OMR', hours: '10–11', location: 'Ruwi, Muscat', humanContact: 'owner@muscatmobile.example', reviewed: true } : { businessName: 'Noor Abayas', sector: 'Retail', services: 'Abayas, shaylas and tailoring', prices: 'From 8 OMR', hours: '10–10', location: 'Al Khuwair, Muscat', humanContact: 'owner@noor.example', reviewed: true } });
 for (const key of ['global', 'broadcast', 'hasib']) await m.db.insert('blueMessagingSettings', { key, enabled: key !== 'broadcast' });
-await grantPlan(m.ctx, { email: 'n@example.com', plan: 'ascend', packId: PACK === 'retail-tech' ? 'retail-tech' : 'retail' }, m.now());
+if (!CATALYST) await grantPlan(m.ctx, { email: 'n@example.com', plan: 'ascend', packId: PACK === 'retail-tech' ? 'retail-tech' : 'retail' }, m.now());
 await m.db.insert('blueBusinessSettings', { accountId: tenant.accountId, timezone: 'Asia/Muscat', updatedAt: m.now() });
 const call = (fn, operation, args = {}, at = m.now()) => fn(m.ctx, { operation, sessionHash: tenant.sessionHash, hashSecret: SECRET, workerFunction: 'dispatch', ...args }, at);
 const hasib = async (operation, args, at) => { const r = await call(executeHasib, operation, args, at); if (!r.ok) throw Error(`${operation}: ${r.reason}`); return r.value; };
@@ -141,7 +143,19 @@ async function seedFashion() {
 
 }
 
-if (PACK === 'retail-tech') await (await import('./hasib-demo-tech.mjs')).seedTech({ m, tenant, call, hasib, executeMessaging, DAY, HOUR });
+/** A Layla-only business: a week of customer chats, nothing else. */
+async function seedCatalyst() {
+  let n = 0;
+  const say = (from, text, profileName, hoursAgo) => { m.advance(Math.max(0, Date.now() - hoursAgo * HOUR - m.now())); return call(executeMessaging, 'ingest', { integrationId: tenant.integration.id,
+    events: [{ kind: 'message', id: `cat-${++n}`, from, at: m.now(), text, reply: 'Thanks — the team will confirm.', intent: 'availability_request', handoff: false, profileName }] }); };
+  await say('96891234501', 'السلام عليكم، عندكم توصيل للسيب؟', 'مريم البلوشي', 30);
+  await say('96891234502', 'Do you have the black abaya in size 54?', 'Salma Al Harthy', 5);
+  await say('96891234503', 'كم السعر؟', 'عائشة الرواحي', 2);
+  await say('96891234502', 'And what are your opening hours?', 'Salma Al Harthy', 1);
+}
+
+if (CATALYST) await seedCatalyst();
+else if (PACK === 'retail-tech') await (await import('./hasib-demo-tech.mjs')).seedTech({ m, tenant, call, hasib, executeMessaging, DAY, HOUR });
 else if (PACK === 'retail') await seedFashion();
 else {
   await hasib('settings_update', { packId: PACK });
@@ -160,6 +174,7 @@ async function api(req, res, url) {
   const body = req.method === 'POST' ? await readJson(req) : {};
   const reply = r => r.ok ? json(res, 200, { ok: true, ...(r.value || {}), csrfToken: CSRF }) : json(res, r.reason === 'sign_in_required' ? 401 : 409, { ok: false, reason: r.reason });
   const { action, ...args } = body;
+  if (surface === 'hasib' && CATALYST) return json(res, 403, { ok: false, reason: 'plan_required' });
   if (surface === 'hasib') return reply(await call(executeHasib, req.method === 'GET' ? 'overview' : action, req.method === 'GET' ? {} : hasibArgs(action, args), Date.now()));
   if (surface === 'dashboard') {
     if (req.method === 'GET') {
@@ -169,6 +184,13 @@ async function api(req, res, url) {
     if (DASHBOARD_OPS.has(action)) return reply(await call(executeDashboard, action, args, Date.now()));
     if (['templates', 'campaigns'].includes(action)) return reply(await call(executeCampaigns, action, args, Date.now()));
     return json(res, 409, { ok: false, reason: 'broadcast_unavailable' });
+  }
+  if (surface === 'messaging' && CATALYST) {
+    // The real messaging state machine; provider calls (activate checks, disconnect) are not in the demo.
+    const op = req.method === 'GET' || action === 'check_connection' ? 'state' : action;
+    if (!['state', 'pause', 'activate', 'takeover', 'resume_conversation', 'manual_reply'].includes(op)) return json(res, 409, { ok: false, reason: 'not_in_demo' });
+    const r = await call(executeMessaging, op, { ...(args.conversationId ? { conversationId: args.conversationId } : {}), ...(args.text ? { text: args.text } : {}), ...(args.requestId ? { requestId: args.requestId } : {}) }, Date.now());
+    return r.ok ? json(res, 200, { ok: true, ...(r.value || {}), csrfToken: CSRF }) : json(res, 409, { ok: false, reason: r.reason });
   }
   if (surface === 'messaging') return json(res, 200, messagingState);
   return json(res, 404, { ok: false, reason: 'not_in_demo' });

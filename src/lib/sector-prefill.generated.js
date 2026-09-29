@@ -67,7 +67,7 @@ export const SECTOR_PREFILL = {
   },
   restaurant: {
     archetype: "catalog",
-    services: { en: "Menu, reservations, orders, delivery and customer support", ar: "القائمة والحجوزات والطلبات والتوصيل ودعم العملاء" },
+    services: { en: "Menu and dishes, reservations, orders, delivery and customer support", ar: "قائمة الطعام والأطباق والحجوزات والطلبات والتوصيل ودعم العملاء" },
     questions: {
       en: ["What is on the menu?", "Can I make a reservation?", "Do you deliver to my area?", "What time are you open?"],
       ar: ["ما الخدمات المتاحة في المطاعم؟", "كم تبلغ الأسعار؟", "ما مواعيد العمل والتوفر؟", "كيف أتواصل مع الفريق؟"],

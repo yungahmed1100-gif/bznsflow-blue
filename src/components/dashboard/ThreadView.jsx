@@ -9,6 +9,7 @@ import { exportChat } from '../../lib/dashboard/exports';
 import { StatusTicks, QualificationChip } from './Badges';
 import { CampaignWizard } from './CampaignWizard';
 import { Dialog } from './Dialog';
+import { dashboardPermissions } from '../../lib/dashboard/permissions';
 
 const newRequestId = () => crypto.randomUUID();
 
@@ -60,6 +61,7 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
     // Resubmitting unchanged text reuses the request id, so a retry never duplicates; editing starts a new one.
     act('send', async () => { await messaging('manual_reply', { conversationId,channel:conversation.channel, text, requestId: draft.id }); setDraft({ text: '', id: newRequestId() }); });
   };
+  const { canExport, canBroadcast } = dashboardPermissions(overview);
   const exportAs = format => act(`export-${format}`, () => exportChat(conversationId, format, { lang: s.lang, business: overview.business.name }));
 
   return (
@@ -75,13 +77,13 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
             <input type="checkbox" role="switch" checked={takeover} disabled={busy === 'leave' || contact.optout} onChange={toggleLeave} aria-describedby="ld-leave-help" />
             <span className="ld-switch-track" aria-hidden="true" /><span>{s.t('leaveChat')}</span>
           </label>
-          <details className="ld-menu">
+          {canExport && <details className="ld-menu">
             <summary className="ld-button ld-quiet">{s.t('export')}</summary>
             <div className="ld-menu-list">
               <button type="button" onClick={() => exportAs('csv')} disabled={!!busy}>{s.t('exportCsv')}</button>
               <button type="button" onClick={() => exportAs('pdf')} disabled={!!busy}>{s.t('exportPdf')}</button>
             </div>
-          </details>
+          </details>}
         </div>
         <p id="ld-leave-help" className="ld-help">{s.t('leaveChatHelp')}</p>
         <ChatOrders s={s} conversationId={conversationId} />
@@ -118,13 +120,13 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
             </form>
           ) : (
             <div className="ld-window-closed">
-              <p>{s.t('windowClosed', { time: formatDateTime(conversation.windowOpenUntil, s.lang, overview.timezone) })}</p>
-              {conversation.channel!=='instagram' && <button type="button" className="ld-button" onClick={() => setTemplateOpen(true)} disabled={!overview.broadcastEnabled}>{s.t('sendTemplate')}</button>}
-              {conversation.channel!=='instagram' && !overview.broadcastEnabled && <p className="ld-help">{s.t('broadcastUnavailable')}</p>}
+              <p>{s.t(canBroadcast && conversation.channel !== 'instagram' ? 'windowClosed' : 'windowClosedWait', { time: formatDateTime(conversation.windowOpenUntil, s.lang, overview.timezone) })}</p>
+              {conversation.channel!=='instagram' && canBroadcast && <button type="button" className="ld-button" onClick={() => setTemplateOpen(true)} disabled={!overview.broadcastEnabled}>{s.t('sendTemplate')}</button>}
+              {conversation.channel!=='instagram' && canBroadcast && !overview.broadcastEnabled && <p className="ld-help">{s.t('broadcastUnavailable')}</p>}
             </div>
           )}
       </footer>
-      {templateOpen && conversation.channel!=='instagram' && (
+      {templateOpen && canBroadcast && conversation.channel!=='instagram' && (
         <Dialog s={s} title={s.t('sendTemplate')} onClose={() => setTemplateOpen(false)} wide>
           <CampaignWizard s={s} overview={overview} single={contact} onDone={() => { setTemplateOpen(false); thread.refresh({ quiet: true }); }} />
         </Dialog>

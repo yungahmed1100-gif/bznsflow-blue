@@ -9,10 +9,10 @@ import { resolveTenant } from './blueTenant.js';
 import { planFor } from './hasib/plans.js';
 import { effectivePlan, capabilitiesFor } from './hasib/capabilities.js';
 import { actorWorkspace } from './hasib/workspaceState.js';
+import { dashboardGate, CAMPAIGN_OPERATIONS as CAMPAIGNS } from './blueDashboardGate.js';
 
 type Result = Promise<{ ok: boolean; value?: Value; reason?: string }>;
 const DASHBOARD = ['overview', 'set_timezone', 'conversations', 'thread', 'contacts', 'contact_update', 'contact_delete', 'export_chat', 'export_contacts', 'export_account'];
-const CAMPAIGNS = ['templates', 'replace_templates', 'campaign_preview', 'campaign_create', 'campaigns', 'campaign_detail', 'campaign_cancel'];
 const field = v.object({ key: v.string(), value: v.union(v.string(), v.null()) });
 const templateRecord = v.object({ templateId: v.string(), name: v.string(), language: v.string(), category: v.string(), status: v.string(), parameterFormat: v.string(),
   header: v.optional(v.object({ format: v.string(), text: v.optional(v.string()) })), body: v.string(), footer: v.optional(v.string()),
@@ -40,8 +40,8 @@ export const execute = internalMutation({
     const rawPlan = await planFor(ctx, tenant.accountId), capabilities = capabilitiesFor(effectivePlan(rawPlan));
     const actor = rawPlan ? await actorWorkspace(ctx, tenant.accountId, args.actorAccountId, Date.now()) : { role: 'manager' };
     if (!actor) return { ok: false, reason: 'workspace_access_revoked' };
-    if (args.operation === 'import_contacts' && (!capabilities.imports || actor.role !== 'manager')) return { ok: false, reason: actor.role !== 'manager' ? 'manager_required' : 'plan_required' };
-    if (CAMPAIGNS.includes(args.operation) && (!capabilities.broadcasts || actor.role !== 'manager')) return { ok: false, reason: actor.role !== 'manager' ? 'manager_required' : 'plan_required' };
+    const refused = dashboardGate(args.operation, capabilities, actor.role);
+    if (refused) return { ok: false, reason: refused };
     if (args.operation === 'import_contacts') return executeAudience(ctx, a);
     if (CAMPAIGNS.includes(args.operation)) return executeCampaigns(ctx, a);
     return executeDashboard(ctx, a);

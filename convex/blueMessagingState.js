@@ -28,9 +28,21 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
   const conversation = key => find('blueConversations','by_key','key',key);
   const message = key => find('blueMessages','by_key','key',key);
   const schedule = job => ctx.scheduler.runAfter(0, a.workerFunction, {jobId:job});
+  // Stops from the owner's own dashboard actions: they are about Layla, not about the owner's
+  // replies. A reply typed on the owner's phone ('native_reply'), an opt-out, an unsend or a
+  // disconnect still stops everything queued.
+  const OWNER_SAFE_STOPS=new Set(['human_takeover','owner_paused']);
   async function stopQueued(integrationId,personId,reason) {
     const jobs=await ctx.db.query('blueMessages').withIndex('by_integration_status',q=>q.eq('integrationId',integrationId).eq('status','queued')).take(100);
-    for(const job of jobs) if(!personId || job.conversationId===personId) await ctx.db.patch(job._id,{status:'blocked',reason});
+    for(const job of jobs) if((!personId || job.conversationId===personId) && !(job.manual && OWNER_SAFE_STOPS.has(reason))) await ctx.db.patch(job._id,{status:'blocked',reason});
+  }
+  // The owner's own dashboard actions bump the conversation version to fence Layla's replies;
+  // they re-stamp the owner's waiting replies so those still pass the version check. A reply
+  // from the owner's phone bumps the version without this, so it still fences them.
+  // Scoped to this conversation's last 24 hours: older replies are outside the window and cannot send.
+  async function restampOwnerReplies(integrationId,personId,version) {
+    const jobs=await ctx.db.query('blueMessages').withIndex('by_conversation_at',q=>q.eq('conversationId',personId).gte('at',now-DAY)).take(500);
+    for(const job of jobs) if(job.manual && job.integrationId===integrationId && ['queued','attempting'].includes(job.status)) await ctx.db.patch(job._id,{conversationVersion:version});
   }
   async function approvedCatalog(accountId, limit = 1000) {
     const rows = await ctx.db.query('blueCatalogEntries').withIndex('by_owner_status_order',q=>q.eq('ownerKey',String(accountId)).eq('status','approved')).take(limit);
@@ -131,7 +143,8 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
         if(person.optout) return fail('contact_opted_out');
         await stopQueued(row.integration.id,person._id,'human_takeover');
         await ctx.db.patch(person._id,{takeover:false,updatedAt:now,version:(person.version || 0)+1});
-      } else if(a.operation==='takeover') {await stopQueued(row.integration.id,person._id,'human_takeover');await ctx.db.patch(person._id,{takeover:true,updatedAt:now,version:(person.version || 0)+1});}
+        await restampOwnerReplies(row.integration.id,person._id,(person.version || 0)+1);
+      } else if(a.operation==='takeover') {await stopQueued(row.integration.id,person._id,'human_takeover');await ctx.db.patch(person._id,{takeover:true,updatedAt:now,version:(person.version || 0)+1});await restampOwnerReplies(row.integration.id,person._id,(person.version || 0)+1);}
       else {
         // The owner's own reply never depends on Layla (paused, taken over or never activated);
         // it needs a ready connection, a customer who has not opted out and the 24h window.
@@ -145,6 +158,7 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
           await stopQueued(row.integration.id,person._id,'human_takeover');
           const version=(person.version || 0)+1;
           await ctx.db.patch(person._id,{takeover:true,updatedAt:now,version});
+          await restampOwnerReplies(row.integration.id,person._id,version);
           await queue(row,{...person,version},a.text.trim(),key,true);
         }
       }
@@ -220,7 +234,7 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
       }
       if(['optout','takeover'].includes(e.kind)) {
         await ctx.db.patch(person._id,{[e.kind==='optout'?'optout':'takeover']:true,updatedAt:now,version:(person.version || 0)+1});
-        await stopQueued(a.integrationId,person._id,'human_takeover');
+        await stopQueued(a.integrationId,person._id,e.kind==='optout'?'contact_opted_out':'native_reply');
         if(e.kind==='optout') await applyOptout(ctx,contact,now);
         continue;
       }
@@ -230,13 +244,15 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
       await ctx.db.insert('blueMessages',{key:msgKey,integrationId:a.integrationId,accountId:row.accountId,conversationId:person._id,direction:e.kind==='echo'?'human':'in',...(e.medicalContentWithheld?{reason:'medical_content_withheld'}:{text:e.text}),at:e.at,expiresAt:now+MESSAGE_RETENTION_MS,textExpiresAt:e.medicalContentWithheld?Number.MAX_SAFE_INTEGER:now+TEXT_RETENTION_MS,status:'received'});
       if(e.kind==='echo') {
         await ctx.db.patch(person._id,{takeover:true,updatedAt:now,version:(person.version || 0)+1});
-        await stopQueued(a.integrationId,person._id,'human_takeover');
+        await stopQueued(a.integrationId,person._id,'native_reply');
         await ctx.db.patch(contact._id,{lastActivityAt:Math.max(contact.lastActivityAt || 0,e.at || now),updatedAt:now});
         continue;
       }
       if(e.intent==='optout' || e.handoff) await stopQueued(a.integrationId,person._id,e.intent==='optout'?'contact_opted_out':'human_takeover');
       const version=(person.version || 0)+(e.intent==='optout' || e.handoff?1:0);
       await ctx.db.patch(person._id,{version,lastInbound:Math.max(person.lastInbound,e.at),updatedAt:now,...(e.intent==='optout'?{optout:true}:{}),...(e.handoff?{takeover:true}:{})});
+      // Asking for a person hands the chat to the owner; the owner's waiting reply is that person.
+      if(e.handoff && e.intent!=='optout') await restampOwnerReplies(a.integrationId,person._id,version);
       if(e.intent==='optout') {await applyOptout(ctx,contact,now);continue;}
       catalog ??= await approvedCatalog(row.accountId);
       // Fields are captured even while a person has taken over the chat.
@@ -282,7 +298,9 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     const inflight=await ctx.db.query('blueMessages').withIndex('by_integration_status',q=>q.eq('integrationId',job.integrationId).eq('status','attempting')).take(1);
     if(inflight.length) return ok(null);
     const control=await controls(job.integrationId), row=await rowForJob(job,control), person=await ctx.db.get(job.conversationId);
-    if(job.profileVersion!==(row?.profileVersion || 1) || job.conversationVersion!==(person?.version || 0)) {await ctx.db.patch(job._id,{status:'blocked',reason:'conversation_or_profile_changed'});return ok(null);}
+    // Layla's reply depends on the business profile; the owner's own text does not. Both stay fenced
+    // by the conversation version (re-stamped by the owner's own dashboard actions).
+    if((!job.manual && job.profileVersion!==(row?.profileVersion || 1)) || job.conversationVersion!==(person?.version || 0)) {await ctx.db.patch(job._id,{status:'blocked',reason:'conversation_or_profile_changed'});return ok(null);}
     const reason=!enabled?'global_paused':!ready(row)?'activation_not_ready':!control?.active && !job.manual?'owner_paused':person?.optout?'contact_opted_out':person?.takeover && !job.manual && !job.handoff?'human_takeover':!person || now-person.lastInbound>=DAY || now-job.at>=DAY?'window_expired':null;
     if(reason) {await ctx.db.patch(job._id,{status:'blocked',reason});return ok(null);}
     for(const [key,max,expiresAt] of [[`minute:${job.integrationId}:${Math.floor(now/60000)}`,10,now+120000],[`day:${job.integrationId}:${Math.floor(now/DAY)}`,100,now+2*DAY],[`global:${Math.floor(now/DAY)}`,500,now+2*DAY]]) {
@@ -297,7 +315,7 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
   }
   if(a.operation==='send_gate') {
     const job=await ctx.db.get(a.jobId), control=job && await controls(job.integrationId), row=await rowForJob(job,control), person=job && await ctx.db.get(job.conversationId);
-    return ok(!!(job?.status==='attempting' && job.intent===a.intent && job.profileVersion===(row?.profileVersion || 1) && job.conversationVersion===(person?.version || 0) && enabled && ready(row) && (control?.active || job.manual) && !person?.optout && (!person?.takeover || job.manual || job.handoff) && now-person.lastInbound<DAY));
+    return ok(!!(job?.status==='attempting' && job.intent===a.intent && (job.manual || job.profileVersion===(row?.profileVersion || 1)) && job.conversationVersion===(person?.version || 0) && enabled && ready(row) && (control?.active || job.manual) && !person?.optout && (!person?.takeover || job.manual || job.handoff) && now-person.lastInbound<DAY));
   }
   if(a.operation==='result') {
     const job=await ctx.db.get(a.jobId);

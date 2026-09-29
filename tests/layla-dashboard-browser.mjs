@@ -6,6 +6,7 @@ import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { hasibPack, industryCatalog, visibleModules } from '../config/hasib-packs.js';
+import { capabilitiesFor } from '../convex/hasib/capabilities.js';
 
 const BASE = process.argv[2] || 'http://127.0.0.1:5199';
 const OUT = process.env.LAYLA_BROWSER_OUT || 'work/layla-dashboard-browser';
@@ -35,7 +36,8 @@ function fixture() {
 }
 
 function api(state, { overviewStatus = 200, overviewReason, founderPreview = false } = {}) {
-  const overview = { ok: true, csrfToken: 'a'.repeat(64), account: { email: 'owner@example.test' }, dashboardAvailable: true, broadcastEnabled: true, connected: true,
+  // The real overview always carries the plan's capabilities (convex/blueDashboardState.js); this owner is on Ascend.
+  const overview = { ok: true, csrfToken: 'a'.repeat(64), account: { email: 'owner@example.test' }, plan: 'ascend', workspaceRole: 'manager', capabilities: capabilitiesFor('ascend'), dashboardAvailable: true, broadcastEnabled: true, connected: true,
     founderPreview,
     business: { name: 'Blue Studio Properties', sector: 'Real estate', sectorId: 'real-estate' }, integration: { sender: '96890000000', path: 'new_number', status: 'connected', checks: { routing: true, registered: true, path: true }, checkedAt: now },
     messaging: { available: true, active: true, reason: '', broadcastAvailable: true, limits: { perMinute: 10, perDay: 100, usedToday: 7 } }, timezone: 'Asia/Muscat', migrationPending: false, qualification: pack };

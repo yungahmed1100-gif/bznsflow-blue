@@ -147,8 +147,9 @@ test('the scorer enforces the release gate when asked', () => {
   // the real floor is what stops the gain being quietly given back.
   assert.match(run('scripts/eval-intents.mjs', ['--quiet', '--gate'], { EVAL_OUT: out }),
     /✓ eval-intents:/);
-  // And an unreachable floor must still fail, proving --gate is not simply
-  // always green — a gate that cannot go red is decoration.
-  assert.throws(() => run('scripts/eval-intents.mjs', ['--quiet', '--gate', '--min=1.0'], { EVAL_OUT: out }),
-    /below the 100\.0% gate|Command failed/);
+  // And a router below the floor must still fail, proving --gate is not simply
+  // always green — a gate that cannot go red is decoration. The layered router
+  // now scores 100%, so no floor can fail it; the regex classifier still can.
+  assert.throws(() => run('scripts/eval-intents.mjs', ['--quiet', '--gate', '--gate-on=regex'], { EVAL_OUT: out }),
+    /below the 90\.0% gate|Command failed/);
 });

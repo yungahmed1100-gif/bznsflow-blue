@@ -11,7 +11,7 @@ const profile={businessName:'Studio',sector:'Photography',services:'Portraits',h
 function memory() {
   const rows=new Map(),scheduled=[];let seq=0,time=100000;
   const db={
-    query(table){let filters=[],descending=false,sort='at';const api={withIndex(index,fn){sort=index==='by_account_updated'?'updatedAt':'at';const q={eq:(k,v)=>{filters.push(r=>r[k]===v);return q;},lt:(k,v)=>{filters.push(r=>r[k]<v);return q;}};fn(q);return api;},order(value){descending=value==='desc';return api;},async take(n){return structuredClone([...rows.values()].filter(r=>r.table===table&&filters.every(f=>f(r))).sort((a,b)=>(descending?-1:1)*((a[sort]||0)-(b[sort]||0))).slice(0,n));},async unique(){const r=await api.take(2);assert(r.length<2);return r[0] || null;}};return api;},
+    query(table){let filters=[],descending=false,sort='at';const api={withIndex(index,fn){sort=index==='by_account_updated'?'updatedAt':'at';const q={eq:(k,v)=>{filters.push(r=>r[k]===v);return q;},lt:(k,v)=>{filters.push(r=>r[k]<v);return q;},gte:(k,v)=>{filters.push(r=>r[k]>=v);return q;}};fn(q);return api;},order(value){descending=value==='desc';return api;},async take(n){return structuredClone([...rows.values()].filter(r=>r.table===table&&filters.every(f=>f(r))).sort((a,b)=>(descending?-1:1)*((a[sort]||0)-(b[sort]||0))).slice(0,n));},async unique(){const r=await api.take(2);assert(r.length<2);return r[0] || null;}};return api;},
     async insert(table,value){const id=String(++seq);rows.set(id,{_id:id,table,...structuredClone(value)});return id;},
     async get(id){return structuredClone(rows.get(id));},
     async patch(id,value){const r=rows.get(id);for(const[k,v]of Object.entries(value)){if(v===undefined)delete r[k];else r[k]=structuredClone(v);}},

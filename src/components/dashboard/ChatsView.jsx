@@ -6,12 +6,14 @@ import { initials, listTimestamp } from '../../lib/dashboard/format';
 import { exportAccount } from '../../lib/dashboard/exports';
 import { ThreadView } from './ThreadView';
 import { StatusTicks, QualificationChip } from './Badges';
+import { dashboardPermissions } from '../../lib/dashboard/permissions';
 
 /** Conversation list + active thread. Desktop shows both; phones show one at a time. */
 export function ChatsView({ s, overview, selected, onSelect }) {
   const [search, setSearch] = useState('');
   const [channel,setChannel]=useState('');
   const [exporting, setExporting] = useState(false), [exportError, setExportError] = useState('');
+  const { canExport } = dashboardPermissions(overview);
   const exportAll = async () => {
     setExporting(true); setExportError('');
     try { await exportAccount({ lang: s.lang, business: overview.business.name, fieldKeys: overview.qualification.fields.map(f => f.key) }); }
@@ -36,7 +38,7 @@ export function ChatsView({ s, overview, selected, onSelect }) {
         <div className="ld-list-head">
           <div className="ld-list-title">
             <h1>{s.t('chats')}</h1>
-            <button type="button" className="ld-button ld-quiet" disabled={exporting} onClick={exportAll}>{exporting ? s.t('exporting') : s.t('exportAll')}</button>
+            {canExport && <button type="button" className="ld-button ld-quiet" disabled={exporting} onClick={exportAll}>{exporting ? s.t('exporting') : s.t('exportAll')}</button>}
           </div>
           {exportError && <p className="ld-inline-error" role="alert">{exportError}</p>}
           <label>{s.ar?'القناة':'Channel'} <select value={channel} onChange={e=>{setChannel(e.target.value);setExtra({items:[],cursor:null});}}><option value="">{s.ar?'كل القنوات':'All channels'}</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option></select></label>

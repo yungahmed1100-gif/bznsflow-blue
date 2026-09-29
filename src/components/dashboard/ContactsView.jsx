@@ -8,6 +8,7 @@ import { QualificationChip } from './Badges';
 import { ContactPanel } from './ContactPanel';
 import { ContactImporter } from './ContactImporter';
 import { Dialog } from './Dialog';
+import { dashboardPermissions } from '../../lib/dashboard/permissions';
 
 export function ContactsView({ s, overview, onOpenChat }) {
   const [search, setSearch] = useState(''), [status, setStatus] = useState('');
@@ -26,8 +27,7 @@ export function ContactsView({ s, overview, onOpenChat }) {
   };
   const reset = () => { setMore({ items: [], cursor: undefined }); list.refresh({ quiet: true }); };
   const open = items.find(i => i.id === openId);
-  const canExport = overview.capabilities?.exports && overview.workspaceRole === 'manager';
-  const canImport = overview.capabilities?.imports && overview.workspaceRole === 'manager';
+  const { canExport, canImport, canDeleteCustomer } = dashboardPermissions(overview);
 
   return (
     <div className="ld-contacts">
@@ -81,7 +81,7 @@ export function ContactsView({ s, overview, onOpenChat }) {
         )}
       {!query && cursor && <button type="button" className="ld-button ld-quiet ld-more" onClick={() => run('more', async () => { const r = await dashboard('contacts', { cursor, ...(status ? { status } : {}) }); setMore(m => ({ items: [...m.items, ...r.items], cursor: r.cursor })); })}>{s.t('loadMore')}</button>}
       {open && <Dialog s={s} title={s.t('editContact')} onClose={() => setOpenId(null)}>
-        <ContactPanel s={s} contact={open} pack={pack} timezone={overview.timezone} canDelete={overview.workspaceRole !== 'employee'} onOpenChat={onOpenChat} onSaved={reset} onDeleted={() => { setOpenId(null); setNotice(s.t('contactDeleted')); reset(); }} />
+        <ContactPanel s={s} contact={open} pack={pack} timezone={overview.timezone} canDelete={canDeleteCustomer} onOpenChat={onOpenChat} onSaved={reset} onDeleted={() => { setOpenId(null); setNotice(s.t('contactDeleted')); reset(); }} />
       </Dialog>}
       {importing && <Dialog s={s} title={s.t('importTitle')} onClose={() => setImporting(false)} wide>
         <ContactImporter s={s} pack={pack} requireConsent={false} onImported={() => { reset(); }} onClose={() => setImporting(false)} />
