@@ -2,21 +2,11 @@ import React from 'react';
 import { usePolling } from '../../hooks/usePolling';
 import { hasib } from '../../lib/dashboard/api';
 import { Money } from './Badges';
-import { IndustrySetup } from './IndustrySetup';
+import { hasibPack } from '../../../config/hasib-packs';
+import { ActionCards, EmptyState, MetricCards, PageHeader } from './DashboardVisuals';
 
 /** "Saturday, 26 September" for the business's own date (Western digits, as elsewhere in the dashboard). */
 const longDate = (date, ar) => new Intl.DateTimeFormat(ar ? 'ar-OM-u-nu-latn' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
-
-/** A number with its plain-words meaning underneath, so nothing needs guessing. */
-function Figure({ label, help, children }) {
-  return (
-    <div className="hb-figure">
-      <dt>{label}</dt>
-      <dd className="hb-figure-value">{children}</dd>
-      <dd className="hb-figure-help">{help}</dd>
-    </div>
-  );
-}
 
 /** One thing waiting for the owner, with where to go for it. */
 function NeedRow({ tone, text, action, onGo, children }) {
@@ -50,7 +40,7 @@ function SetupChecklist({ h, steps, onGo }) {
  * Home for the owner: what needs them (each with one tap to act), what Layla did
  * today, and the money, in their business's day. Setup steps show until done.
  */
-export function TodayView({ s, h, hasibOverview, connected, onGo, onIndustryChosen }) {
+export function TodayView({ s, h, hasibOverview, connected, onGo }) {
   const setupRequired = hasibOverview.setupRequired;
   const today = usePolling(() => hasib('today'), [], { interval: 60000, enabled: !setupRequired });
   const t = today.data;
@@ -58,24 +48,32 @@ export function TodayView({ s, h, hasibOverview, connected, onGo, onIndustryChos
   const steps = [
     { id: 'whatsapp', done: connected, go: ['settings', { view: 'channels' }] },
     { id: 'industry', done: !setupRequired, go: null },
-    { id: 'products', done: !!t?.setup.products, go: ['stock'] },
-    { id: 'photos', done: !!t?.setup.photos, go: ['stock'] },
-    { id: 'services', done: !!t?.setup.services, go: ['stock', { view: 'services' }] },
+    { id: 'products', done: !!t?.setup?.products, go: ['stock'] },
+    { id: 'photos', done: !!t?.setup?.photos, go: ['stock'] },
+    { id: 'services', done: !!t?.setup?.services, go: ['stock', { view: 'services' }] },
   ];
 
   if (setupRequired) {
+    const industry = hasibOverview.industry;
+    const status = industry?.status === 'preview' ? (s.ar ? 'هذا القطاع متاح حالياً للمعاينة فقط، ولم يُطرح لبيانات العملاء بعد.' : 'This industry is preview only and is not released for customer data yet.')
+      : (s.ar ? 'لوحة حسيب لهذا القطاع قيد التجهيز.' : 'The Hasib dashboard for this industry is pending.');
     return (
       <div className="hb-today">
         <h1>{h.t('todayTitle')}</h1>
-        <SetupChecklist h={h} steps={steps} onGo={onGo} />
-        <IndustrySetup s={s} h={h} livePacks={hasibOverview.livePacks} industries={hasibOverview.industries} onChosen={onIndustryChosen} />
+        <section className="hb-today-card hb-setup" aria-labelledby="hb-industry-status">
+          <h2 id="hb-industry-status">{industry ? (s.ar ? industry.ar : industry.en) : (s.ar ? 'قطاع نشاطك' : 'Your industry')}</h2>
+          <p>{status}</p>
+          <button type="button" className="ld-button" onClick={() => onGo('settings', { view: 'business' })}>{s.ar ? 'تغيير القطاع في إعداد النشاط' : 'Change industry in Business Setup'}</button>
+        </section>
       </div>
     );
   }
   if (!t) return <p className="ld-state" role={today.error ? 'alert' : 'status'}>{today.error ? (h.reason(today.error.reason) || s.reason(today.error.reason)) : h.t('loading')}</p>;
 
+  const pack = hasibPack(hasibOverview.pack.id);
   const n = t.needsYou;
   const needs = [
+    ...(t.industryActions || []).slice(0, 4).map(action => <NeedRow key={action.id} tone="blue" text={h.ar ? action.textAr : action.textEn} action={h.ar ? action.actionAr : action.actionEn} onGo={() => onGo(...action.go)} />),
     n.ordersCount > 0 && (
       <NeedRow key="orders" tone="coral" text={h.t('ordersWaitingLine', { count: n.ordersCount })} action={h.t('seeAll')} onGo={() => onGo('orders')}>
         <ul className="hb-need-list">{n.orders.slice(0, 3).map(o => <li key={o.id}><bdi>#{o.number}</bdi>{o.customerName && <> · <bdi>{o.customerName}</bdi></>} — {flagText(o.flags)}</li>)}</ul>
@@ -92,29 +90,17 @@ export function TodayView({ s, h, hasibOverview, connected, onGo, onIndustryChos
 
   return (
     <div className="hb-today">
-      <h1>{h.t('todayTitle')} <span className="hb-today-date"><time dateTime={t.date}>{longDate(t.date, h.ar)}</time></span></h1>
+      <PageHeader title={h.t('todayTitle')} description={<time dateTime={t.date}>{longDate(t.date, h.ar)}</time>} icon={pack.dashboard.icon} />
+      <ActionCards label={h.ar ? 'إجراءات سريعة' : 'Quick actions'} actions={pack.dashboard.actions.map(action => ({ id: action[0], label: h.ar ? action[2] : action[1], icon: action[3], onClick: () => onGo(...action[4]) }))} />
       <section className="hb-today-card hb-needs" aria-labelledby="hb-needs-title">
         <h2 id="hb-needs-title">{h.t('needsYou')}</h2>
-        {needs.length ? <ul className="hb-need-rows">{needs}</ul> : <p className="hb-all-clear">{h.t('allClear')}</p>}
+        {needs.length ? <ul className="hb-need-rows">{needs.slice(0, 4)}</ul> : <EmptyState icon="check" title={h.t('allClear')} description={h.ar ? 'لا توجد مهام عاجلة الآن. استخدم الإجراءات أعلاه لتسجيل العمل الجديد.' : 'There are no urgent tasks right now. Use the actions above to record new work.'} />}
       </section>
-      <div className="hb-today-pair">
-        <section className="hb-today-card" aria-labelledby="hb-layla-title">
-          <h2 id="hb-layla-title">{h.t('laylaToday')}</h2>
-          <dl className="hb-figures">
-            <Figure label={h.t('laylaReplies')} help={h.t('help_laylaReplies')}><span className="ld-num">{t.layla.replies}</span></Figure>
-            <Figure label={h.t('laylaConfirmed')} help={h.t('help_laylaConfirmed')}><span className="ld-num">{t.layla.ordersConfirmed}</span></Figure>
-            <Figure label={h.t('laylaQuestions')} help={h.t('help_laylaQuestions')}><span className="ld-num">{t.layla.productQuestions}</span></Figure>
-          </dl>
-        </section>
-        <section className="hb-today-card" aria-labelledby="hb-money-title">
-          <h2 id="hb-money-title">{h.t('moneyTitle')}</h2>
-          <dl className="hb-figures">
-            <Figure label={h.t('moneyToday')} help={h.t('help_moneyToday')}><Money h={h} minor={t.money.todayMinor} /></Figure>
-            <Figure label={h.t('moneyMonth')} help={h.t('help_moneyMonth')}><Money h={h} minor={t.money.monthMinor} /></Figure>
-            <Figure label={h.t('owedToYou')} help={h.t('help_owedToYou')}><Money h={h} minor={t.money.owedMinor} /></Figure>
-          </dl>
-        </section>
-      </div>
+      <MetricCards label={h.ar ? 'أرقام اليوم' : 'Today’s numbers'} items={pack.todayMetrics.map((metric, index) => {
+          const result = t.industryMetrics?.find(row => row.id === metric.id);
+          const value = result?.value;
+          return { id: metric.id, icon: ['trending-up', 'clock', 'target'][index], tone: ['blue', 'yellow', 'coral'][index], label: (h.ar ? metric.ar : metric.en).replace('60', String(hasibOverview.settings?.unsoldDays || 60)).replace('٦٠', String(hasibOverview.settings?.unsoldDays || 60)), help: result?.detail || '', value: value == null ? h.t('notEnoughRecords') : result.format === 'money' ? <Money h={h} minor={value} /> : <bdi>{value}{result.format === 'percent' ? '%' : ''}</bdi>, onClick: () => onGo(...metric.go) };
+        })} />
       <SetupChecklist h={h} steps={steps} onGo={onGo} />
     </div>
   );

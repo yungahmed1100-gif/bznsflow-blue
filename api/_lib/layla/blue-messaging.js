@@ -13,6 +13,7 @@ import { parseEvents } from './webhook.js';
 import { providerResult } from './gateway.js';
 import { campaignStore } from './dashboard-store.js';
 import { runCampaignSend, runCampaignStart } from './campaign-worker.js';
+import { clinicIngressDecision, clinicSafetyMessage } from '../../../config/clinic-safety.js';
 
 // messagingStore is built in ../convex.js with the other five route clients, and
 // instagramSendResult lives with the rest of the Instagram Graph code; both are
@@ -28,6 +29,8 @@ export function whatsappPayload(job) {
 export const instagramMessage=job=>job.imageUrl ? {attachment:{type:'image',payload:{url:job.imageUrl}}} : {text:job.text};
 
 export function liveAnswer(text,profile,catalog=[]) {
+  const safety=clinicIngressDecision(text,profile);
+  if(safety.withheld) return {intent:'medical_content_withheld',reply:clinicSafetyMessage(safety.language),handoff:true,medicalContentWithheld:true};
   const intent=classify(text);
   if(intent==='optout') return {intent,reply:null,handoff:false};
   if(intent==='human') return {intent,reply:answer(text,profile,true).text,handoff:true};

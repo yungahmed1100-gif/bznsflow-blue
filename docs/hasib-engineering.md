@@ -1,5 +1,15 @@
 # Hasib — project engineering pack
 
+## Ascend real estate release boundary
+
+The live Blue `real-estate` pack uses dedicated workspace and domain records instead of the generic jobs UI. Authorization is server-derived: Catalyst has no Hasib access; Ascend/Apex can enter Hasib, employees are denied manager operations, and all IDs are rechecked against the manager workspace and tenant. The additive tables live in `convex/hasib/workflowSchema.ts`; the capability matrix, workspace authorization, domain state and inbound turn live in `convex/hasib/{capabilities,workspaceState,realEstateState,realEstateTurn}.js`; the dedicated UI is `src/components/hasib/RealEstateDashboard.jsx`.
+
+The medical-clinic production slice is documented in [the clinic engineering pack](clinic-engineering.md). Its code and local tests are additive, but the pack is not live or deployed: SEC-04/Oman disposition, provider/scheduler completion, full load/recovery/acceptance evidence and explicit authorization remain release gates.
+
+Real Estate was released to Blue on 2026-09-28 after additive Convex schema/functions were pushed before the application. Deployment and smoke evidence is recorded in `docs/antigravity/industry-optimization-handoff.md`. An authorized owner should still verify the empty tenant-only workspace after email-code sign-in. Rollback removes `real-estate` from `HASIB_LIVE_PACKS` without deleting records and restores the prior READY Vercel deployment recorded in the handoff.
+
+Current local scope and evidence: [15-industry optimization handoff](antigravity/industry-optimization-handoff.md). Its 2026-09-28 scope/status registry supersedes older scope below; historical deployments do not imply these changes are deployed.
+
 Blue-only. Built from the vault template `Operations/Templates/Project-Engineering-Pack`. Decision:
 `Decisions/2026-09-26-Redefine-Hasib-As-SME-Operations-Layer`. Nothing below is verified unless it
 has a dated result. **Not deployed.** Schema pushes and deploys need Ahmed's explicit authorization.
@@ -194,4 +204,22 @@ Commits: `4ae4506` (backend), `8e701ed` (UI).
 2. Run `blueMessagingSettings` `{key:'hasib', enabled:true}` through `hasib:setEnabled`.
 3. Set `BLUE_HASIB_ENABLED=true` in Blue Vercel, then run `npm run deploy:blue`.
 
+## Industry release state — 2026-09-28
+
+Retail/fashion, electronics/phones, and dental are live for real tenant data. Ahmed can switch among live dashboards from the founder-only dashboard selector; the server authorizes that capability from the authenticated normalized email. Regular customers select their industry only in Business Setup. Built industries that have not been released remain read-only previews with empty data, and pending industries cannot be opened.
+
 **Rollback:** turn the flag off and redeploy. Never delete order, payment or stock-move rows as a rollback.
+
+## Live dashboard interaction standard — 2026-09-29
+
+The four live packs use reusable `DashboardVisuals` primitives for page identity, icon actions, metric cards, accessible horizontal charts and strong empty states. Important operations remain ordinary allow-listed Hasib operations; the visual layer does not add a new API or dependency. Query-state actions are bounded (`create=1` and named `action` values), so a dashboard action can be linked and tested without trusting a client-supplied tenant, role or operation name.
+
+Real Estate's overview response is additive and tenant scoped: stage pipeline, listing availability/freshness, viewing status, offer status and approval counts. Existing `counts` and task records remain available. Empty dashboards show guidance and an authorized action, never synthetic records.
+
+Deployment `dpl_4FroRb8TVYoF946eTpiETYurga2v` is READY on Blue. Both Blue Convex targets were updated first, with no index deletion. Final evidence: Hasib 213/213, Blue 192/192, full verification/build green, and 258 dashboard browser assertions across the four live packs, Arabic/English and 320–1440px. Roll back the UI to `dpl_5xtkcpFQCnNz1XEhwe51mzKWamU5`; preserve all tenant data and correct Convex forward.
+
+## Construction operating pack — 2026-09-29
+
+Construction is the fifth live Blue pack and uses a dedicated domain/dashboard rather than the generic jobs presentation. It includes versioned projects and baselines, milestones/progress/worker hours, actual and forecast cost, manager-controlled variations/commitments/claims/retention, aggregate site safety reporting, quality/NCR, risks, experience, tasks, actor audit history, one manager plus five employees, and manager-only aggregate Money/Insights. Today shows exactly schedule risk, submitted variation exposure, and overdue certified receivables.
+
+Release evidence and rollback are owned by [`docs/construction-engineering.md`](/Users/ramsis21/Desktop/bznsflow-blue/docs/construction-engineering.md). Deployment `dpl_4v9qbw53sn8gTfSdSj4aMigYEt9H` is READY at the Blue alias; immediate rollback UI is `dpl_3ENSivCTsw2CopSt949hBQUmiDF7`. Clinic remains outside `HASIB_LIVE_PACKS`.

@@ -1,0 +1,23 @@
+export const BOOKING_OPERATIONS = {
+ resources:['cursor','limit'], services:['cursor','limit'], bookings:['status','contactId','fromAt','toAt','cursor','limit'], waitlist:['status','cursor','limit'], memberships:['contactId','absenceDays','cursor','limit'], membership_credits:['membershipId','cursor','limit'], followups:['status','cursor','limit'],
+ resource_save:['requestId','resourceId','version','name','kind','capacity','availability'],
+ service_save:['requestId','serviceId','version','name','durationMinutes','resourceIds'],
+ booking_create:['requestId','serviceId','resourceIds','contactId','startsAt','orderId','membershipId','replacementForId'],
+ booking_update:['requestId','bookingId','version','startsAt','resourceIds'],
+ booking_status:['requestId','bookingId','version','to','reason'],
+ waitlist_add:['requestId','serviceId','contactId','earliestAt','latestAt'],
+ waitlist_book:['requestId','waitlistId','version','startsAt','resourceIds'],
+ membership_create:['requestId','contactId','guardianId','kind','name','startsAt','endsAt','credits','orderId'],
+ membership_update:['requestId','membershipId','version','endsAt','status'],
+ membership_attendance:['requestId','membershipId','attendedAt'],
+ membership_credit_reverse:['requestId','creditId','version'],
+ followup_save:['requestId','followupId','version','contactId','dueAt','reason','conversationId','linkedType','linkedId'],
+ followup_complete:['requestId','followupId','version'],
+};
+
+export const JOB_OPERATIONS = ['job_repeat','job_create','job_update','job_estimate','job_approve','job_status','jobs','job','equipment_save','equipment','property_save','properties','enquiry_create','enquiry_update','property_enquiries','product_request_create','product_request_status','product_requests'];
+export const REAL_ESTATE_OPERATIONS = ['real_estate_overview','real_estate_insights','opportunities','opportunity_save','matches','match_generate','match_update','viewings','viewing_save','offers','offer_save','offer_approve','compliance_update','deal_close','commissions','commission_record','drafts','draft_save','draft_approve','real_estate_tasks','deal_history'];
+export const TEAM_OPERATIONS = ['team_list','team_invite','team_resend','team_revoke'];
+export const CLINIC_OPERATIONS = ['clinic_overview','clinic_insights','clinic_requests','clinic_request_save','clinic_request_assign','clinic_request_decline','clinic_request_withdraw','clinic_request_book','clinic_preferences','clinic_preference_update','clinic_notifications','clinic_notification_queue','clinic_notification_retry','clinic_notification_resolve','clinic_waitlist_offer','clinic_waitlist_expire','clinic_waitlist_cancel','clinic_experience_save','clinic_tasks','clinic_task_resolve','clinic_governance','clinic_governance_update','clinic_metric_snapshot','clinic_patient_summary'];
+export const CONSTRUCTION_OPERATIONS = ['construction_overview','construction_insights','construction_projects','construction_project','construction_project_save','construction_project_status','construction_baseline_approve','construction_milestones','construction_milestone_save','construction_progress','construction_progress_save','construction_costs','construction_cost_save','construction_variations','construction_variation_save','construction_variation_status','construction_commitments','construction_commitment_save','construction_commitment_status','construction_claims','construction_claim_save','construction_claim_status','construction_retention_release','construction_site_reports','construction_site_report_save','construction_quality','construction_quality_save','construction_quality_status','construction_risks','construction_risk_save','construction_risk_status','construction_experience_save','construction_tasks','construction_task_resolve'];
+export const AUTOMOTIVE_OPERATIONS = ['automotive_overview','automotive_insights','automotive_contacts','automotive_vehicles','automotive_vehicle_save','automotive_bays','automotive_bay_save','automotive_services','automotive_service_save','automotive_requests','automotive_request_save','automotive_request_status','automotive_appointments','automotive_appointment_save','automotive_appointment_status','automotive_work_orders','automotive_work_order','automotive_work_order_save','automotive_work_order_status','automotive_inspection_save','automotive_estimates','automotive_estimate_save','automotive_estimate_status','automotive_approval_record','automotive_labor_entries','automotive_labor_start','automotive_labor_stop','automotive_parts','automotive_part_save','automotive_part_status','automotive_quality_save','automotive_experience_save'];

@@ -5,6 +5,8 @@ import { dashboardMap, resolveTab } from '../src/lib/dashboard/navigation.js';
 
 const retail = { modules: ['orders', 'stock', 'expenses', 'insights'], setupRequired: false };
 const tech = { modules: ['orders', 'stock', 'expenses', 'insights', 'serials', 'repairs', 'tradeIns'], setupRequired: false };
+const construction = { modules: ['orders', 'stock', 'expenses', 'insights'], setupRequired: false, pack: { id: 'construction' }, workspaceRole: 'manager' };
+const automotive = { modules: ['orders', 'stock', 'expenses', 'insights'], setupRequired: false, pack: { id: 'automotive' }, workspaceRole: 'manager' };
 
 test('Layla only: chats, customers and settings, with chats as home', () => {
   const map = dashboardMap(null);
@@ -33,4 +35,22 @@ test('before an industry is chosen, Today holds the setup and Stock keeps only s
   const map = dashboardMap({ modules: [], setupRequired: true });
   assert.deepEqual(map.sections, ['today', 'chats', 'customers', 'settings']);
   assert.deepEqual(resolveTab('insights', null, map), { tab: 'today', view: null });
+});
+
+test('construction owns its dedicated sections without generic product, expense, or channel sub-tabs', () => {
+  const map = dashboardMap(construction);
+  assert.deepEqual(map.views.stock, []);
+  assert.deepEqual(map.views.money, []);
+  assert.deepEqual(map.views.settings, []);
+  assert.ok(map.sections.includes('money'));
+  assert.deepEqual(resolveTab('stock', 'products', map), { tab: 'stock', view: null });
+});
+
+test('automotive keeps the legacy stock URL and exposes its dedicated Money section', () => {
+  const map = dashboardMap(automotive);
+  assert.deepEqual(map.views.stock, []);
+  assert.deepEqual(map.views.money, []);
+  assert.ok(map.sections.includes('money'));
+  assert.deepEqual(resolveTab('stock', 'products', map), { tab: 'stock', view: null });
+  assert.deepEqual(resolveTab('money', null, map), { tab: 'money', view: null });
 });

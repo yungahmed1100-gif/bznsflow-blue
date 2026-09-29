@@ -1,0 +1,26 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { convexMemory } from './helpers/convex-memory.mjs';
+import { executeRequests } from '../convex/hasib/requestsState.js';
+const value = r => { assert.equal(r.ok, true, r.reason); return r.value; };
+test('exact size/colour request becomes available and cannot be filled twice by one sale', async () => {
+  const m = convexMemory(), tenant = { accountId: 'accounts_a' };
+  const contactId = await m.db.insert('blueContacts', { accountId: tenant.accountId });
+  const itemId = await m.db.insert('hasibItems', { accountId: tenant.accountId });
+  const variantId = await m.db.insert('hasibVariants', { accountId: tenant.accountId, itemId, onHand: 0, options: [{ key: 'size', value: 'M' }, { key: 'colour', value: 'Red' }] });
+  const run = (operation, args = {}) => executeRequests(m.ctx, tenant, { operation, ...args }, m.now());
+  const requestId = randomUUID(), workflow = { contactId, variantId, qty: 1 };
+  let request = value(await run('product_request_create', { requestId, workflow }));
+  assert.equal(request.availableNow, false);
+  assert.equal(value(await run('product_request_create', { requestId, workflow })).id, request.id);
+  await m.db.patch(variantId, { onHand: 2 });
+  assert.equal(value(await run('product_requests')).items[0].availableNow, true);
+  const orderId = await m.db.insert('hasibOrders', { accountId: tenant.accountId, contactId, status: 'confirmed', lines: [{ variantId: 'wrong', qty: 1 }] });
+  assert.equal((await run('product_request_status', { productRequestId: request.id, version: request.version, workflow: { status: 'fulfilled', orderId } })).reason, 'exact_variant_required');
+  await m.db.patch(orderId, { lines: [{ variantId, qty: 1 }] });
+  request = value(await run('product_request_status', { productRequestId: request.id, version: request.version, workflow: { status: 'fulfilled', orderId } }));
+  const second = value(await run('product_request_create', { requestId: randomUUID(), workflow }));
+  assert.equal((await run('product_request_status', { productRequestId: second.id, version: second.version, workflow: { status: 'fulfilled', orderId } })).reason, 'exact_variant_required');
+  assert.equal((await executeRequests(m.ctx, { accountId: 'accounts_b' }, { operation: 'product_request_status', productRequestId: request.id, version: request.version, workflow: { status: 'cancelled' } }, m.now())).reason, 'request_not_found');
+});

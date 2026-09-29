@@ -26,6 +26,8 @@ export function ContactsView({ s, overview, onOpenChat }) {
   };
   const reset = () => { setMore({ items: [], cursor: undefined }); list.refresh({ quiet: true }); };
   const open = items.find(i => i.id === openId);
+  const canExport = overview.capabilities?.exports && overview.workspaceRole === 'manager';
+  const canImport = overview.capabilities?.imports && overview.workspaceRole === 'manager';
 
   return (
     <div className="ld-contacts">
@@ -39,9 +41,9 @@ export function ContactsView({ s, overview, onOpenChat }) {
               <option value="">{s.t('allStatuses')}</option>
               {['new', 'in_progress', 'qualified', 'not_qualified'].map(v => <option key={v} value={v}>{s.t(`q_${v}`)}</option>)}
             </select></label>
-          <button type="button" className="ld-button ld-quiet" disabled={!!busy} onClick={() => run('csv', () => exportContacts(pack.fields.map(f => f.key)))}>{busy === 'csv' ? s.t('exporting') : `${s.t('export')} CSV`}</button>
-          <button type="button" className="ld-button ld-quiet" disabled={!!busy} onClick={() => run('zip', () => exportAccount({ lang: s.lang, business: overview.business.name, fieldKeys: pack.fields.map(f => f.key) }))}>{busy === 'zip' ? s.t('exporting') : s.t('exportAll')}</button>
-          <button type="button" className="ld-button ld-primary" onClick={() => setImporting(true)}>{s.t('addContacts')}</button>
+          {canExport && <button type="button" className="ld-button ld-quiet" disabled={!!busy} onClick={() => run('csv', () => exportContacts(pack.fields.map(f => f.key)))}>{busy === 'csv' ? s.t('exporting') : `${s.t('export')} CSV`}</button>}
+          {canExport && <button type="button" className="ld-button ld-quiet" disabled={!!busy} onClick={() => run('zip', () => exportAccount({ lang: s.lang, business: overview.business.name, fieldKeys: pack.fields.map(f => f.key) }))}>{busy === 'zip' ? s.t('exporting') : s.t('exportAll')}</button>}
+          {canImport && <button type="button" className="ld-button ld-primary" onClick={() => setImporting(true)}>{s.t('addContacts')}</button>}
         </div>
       </div>
       {notice && <p className="ld-inline-error" role="alert">{notice}</p>}
@@ -79,7 +81,7 @@ export function ContactsView({ s, overview, onOpenChat }) {
         )}
       {!query && cursor && <button type="button" className="ld-button ld-quiet ld-more" onClick={() => run('more', async () => { const r = await dashboard('contacts', { cursor, ...(status ? { status } : {}) }); setMore(m => ({ items: [...m.items, ...r.items], cursor: r.cursor })); })}>{s.t('loadMore')}</button>}
       {open && <Dialog s={s} title={s.t('editContact')} onClose={() => setOpenId(null)}>
-        <ContactPanel s={s} contact={open} pack={pack} timezone={overview.timezone} onOpenChat={onOpenChat} onSaved={reset} onDeleted={() => { setOpenId(null); setNotice(s.t('contactDeleted')); reset(); }} />
+        <ContactPanel s={s} contact={open} pack={pack} timezone={overview.timezone} canDelete={overview.workspaceRole !== 'employee'} onOpenChat={onOpenChat} onSaved={reset} onDeleted={() => { setOpenId(null); setNotice(s.t('contactDeleted')); reset(); }} />
       </Dialog>}
       {importing && <Dialog s={s} title={s.t('importTitle')} onClose={() => setImporting(false)} wide>
         <ContactImporter s={s} pack={pack} requireConsent={false} onImported={() => { reset(); }} onClose={() => setImporting(false)} />

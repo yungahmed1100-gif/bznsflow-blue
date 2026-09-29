@@ -60,8 +60,11 @@ export const QUALIFICATION_PACKS = {
       { en: 'whether you want to buy, rent, sell or invest', ar: 'هل تريد الشراء أو الإيجار أو البيع أو الاستثمار' })),
     req(F.choice('property_type', 'Property type', 'نوع العقار', [opt('apartment', 'Apartment', 'شقة', ['flat', 'شقه']), opt('villa', 'Villa', 'فيلا', ['house', 'بيت', 'منزل']), opt('land', 'Land', 'أرض', ['plot', 'ارض']), opt('office', 'Office', 'مكتب'), opt('shop', 'Shop', 'محل', ['retail unit', 'showroom', 'معرض'])],
       { en: 'the property type', ar: 'نوع العقار' })),
-    req(F.area()), req(F.budget()), req(F.timeline()),
-  ], [['need', 'property_type', 'area'], ['budget', 'timeline']]),
+    req(F.area()), req(F.budget()), F.count('bedrooms', 'Bedrooms', 'غرف النوم', { en: 'how many bedrooms you need', ar: 'عدد غرف النوم المطلوبة' }),
+    req(F.choice('finance_readiness', 'Finance readiness', 'جاهزية التمويل', [opt('cash', 'Cash ready', 'نقداً', ['cash buyer', 'نقد', 'كاش']), opt('approved', 'Finance approved', 'التمويل موافق عليه', ['mortgage approved', 'pre approved', 'موافقة بنكية']), opt('in_progress', 'Finance in progress', 'التمويل قيد الإجراء', ['applying', 'بانتظار البنك']), opt('unknown', 'Not decided', 'لم يقرر', ['not sure', 'ما قررت'])], { en: 'whether finance is ready, in progress, or cash', ar: 'هل التمويل جاهز أو قيد الإجراء أو نقداً' })),
+    req(F.choice('decision_maker', 'Decision maker', 'صاحب القرار', [opt('ready', 'I decide', 'أنا صاحب القرار', ['i decide', 'my decision', 'قراري']), opt('consulting', 'Deciding with someone', 'أقرر مع شخص آخر', ['with my spouse', 'with partner', 'مع زوجي', 'مع شريكي']), opt('unknown', 'Not confirmed', 'غير مؤكد', ['not sure', 'غير متأكد'])], { en: 'whether you are the decision maker', ar: 'هل أنت صاحب القرار' })),
+    req(F.timeline()), F.text('must_haves', 'Must-haves', 'المتطلبات الأساسية', { en: 'any must-have features', ar: 'أي متطلبات أساسية' }),
+  ], [['need', 'property_type', 'area'], ['budget', 'finance_readiness', 'decision_maker'], ['timeline', 'bedrooms', 'must_haves']]),
   dental: sector('booking', [
     req(F.service([opt('checkup', 'Check-up', 'فحص', ['check up', 'examination', 'كشف']), opt('cleaning', 'Cleaning', 'تنظيف', ['scaling', 'تنظيف أسنان']), opt('whitening', 'Whitening', 'تبييض'), opt('orthodontics', 'Orthodontics', 'تقويم', ['braces', 'aligners']), opt('implants', 'Implants', 'زراعة', ['implant']), opt('fillings', 'Fillings', 'حشوة', ['filling', 'حشو'])])),
     req(F.preferredTime()), req(F.location(inPerson.slice(0, 1))),

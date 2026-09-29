@@ -41,6 +41,21 @@ test('verification requires confirmed send, enforces attempt limits and consumes
   assert.equal((await m.call('verify_code',{...args,tokenHash:'c'.repeat(64)})).ok,true);
   assert.equal((await m.call('verify_code',{...args,tokenHash:'d'.repeat(64)})).reason,'code_invalid');
 });
+test('a pending employee invitation activates only after verified sign-in and resolves the manager workspace',async()=>{
+  const m=memory();
+  const managerId=await m.db.insert('accounts',{email:'manager@example.com',role:'customer',draftHash:'f'.repeat(64),createdAt:1});
+  const workspaceId=await m.db.insert('ascendWorkspaces',{managerAccountId:managerId,employeeLimit:5,createdAt:1,updatedAt:1});
+  const memberId=await m.db.insert('ascendWorkspaceMembers',{workspaceId,email:args.email,status:'pending',invitedAt:1,updatedAt:1});
+  assert.equal((await m.call('session',{tokenHash:'c'.repeat(64)})).value,null);
+  const tokenHash=await login(m);
+  const member=await m.db.get(memberId);
+  assert.equal(member.status,'active');
+  assert.ok(member.accountId);
+  const session=(await m.call('session',{tokenHash})).value;
+  assert.equal(session.workspaceRole,'employee');
+  assert.equal(session.workspaceDraftHash,'f'.repeat(64));
+  assert.equal(session.draftHash,null);
+});
 test('claim rotates anonymous authority, persists account recovery and does not overwrite a saved draft',async()=>{
   const m=memory(),tokenHash=await login(m),sessionHash='e'.repeat(64),draftHash='f'.repeat(64);
   const id=await m.db.insert('blueReviewSessions',{sessionHash,expiresAt:90000,lastPreview:{text:'safe'},profile:{services:'Portraits'}});

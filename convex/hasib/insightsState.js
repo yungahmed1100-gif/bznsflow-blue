@@ -6,21 +6,18 @@
 //   revenue         sales without VAT; delivery fees count as revenue
 //   cost of goods   quantity × the unit cost fixed when stock left the shelf
 //   operating cost  expenses except stock purchases (those are inventory and reach profit as cost of goods)
+import { orderProfit } from './profit.js';
 import { ok, fail } from './shared.js';
 import { periodRange } from './period.js';
 import { businessTimezone, expensesIn } from './expensesState.js';
+import { restaurantSummary } from './restaurantState.js';
 
 const ORDER_LIMIT = 3000, RECEIVABLE_SCAN = 1000, SIGNAL_LIMIT = 3000, TOP = 10;
 const NOT_SALES = new Set(['pending', 'cancelled', 'returned']);
 const CLOSED = new Set(['cancelled', 'returned']);
 
 /** Revenue of one order without VAT, split by line so products can be ranked. */
-function orderRevenue(o) {
-  const lineVat = o.lines.reduce((n, l) => n + l.vatMinor, 0), deliveryVat = o.vatMinor - lineVat;
-  const lines = o.lines.map(l => ({ l, revenue: o.pricesIncludeVat ? l.netMinor - l.vatMinor : l.netMinor, cost: l.tracked ? l.qty * l.unitCostMinor : 0 }));
-  const delivery = o.pricesIncludeVat ? o.deliveryMinor - deliveryVat : o.deliveryMinor;
-  return { lines, delivery, revenue: lines.reduce((n, x) => n + x.revenue, 0) + delivery };
-}
+const orderRevenue = orderProfit;
 
 async function ordersIn(ctx, accountId, range) {
   const rows = await ctx.db.query('hasibOrders').withIndex('by_account_created', q => q.eq('accountId', accountId).gte('createdAt', range.from).lt('createdAt', range.to)).take(ORDER_LIMIT + 1);
@@ -33,15 +30,17 @@ function salesSummary(orders) {
   for (const o of sales) {
     const r = orderRevenue(o);
     revenue += r.revenue;
-    for (const { l, revenue: lineRevenue, cost } of r.lines) {
+    cogs += (o.channelCostMinor || 0) + (o.operationalCostMinor || 0);
+    for (const { l, revenue: lineRevenue, cost, costKnown } of r.lines) {
       cogs += cost;
       const key = l.itemId || `custom:${l.name}`;
-      const p = products.get(key) || { itemId: l.itemId || null, name: l.name, qty: 0, revenueMinor: 0, costMinor: 0 };
-      products.set(key, { ...p, qty: p.qty + l.qty, revenueMinor: p.revenueMinor + lineRevenue, costMinor: p.costMinor + cost });
+      const p = products.get(key) || { itemId: l.itemId || null, name: l.name, qty: 0, revenueMinor: 0, costMinor: 0, costKnown: true };
+      products.set(key, { ...p, qty: p.qty + l.qty, revenueMinor: p.revenueMinor + lineRevenue, costMinor: p.costMinor + cost, costKnown: p.costKnown && costKnown });
     }
   }
   const totalMinor = sales.reduce((n, o) => n + o.totalMinor, 0), vatMinor = sales.reduce((n, o) => n + o.vatMinor, 0);
-  return { sales, products, figures: { orders: sales.length, totalMinor, vatMinor, revenueMinor: revenue, cogsMinor: cogs, grossProfitMinor: revenue - cogs } };
+  const costKnown=sales.every(o=>orderProfit(o).profitMinor!==null);
+  return { sales, products, figures: { orders: sales.length, totalMinor, vatMinor, revenueMinor: revenue, cogsMinor: costKnown?cogs:null, grossProfitMinor: costKnown?revenue-cogs:null } };
 }
 
 async function topProducts(ctx, products) {
@@ -49,7 +48,7 @@ async function topProducts(ctx, products) {
   const out = [];
   for (const p of ranked) {
     const item = p.itemId ? await ctx.db.get(p.itemId) : null;
-    out.push({ itemId: p.itemId, nameAr: item?.nameAr || p.name, nameEn: item?.nameEn || p.name, qty: p.qty, revenueMinor: p.revenueMinor, profitMinor: p.revenueMinor - p.costMinor });
+    out.push({ itemId: p.itemId, nameAr: item?.nameAr || p.name, nameEn: item?.nameEn || p.name, qty: p.qty, revenueMinor: p.revenueMinor, profitMinor: p.costKnown ? p.revenueMinor - p.costMinor : null });
   }
   return out;
 }
@@ -142,28 +141,30 @@ export async function executeInsights(ctx, tenant, a, now) {
   const tz = await businessTimezone(ctx, accountId);
   let range;
   try { range = periodRange(a.period || 'today', now, tz); } catch (e) { return fail(e.reason || 'invalid_period'); }
-  const settings = await ctx.db.query('hasibSettings').withIndex('by_account', q => q.eq('accountId', accountId)).unique();
-  const vatRegistered = !!settings?.vatRegistered;
   const orders = await ordersIn(ctx, accountId, range);
   const { sales, products, figures } = salesSummary(orders.rows);
   const pendingOrders = orders.rows.filter(o => o.status === 'pending');
   const expenses = await expensesIn(ctx, accountId, range, 2000);
-  const live = expenses.rows.filter(e => !e.voided), exVat = e => vatRegistered ? e.amountMinor - e.vatMinor : e.amountMinor;
+  const live = expenses.rows.filter(e => !e.voided), exVat = e => e.amountMinor - (e.vatMinor || 0);
   const operatingMinor = live.filter(e => e.category !== 'stock_purchase').reduce((n, e) => n + exVat(e), 0);
   const stockPurchasesMinor = live.filter(e => e.category === 'stock_purchase').reduce((n, e) => n + exVat(e), 0);
   const byCategory = [...live.reduce((m, e) => m.set(e.category, (m.get(e.category) || 0) + exVat(e)), new Map())].map(([category, amountMinor]) => ({ category, amountMinor })).sort((x, y) => y.amountMinor - x.amountMinor);
   const pack = tenant.pack;
+  const restaurant = pack.modules.recipes === 'available' ? await restaurantSummary(ctx, accountId, range, { sales, figures, expenses: live }) : null;
   return ok({
     range: { period: range.period, fromDate: range.fromDate, toDate: range.toDate, timezone: tz },
     sales: figures,
     pending: { orders: pendingOrders.length, totalMinor: pendingOrders.reduce((n, o) => n + o.totalMinor, 0) },
     expenses: { operatingMinor, stockPurchasesMinor, byCategory },
-    netProfitMinor: figures.grossProfitMinor - operatingMinor,
+    netProfitMinor: figures.grossProfitMinor===null?null:figures.grossProfitMinor-operatingMinor-(restaurant?.wasteMinor||0),
+    recordedProfitMinor: sales.filter(o => ['completed', 'delivered'].includes(o.status)).every(o => orderProfit(o).profitMinor !== null) ? sales.filter(o => ['completed', 'delivered'].includes(o.status)).reduce((n, o) => n + orderProfit(o).profitMinor, 0) - operatingMinor - (restaurant?.wasteMinor || 0) : null,
+    expectedProfitMinor: sales.filter(o => !['completed', 'delivered'].includes(o.status)).every(o => orderProfit(o).profitMinor !== null) ? sales.filter(o => !['completed', 'delivered'].includes(o.status)).reduce((n, o) => n + orderProfit(o).profitMinor, 0) : null,
     cash: await cashIn(ctx, accountId, range),
     receivablesMinor: await receivables(ctx, accountId),
     topProducts: await topProducts(ctx, products),
     customers: await customers(ctx, accountId, sales, range.from),
     stock: await stockSummary(ctx, accountId),
+    restaurant,
     demand: pack.modules.demand === 'available' ? await demandReport(ctx, accountId, range) : null,
     tradeIns: pack.modules.tradeIns === 'available' ? await tradeInsIn(ctx, accountId, range) : null,
     repairs: pack.modules.repairs === 'available' ? await repairsSummary(ctx, accountId, range) : null,

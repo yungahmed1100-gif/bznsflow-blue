@@ -26,6 +26,7 @@ export function WarrantyLookup({ s, h, timezone, onOpenRepair }) {
         <div className="hb-lookup-result" role="status">
           {result.item && <p><strong><bdi>{h.name(result.item)}</bdi></strong>{result.options.length ? ` — ${result.options.map(o => o.value).join(' / ')}` : ''}</p>}
           <p><bdi dir="ltr" className="ld-num">{result.serial}</bdi>{result.status && <span className="ld-chip">{h.t(`st_serial_${result.status}`)}</span>}{result.source && <span className="ld-help"> · {h.t(`src_${result.source}`)}</span>}</p>
+          {Number.isSafeInteger(result.daysInStock) && <p>{result.status === 'sold' ? (s.ar ? 'أيام بقاء الجهاز قبل البيع' : 'Days held before sale') : (s.ar ? 'أيام بقاء الجهاز في المخزون' : 'Days in stock')}: <bdi>{new Intl.NumberFormat(s.ar ? 'ar-OM' : 'en-OM').format(result.daysInStock)}</bdi></p>}
           {result.soldAt && <p>{h.t('soldOn', { date: date(result.soldAt) })}{result.order ? ` · ${h.t('orderNumber', { number: result.order.number })}` : ''}{result.customer ? <> · <bdi>{result.customer}</bdi></> : null}</p>}
           {result.status === 'sold' && (w.until
             ? <p className={`hb-warranty ${w.active ? 'is-active' : 'is-ended'}`}>{w.active ? h.t('warrantyActive', { date: date(w.until), days: w.daysLeft }) : h.t('warrantyExpired', { date: date(w.until) })}{w.by ? ` · ${h.t(`wb_${w.by}`)}` : ''}</p>

@@ -11,6 +11,7 @@ import { dashboardStore } from './dashboard-store.js';
 import { fetchApprovedTemplates, fetchMessagingAllowance } from './templates.js';
 import { validTimezone, zonedLocalToUtc } from './timezone.js';
 import { normalizePhone } from '../../../src/lib/dashboard/phone.js';
+import { isHasibFounder } from '../hasib/founder.js';
 
 const HOST = 'bznsflow-blue.vercel.app', ORIGIN = `https://${HOST}`;
 const GRAPH = { app: '1388038082832745', version: 'v25.0' };
@@ -50,16 +51,16 @@ export function createDashboardApi({ env = process.env, fetcher = fetch, now = D
       if (!dashboardAvailable(env)) throw new PilotError('dashboard_unavailable', 503);
       const account = await blueAccount(req, accounts);
       if (!account) throw new PilotError('sign_in_required', 401);
-      if (!account.draftHash) throw new PilotError('setup_required', 409);
-      const sessionHash = account.draftHash;
+      const sessionHash = account.workspaceDraftHash || account.draftHash;
+      if (!sessionHash) throw new PilotError('setup_required', 409);
       const csrfToken = ensureCsrfToken(req, res);
       const reply = value => send(res, 200, { ok: true, ...value, csrfToken }, { vary: 'Cookie' });
 
       if (req.method === 'GET') {
-        const overview = await store('overview', { sessionHash });
+        const overview = await store('overview', { sessionHash, actorAccountId: account.id });
         // Template sync needs only the Vercel gate, so an approved template can be confirmed
         // before the durable Convex gate allows any campaign to be created.
-        return reply({ ...overview, account: { email: account.email }, dashboardAvailable: true, broadcastApiEnabled: broadcastAvailable(env), broadcastEnabled: !!overview.integration && broadcastAvailable(env) && overview.messaging.broadcastAvailable });
+        return reply({ ...overview, account: { email: account.email }, founderPreview: isHasibFounder(account), dashboardAvailable: true, broadcastApiEnabled: broadcastAvailable(env), broadcastEnabled: !!overview.integration && broadcastAvailable(env) && overview.messaging.broadcastAvailable });
       }
       if (!verifyCsrf(req)) throw new PilotError('csrf', 403);
       const body = readBody(req);
@@ -68,42 +69,42 @@ export function createDashboardApi({ env = process.env, fetcher = fetch, now = D
       if (BROADCAST_ACTIONS.has(action) && !broadcastAvailable(env)) throw new PilotError('broadcast_unavailable', 503);
 
       if (READ_ACTIONS.has(action)) {
-        const args = { sessionHash, channel:['whatsapp','instagram'].includes(body.channel)?body.channel:undefined, cursor: optionalString(body.cursor, 100), search: optionalString(body.search, 80), status: optionalString(body.status, 20),
+        const args = { sessionHash, actorAccountId: account.id, channel:['whatsapp','instagram'].includes(body.channel)?body.channel:undefined, cursor: optionalString(body.cursor, 100), search: optionalString(body.search, 80), status: optionalString(body.status, 20),
           conversationId: id(body.conversationId), campaignId: id(body.campaignId), before: Number.isSafeInteger(body.before) ? body.before : undefined,
           limit: Number.isSafeInteger(body.limit) ? body.limit : undefined };
         return reply(await store(action, Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined))));
       }
       if (action === 'set_timezone') {
         if (!validTimezone(body.timezone)) throw new PilotError('invalid_timezone');
-        return reply(await store('set_timezone', { sessionHash, timezone: body.timezone }));
+        return reply(await store('set_timezone', { sessionHash, actorAccountId: account.id, timezone: body.timezone }));
       }
       if (action === 'contact_update') {
         const patch = body.patch && typeof body.patch === 'object' ? body.patch : {};
-        return reply(await store('contact_update', { sessionHash, contactId: id(body.contactId) || '', patch: {
+        return reply(await store('contact_update', { sessionHash, actorAccountId: account.id, contactId: id(body.contactId) || '', patch: {
           ...(typeof patch.ownerName === 'string' ? { ownerName: patch.ownerName.slice(0, 80) } : {}),
           ...(Array.isArray(patch.fields) ? { fields: patch.fields.slice(0, 20).map(f => ({ key: String(f?.key || '').slice(0, 40), value: typeof f?.value === 'string' ? f.value.slice(0, 120) : null })) } : {}),
           ...(patch.qualificationOverride === null || typeof patch.qualificationOverride === 'string' ? { qualificationOverride: patch.qualificationOverride } : {}),
         } }));
       }
-      if (action === 'contact_delete') return reply(await store('contact_delete', { sessionHash, contactId: id(body.contactId) || '', confirm: body.confirm === true }));
+      if (action === 'contact_delete') return reply(await store('contact_delete', { sessionHash, actorAccountId: account.id, contactId: id(body.contactId) || '', confirm: body.confirm === true }));
       if (action === 'import_contacts') {
         const consent = body.consent && typeof body.consent === 'object' ? { source: String(body.consent.source || '').slice(0, 120), date: String(body.consent.date || '').slice(0, 10),
           purpose: String(body.consent.purpose || '').slice(0, 200), attested: body.consent.attested === true } : undefined;
-        return reply(await store('import_contacts', { sessionHash, requestId: uuid(body.requestId) || '', origin: body.origin === 'manual' ? 'manual' : 'import',
+        return reply(await store('import_contacts', { sessionHash, actorAccountId: account.id, requestId: uuid(body.requestId) || '', origin: body.origin === 'manual' ? 'manual' : 'import',
           requireConsent: body.requireConsent === true, rows: importRows(body.rows), ...(consent ? { consent } : {}) }));
       }
       if (action === 'sync_templates') {
         const { integration, token, c } = await graphContext(sessionHash);
         const records = await templates({ c, integration, token, fetcher });
-        await store('replace_templates', { sessionHash, integrationId: integration.id, templates: records });
-        return reply(await store('templates', { sessionHash }));
+        await store('replace_templates', { sessionHash, actorAccountId: account.id, integrationId: integration.id, templates: records });
+        return reply(await store('templates', { sessionHash, actorAccountId: account.id }));
       }
       if (action === 'campaign_preview' || action === 'campaign_create') {
         const { integration, token, c } = await graphContext(sessionHash);
         const limit = await allowance({ c, integration, token, fetcher });
         const mapping = Array.isArray(body.mapping) ? body.mapping.slice(0, 20).map(m => ({ key: String(m?.key || '').slice(0, 60), source: String(m?.source || '').slice(0, 50), value: String(m?.value ?? '').slice(0, 1024) })) : [];
         const contactIds = Array.isArray(body.contactIds) ? body.contactIds.slice(0, 500).map(id).filter(Boolean) : [];
-        const args = { sessionHash, templateId: optionalString(body.templateId, 30) || '', mapping, contactIds, allowance: Number.isFinite(limit) ? Math.min(limit, 1e9) : 1e9 };
+        const args = { sessionHash, actorAccountId: account.id, templateId: optionalString(body.templateId, 30) || '', mapping, contactIds, allowance: Number.isFinite(limit) ? Math.min(limit, 1e9) : 1e9 };
         if (action === 'campaign_preview') return reply(await store('campaign_preview', args));
         const timezone = body.schedule?.timezone;
         if (!validTimezone(timezone)) throw new PilotError('invalid_timezone');
@@ -115,7 +116,7 @@ export function createDashboardApi({ env = process.env, fetcher = fetch, now = D
         return reply(await store('campaign_create', { ...args, requestId: uuid(body.requestId) || '', confirm: body.confirm === true, scheduledAt, timezone,
           name: optionalString(body.name, 80) || '', origin: body.origin === 'chat' ? 'chat' : 'broadcast' }));
       }
-      if (action === 'campaign_cancel') return reply(await store('campaign_cancel', { sessionHash, campaignId: id(body.campaignId) || '' }));
+      if (action === 'campaign_cancel') return reply(await store('campaign_cancel', { sessionHash, actorAccountId: account.id, campaignId: id(body.campaignId) || '' }));
       throw new PilotError('invalid_action');
     } catch (e) {
       return sendPilotError(res, e, { fallback: 'dashboard_unavailable', vary: 'Cookie' });

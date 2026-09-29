@@ -2,6 +2,7 @@
 // each table stays small; tests/hasib-strings.test.mjs enforces key parity.
 
 const en = {
+  notEnoughRecords: 'Not enough records', details: 'Detailed reports', expectedProfit: 'Expected profit on open work', missingCounts: 'Record two physical stock counts to compare actual use.', waste_remake: 'Remade drink',
   orders: 'Orders', stock: 'Stock', newOrder: 'New order', createOrder: 'Create order', orderNumber: 'Order #{number}', noOrders: 'No orders yet. Create one from a chat or here.',
   allOrders: 'All orders', customer: 'Customer', walkIn: 'Walk-in customer', customerName: 'Customer name (optional)', total: 'Total', balance: 'Balance', paid: 'Paid', items: 'Items',
   created: 'Created', channel: 'Channel', status: 'Status', payment: 'Payment', addItem: 'Add product', searchItems: 'Search products or SKU', noItemsFound: 'No matching product.',
@@ -23,9 +24,9 @@ const en = {
   ch_whatsapp: 'WhatsApp', ch_instagram: 'Instagram', ch_walk_in: 'Walk-in', ch_phone: 'Phone', ch_website: 'Website', ch_other: 'Other',
   ful_pickup: 'Pickup', ful_delivery: 'Delivery', ful_in_store: 'In store',
   pm_cash: 'Cash', pm_cod: 'Cash on delivery', pm_card: 'Card', pm_bank_transfer: 'Bank transfer', pm_payment_link: 'Payment link', pm_other: 'Other',
-  insights: 'Insights', expenses: 'Expenses', period_today: 'Today', period_7d: 'Last 7 days', period_30d: 'Last 30 days', period_month: 'This month', period_prev_month: 'Last month',
-  netProfit: 'Net profit', netProfitHelp: 'Gross profit minus operating costs', sales: 'Sales', grossProfit: 'Gross profit', operatingCosts: 'Operating costs',
-  cashIn: 'Cash received', owed: 'Owed to you', owedHelp: 'Unpaid balances on open orders', pendingOrders: 'Not yet confirmed', topProducts: 'Best sellers', revenue: 'Revenue', profit: 'Profit',
+  insights: 'Money', expenses: 'Expenses', period_today: 'Today', period_7d: 'Last 7 days', period_30d: 'Last 30 days', period_month: 'This month', period_prev_month: 'Last month',
+  netProfit: 'Recorded profit', netProfitHelp: 'Completed work, after recorded item costs and operating costs; excludes VAT.', sales: 'Sales', grossProfit: 'Gross profit', operatingCosts: 'Operating costs',
+  cashIn: 'Money received', owed: 'Customers owe you', owedHelp: 'Unpaid balances on open orders', pendingOrders: 'Not yet confirmed', topProducts: 'Best sellers', revenue: 'Revenue', profit: 'Profit',
   noSales: 'No sales in this period yet.', cashByMethod: 'Cash received by method', costsByCategory: 'Costs by category', stockBought: 'Stock bought {amount} (reaches profit as cost of goods)',
   stockValueTile: 'Stock value at cost', lowTile: 'Low stock', outTile: 'Out of stock', buyers: 'Customers who bought', returning: 'Returning', walkInSales: 'Walk-in sales',
   demandTitle: 'What customers ask Layla for', mostWanted: 'Most wanted', lostSales: 'Asked while out of stock', askedNotBought: 'Asked, didn’t buy', notInCatalog: 'Asked for, not in your products',
@@ -67,10 +68,14 @@ const en = {
   issue_name_missing: 'the name is missing', issue_price_missing: 'the price is missing', issue_price_invalid: 'the price isn’t a number', issue_cost_invalid: 'the cost isn’t a number', issue_quantity_invalid: 'the quantity isn’t a whole number',
   issue_alert_invalid: 'the alert level isn’t a whole number', issue_serial_invalid: 'the IMEI / serial looks wrong', issue_duplicate_sku: 'this SKU belongs to another product', issue_duplicate_serial: 'this IMEI is listed twice',
   // Today
-  todayTitle: 'Today', needsYou: 'Needs you', allClear: 'All clear — Layla is handling everything.', ordersWaitingLine: 'Orders waiting for you: {count}', chatsHandedLine: 'Chats handed to you: {count}',
+  todayTitle: 'Today', needsYou: 'Needs you', allClear: 'No actions waiting in the recorded activity.', ordersWaitingLine: 'Orders waiting for you: {count}', chatsHandedLine: 'Chats handed to you: {count}',
+  restaurantControls: 'Restaurant controls', cafeControls: 'Café controls', bakeryControls: 'Bakery controls', foodCost: 'Food cost', productCost: 'Product cost', laborCost: 'Labor cost', primeCost: 'Prime cost', wasteCost: 'Waste cost', stockVariance: 'Stock that doesn’t match', menuPerformance: 'Menu performance', contribution: 'Left after item costs', actualUsage: 'Actual use compared with recipes',
+  recipe: 'Recipe', recipes: 'Recipes', saveRecipe: 'Save recipe', menuItem: 'Menu item', ingredient: 'Ingredient', ingredients: 'Ingredients', yieldQty: 'Yield portions', addIngredient: 'Add ingredient', removeIngredient: 'Remove ingredient', noRecipes: 'No recipes yet. Add recipes to calculate food cost.',
+  receiveStock: 'Receive stock', receivedFrom: 'Supplier', invoiceNumber: 'Invoice number', receivedOn: 'Received on', useBy: 'Use by', producedOn: 'Produced on', recordWaste: 'Record waste', wasteReason: 'Waste reason', countedQty: 'Counted quantity', recordCount: 'Record count', countStock: 'Count stock', prepBatch: 'Prep batch', productionBatch: 'Production batch', productionOutput: 'Finished product', shelfLife: 'Shelf life', expiringStock: 'Expiring stock', expiredStock: 'Expired stock', noExpiringStock: 'No dated stock needs attention.',
+  waste_spoilage: 'Spoilage', waste_prep_trim: 'Prep trim', waste_overproduction: 'Overproduction', waste_unsold: 'Unsold', waste_expired: 'Expired', waste_failed_batch: 'Failed batch', waste_damaged: 'Damaged', waste_other: 'Other', restaurantSummary: 'Restaurant summary', cafeSummary: 'Café summary', bakerySummary: 'Bakery summary', channelPerformance: 'Channel performance',
   lowStockLine: 'Running low or out of stock: {count}', repairsReadyLine: 'Repairs ready to collect: {count}', seeAll: 'See all', openChats: 'Open chats', openStock: 'Open stock', openService: 'Open service',
   laylaToday: 'Layla today', laylaReplies: 'Replies sent', laylaConfirmed: 'Orders she confirmed', laylaQuestions: 'Product questions',
-  moneyTitle: 'Money', moneyToday: 'Money in today', moneyMonth: 'Money in this month', owedToYou: 'Owed to you',
+  moneyTitle: 'Money', moneyToday: 'Money in today', moneyMonth: 'Money in this month', owedToYou: 'Customers owe you',
   help_moneyToday: 'Payments you recorded today, in cash, card or transfer.', help_moneyMonth: 'All payments recorded since the 1st of this month.', help_owedToYou: 'What customers still have to pay on orders that are not finished.',
   help_laylaReplies: 'Messages Layla wrote to customers today.', help_laylaConfirmed: 'Orders Layla checked against your stock and confirmed by herself today.', help_laylaQuestions: 'Times a customer asked about one of your products today.',
   setupTitle: 'Finish setting up', setupProgress: '{done} of {total} done', setup_whatsapp: 'Connect WhatsApp', setup_industry: 'Choose your type of shop', setup_products: 'Add your products', setup_photos: 'Add product photos', setup_services: 'Add your services',
@@ -78,6 +83,7 @@ const en = {
   setupDone: 'Done', setupTodo: 'To do', setupStart: 'Start', onHandShort: '{count} left',
 };
 const ar = {
+  notEnoughRecords: 'لا توجد سجلات كافية', details: 'التقارير التفصيلية', expectedProfit: 'الربح المتوقع للأعمال المفتوحة', missingCounts: 'سجّل جردين فعليين للمخزون لمقارنة الاستخدام الفعلي.', waste_remake: 'إعادة تحضير مشروب',
   orders: 'الطلبات', stock: 'المخزون', newOrder: 'طلب جديد', createOrder: 'إنشاء طلب', orderNumber: 'طلب رقم {number}', noOrders: 'لا توجد طلبات بعد. أنشئ طلباً من محادثة أو من هنا.',
   allOrders: 'كل الطلبات', customer: 'العميل', walkIn: 'عميل حضوري', customerName: 'اسم العميل (اختياري)', total: 'الإجمالي', balance: 'المتبقي', paid: 'المدفوع', items: 'الأصناف',
   created: 'التاريخ', channel: 'القناة', status: 'الحالة', payment: 'الدفع', addItem: 'إضافة منتج', searchItems: 'ابحث عن منتج أو رمز SKU', noItemsFound: 'لا يوجد منتج مطابق.',
@@ -100,8 +106,8 @@ const ar = {
   ful_pickup: 'استلام', ful_delivery: 'توصيل', ful_in_store: 'في المحل',
   pm_cash: 'نقداً', pm_cod: 'الدفع عند الاستلام', pm_card: 'بطاقة', pm_bank_transfer: 'تحويل بنكي', pm_payment_link: 'رابط دفع', pm_other: 'أخرى',
   insights: 'التقارير', expenses: 'المصروفات', period_today: 'اليوم', period_7d: 'آخر 7 أيام', period_30d: 'آخر 30 يوماً', period_month: 'هذا الشهر', period_prev_month: 'الشهر الماضي',
-  netProfit: 'صافي الربح', netProfitHelp: 'إجمالي الربح ناقص المصروفات التشغيلية', sales: 'المبيعات', grossProfit: 'إجمالي الربح', operatingCosts: 'المصروفات التشغيلية',
-  cashIn: 'المبالغ المستلمة', owed: 'مستحق لك', owedHelp: 'المبالغ غير المدفوعة على الطلبات المفتوحة', pendingOrders: 'غير مؤكدة بعد', topProducts: 'الأكثر مبيعاً', revenue: 'الإيراد', profit: 'الربح',
+  netProfit: 'الربح المسجل', netProfitHelp: 'الأعمال المكتملة بعد تكلفة الأصناف والمصروفات المسجلة، بدون ضريبة القيمة المضافة.', sales: 'المبيعات', grossProfit: 'إجمالي الربح', operatingCosts: 'المصروفات التشغيلية',
+  cashIn: 'المبالغ المستلمة', owed: 'مبالغ يدين بها العملاء', owedHelp: 'المبالغ غير المدفوعة على الطلبات المفتوحة', pendingOrders: 'غير مؤكدة بعد', topProducts: 'الأكثر مبيعاً', revenue: 'الإيراد', profit: 'الربح',
   noSales: 'لا توجد مبيعات في هذه الفترة بعد.', cashByMethod: 'المبالغ المستلمة حسب الطريقة', costsByCategory: 'المصروفات حسب الفئة', stockBought: 'مشتريات بضاعة {amount} (تدخل الربح كتكلفة بضاعة عند البيع)',
   stockValueTile: 'قيمة المخزون بالتكلفة', lowTile: 'مخزون منخفض', outTile: 'نفد من المخزون', buyers: 'عملاء اشتروا', returning: 'عائدون', walkInSales: 'مبيعات حضورية',
   demandTitle: 'ما يسأل عنه العملاء ليلى', mostWanted: 'الأكثر طلباً', lostSales: 'سُئل عنه وهو غير متوفر', askedNotBought: 'سألوا ولم يشتروا', notInCatalog: 'طُلب وليس ضمن منتجاتك',
@@ -144,6 +150,10 @@ const ar = {
   issue_alert_invalid: 'حد التنبيه ليس رقماً صحيحاً', issue_serial_invalid: 'رقم IMEI / التسلسلي غير صحيح', issue_duplicate_sku: 'رمز SKU هذا لمنتج آخر', issue_duplicate_serial: 'رقم IMEI هذا مكرر',
   // Today
   todayTitle: 'اليوم', needsYou: 'بانتظارك', allClear: 'كل شيء تمام — ليلى تتولى كل شيء.', ordersWaitingLine: 'طلبات بانتظارك: {count}', chatsHandedLine: 'محادثات حُوّلت إليك: {count}',
+  restaurantControls: 'ضوابط المطعم', cafeControls: 'ضوابط المقهى', bakeryControls: 'ضوابط المخبز', foodCost: 'تكلفة الطعام', productCost: 'تكلفة المنتجات', laborCost: 'تكلفة العمالة', primeCost: 'التكلفة الأساسية', wasteCost: 'تكلفة الهدر', stockVariance: 'مخزون غير مطابق', menuPerformance: 'أداء القائمة', contribution: 'المتبقي بعد تكلفة الأصناف', actualUsage: 'الاستخدام الفعلي مقارنة بالوصفات',
+  recipe: 'الوصفة', recipes: 'الوصفات', saveRecipe: 'حفظ الوصفة', menuItem: 'صنف القائمة', ingredient: 'المكوّن', ingredients: 'المكوّنات', yieldQty: 'عدد الحصص', addIngredient: 'إضافة مكوّن', removeIngredient: 'حذف المكوّن', noRecipes: 'لا توجد وصفات بعد. أضف الوصفات لحساب تكلفة الطعام.',
+  receiveStock: 'استلام مخزون', receivedFrom: 'المورّد', invoiceNumber: 'رقم الفاتورة', receivedOn: 'تاريخ الاستلام', useBy: 'يُستخدم قبل', producedOn: 'تاريخ الإنتاج', recordWaste: 'تسجيل هدر', wasteReason: 'سبب الهدر', countedQty: 'الكمية المعدودة', recordCount: 'تسجيل الجرد', countStock: 'جرد المخزون', prepBatch: 'دفعة تحضير', productionBatch: 'دفعة إنتاج', productionOutput: 'المنتج النهائي', shelfLife: 'مدة الصلاحية', expiringStock: 'مخزون يقترب انتهاءه', expiredStock: 'مخزون منتهي', noExpiringStock: 'لا يوجد مخزون مؤرخ يحتاج إلى متابعة.',
+  waste_spoilage: 'تلف', waste_prep_trim: 'بقايا التحضير', waste_overproduction: 'إنتاج زائد', waste_unsold: 'غير مباع', waste_expired: 'منتهي الصلاحية', waste_failed_batch: 'دفعة فاشلة', waste_damaged: 'تالف', waste_other: 'أخرى', restaurantSummary: 'ملخص المطعم', cafeSummary: 'ملخص المقهى', bakerySummary: 'ملخص المخبز', channelPerformance: 'أداء القنوات',
   lowStockLine: 'منتجات قاربت على النفاد أو نفدت: {count}', repairsReadyLine: 'أجهزة جاهزة للاستلام: {count}', seeAll: 'عرض الكل', openChats: 'فتح المحادثات', openStock: 'فتح المخزون', openService: 'فتح الصيانة',
   laylaToday: 'ليلى اليوم', laylaReplies: 'ردود أرسلتها', laylaConfirmed: 'طلبات أكّدتها', laylaQuestions: 'أسئلة عن المنتجات',
   moneyTitle: 'المال', moneyToday: 'دخل اليوم', moneyMonth: 'دخل هذا الشهر', owedToYou: 'مبالغ لك عند العملاء',
@@ -158,15 +168,32 @@ const reasons = {
     invalid_transition: 'That status change isn’t allowed from here.', refund_exceeds_paid: 'A refund can’t be more than what was paid.', order_closed: 'This order is closed. Only refunds are possible.',
     import_file_too_large: 'That file is too big (15 MB at most).', import_file_type: 'That kind of file can’t be read. Use Excel, CSV, PDF, Word or a photo.', import_file_empty: 'No products were found in that file.', invalid_import: 'Those products couldn’t be saved. Check the file and try again.', serial_mismatch: 'This product is already in Stock without IMEI tracking.', item_not_found: 'That product is no longer in Stock.',
     photo_limit: 'You’ve added a lot of photos today. Try again tomorrow.', invalid_photo: 'That photo can’t be used. Choose a JPG, PNG or WebP picture under 5 MB.', photo_type: 'Choose a JPG, PNG or WebP picture.', photo_size: 'That picture is too big. Choose one under 5 MB.', photo_upload_failed: 'The photo didn’t upload. Check your connection and try again.',
-    duplicate_sku: 'Another product already uses that SKU.', invalid_item: 'Check the product: a name and a price are needed for each variant.', invalid_order_lines: 'Check the lines: quantities and prices must be valid.',
+    duplicate_sku: 'Another product already uses that SKU.', invalid_item: 'Check the product: a name and a price are needed for each variant.', invalid_order_lines: 'Check the lines: quantities and prices must be valid.', invalid_recipe: 'Choose a menu item, yield and stocked ingredients.', invalid_waste: 'Check the ingredient, quantity and waste reason.', invalid_count: 'Enter a valid counted quantity.', invalid_receipt: 'Check the supplier, date, quantities and unit costs.', invalid_batch: 'Check the prep output and ingredient quantities.',
     variant_not_found: 'That product is no longer available.', hasib_unavailable: 'Orders and stock are not switched on for this account yet.', invalid_amount: 'Enter a valid amount.', invalid_expense: 'Check the expense: category, amount and date are needed, and VAT can’t exceed the amount.', pack_not_live: 'Choose an available industry to use orders and stock.', serials_required: 'Choose the IMEI of each unit sold.', serial_unavailable: 'That IMEI is not in stock for this product.', serials_mismatch: 'The number of IMEIs must match the quantity.', duplicate_serial: 'That IMEI is already in stock.', invalid_serial: 'Check the IMEI: letters and digits only.', use_serial_flow: 'IMEI products change stock by receiving or writing off named units.', serialized_part: 'Parts with IMEIs are sold as their own order, not as repair parts.', repair_locked: 'Quote and parts are fixed once the device is ready.', repair_conflict: 'This repair changed in another tab. It has been reloaded.', invalid_repair: 'Device and fault are needed.', invalid_trade_in: 'Check the trade-in: price and method are needed.', not_serialized: 'Trade-ins need a product with IMEI tracking.', serial_not_found: 'This IMEI is not in your records.' },
   ar: { insufficient_stock: 'الكمية غير كافية. غيّر قاعدة المخزون إلى «تنبيه» أو استلم بضاعة أولاً.', order_conflict: 'تغيّر هذا الطلب في نافذة أخرى، وتمت إعادة تحميله.',
     invalid_transition: 'لا يمكن تغيير الحالة بهذا الشكل.', refund_exceeds_paid: 'لا يمكن أن يتجاوز الاسترداد المبلغ المدفوع.', order_closed: 'هذا الطلب مغلق، ويمكن فقط تسجيل استرداد.',
     import_file_too_large: 'الملف كبير جداً (15 ميغابايت كحد أقصى).', import_file_type: 'لا يمكن قراءة هذا النوع من الملفات. استخدم إكسل أو CSV أو PDF أو وورد أو صورة.', import_file_empty: 'لم نجد منتجات في هذا الملف.', invalid_import: 'تعذّر حفظ هذه المنتجات. راجع الملف وحاول مرة أخرى.', serial_mismatch: 'هذا المنتج موجود في المخزون بدون تتبّع IMEI.', item_not_found: 'هذا المنتج لم يعد في المخزون.',
     photo_limit: 'أضفت صوراً كثيرة اليوم. حاول مرة أخرى غداً.', invalid_photo: 'لا يمكن استخدام هذه الصورة. اختر صورة JPG أو PNG أو WebP أصغر من 5 ميغابايت.', photo_type: 'اختر صورة بصيغة JPG أو PNG أو WebP.', photo_size: 'الصورة كبيرة جداً. اختر صورة أصغر من 5 ميغابايت.', photo_upload_failed: 'لم تُرفع الصورة. تحقّق من الاتصال وحاول مرة أخرى.',
-    duplicate_sku: 'رمز SKU مستخدم لمنتج آخر.', invalid_item: 'راجع المنتج: يلزم اسم وسعر لكل خيار.', invalid_order_lines: 'راجع البنود: يجب أن تكون الكميات والأسعار صحيحة.',
+    duplicate_sku: 'رمز SKU مستخدم لمنتج آخر.', invalid_item: 'راجع المنتج: يلزم اسم وسعر لكل خيار.', invalid_order_lines: 'راجع البنود: يجب أن تكون الكميات والأسعار صحيحة.', invalid_recipe: 'اختر صنف القائمة وعدد الحصص ومكوّنات مخزّنة.', invalid_waste: 'راجع المكوّن والكمية وسبب الهدر.', invalid_count: 'أدخل كمية جرد صحيحة.', invalid_receipt: 'راجع المورّد والتاريخ والكميات وتكاليف الوحدة.', invalid_batch: 'راجع ناتج التحضير وكميات المكوّنات.',
     variant_not_found: 'هذا المنتج لم يعد متاحاً.', hasib_unavailable: 'الطلبات والمخزون غير مفعّلة لهذا الحساب بعد.', invalid_amount: 'أدخل مبلغاً صحيحاً.', invalid_expense: 'راجع المصروف: يلزم الفئة والمبلغ والتاريخ، ولا يمكن أن تتجاوز الضريبة المبلغ.', pack_not_live: 'اختر قطاعاً متاحاً لاستخدام الطلبات والمخزون.', serials_required: 'اختر رقم IMEI لكل وحدة مباعة.', serial_unavailable: 'رقم IMEI هذا غير متوفر في المخزون لهذا المنتج.', serials_mismatch: 'يجب أن يطابق عدد أرقام IMEI الكمية.', duplicate_serial: 'رقم IMEI هذا موجود في المخزون بالفعل.', invalid_serial: 'راجع رقم IMEI: أحرف وأرقام فقط.', use_serial_flow: 'منتجات IMEI يتغير مخزونها باستلام وحدات محددة أو شطبها.', serialized_part: 'القطع ذات IMEI تُباع بطلب مستقل وليس كقطع صيانة.', repair_locked: 'تُثبّت التسعيرة والقطع عند جاهزية الجهاز.', repair_conflict: 'تغيّرت هذه التذكرة في نافذة أخرى، وتمت إعادة تحميلها.', invalid_repair: 'يلزم ذكر الجهاز والعطل.', invalid_trade_in: 'راجع الاستبدال: يلزم المبلغ وطريقة الدفع.', not_serialized: 'الاستبدال يتطلب منتجاً بتتبّع IMEI.', serial_not_found: 'رقم IMEI هذا غير موجود في سجلاتك.' },
 };
+
+// Workflow failures explain what the owner can do next in either language.
+const workflowReasons = {
+  booking_conflict: ['This booking changed. Reload it before saving again.', 'تغيّر هذا الحجز. أعد تحميله قبل الحفظ.'],
+  capacity_exceeded: ['That provider or room is full at this time. Choose another time.', 'مقدم الخدمة أو الغرفة ممتلئ في هذا الوقت. اختر وقتاً آخر.'],
+  resource_unavailable: ['The provider or room is unavailable. Choose another resource or time.', 'مقدم الخدمة أو الغرفة غير متاح. اختر مورداً أو وقتاً آخر.'],
+  job_conflict: ['This job changed. Reload it before saving again.', 'تغيّر هذا العمل. أعد تحميله قبل الحفظ.'],
+  recipe_conflict: ['This recipe changed. Reopen it to review the latest version.', 'تغيّرت هذه الوصفة. أعد فتحها لمراجعة أحدث إصدار.'],
+  membership_conflict: ['This membership changed. Reload it before saving again.', 'تغيّر هذا الاشتراك. أعد تحميله قبل الحفظ.'],
+  insufficient_credits: ['No prepaid lessons remain. Record a new lesson pack first.', 'لا توجد دروس مدفوعة متبقية. سجّل باقة دروس جديدة أولاً.'],
+  exact_variant_required: ['Choose an order containing this exact size and colour.', 'اختر طلباً يحتوي على هذا المقاس واللون تحديداً.'],
+  record_waste_in_stock: ['Open Stock, then Record waste. Its cost is counted once there.', 'افتح المخزون ثم تسجيل هدر. تُحتسب تكلفته مرة واحدة هناك.'],
+  food_disposition_required: ['Choose whether the returned food is discarded or approved for sale.', 'اختر التخلص من الطعام المرتجع أو تأكيد صلاحيته للبيع.'],
+  use_job_status: ['Change this status from its job card. Payments can still be recorded here.', 'غيّر الحالة من بطاقة العمل. يمكنك تسجيل الدفعات هنا.'],
+  invalid_unit: ['Choose a compatible unit, such as grams for kilograms or millilitres for litres.', 'اختر وحدة متوافقة، مثل الغرام للكيلوغرام أو الملليلتر للتر.'],
+};
+for (const [key, [english, arabic]] of Object.entries(workflowReasons)) { reasons.en[key] = english; reasons.ar[key] = arabic; }
 
 const GROUPED = new Intl.NumberFormat('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 

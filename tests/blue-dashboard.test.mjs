@@ -12,6 +12,8 @@ async function twoTenants() {
   await h.enable();
   const a = await seedTenant(h.m, { name: 'a' });
   const b = await seedTenant(h.m, { name: 'b', phone: '9999', waba: '8888', sender: '96890000001' });
+  await h.m.db.insert('blueEntitlements', { accountId: a.accountId, plan: 'ascend', status: 'active', grantedAt: h.m.now() });
+  await h.m.db.insert('blueEntitlements', { accountId: b.accountId, plan: 'ascend', status: 'active', grantedAt: h.m.now() });
   await h.messaging('activate', { sessionHash: a.sessionHash });
   await h.messaging('activate', { sessionHash: b.sessionHash });
   return { h, a, b };
@@ -172,10 +174,13 @@ test('dashboard API requires sign-in, a saved setup, its gate and CSRF, and deri
   assert.equal((await run(signedIn, request('POST', { action: 'contacts' }, { 'x-csrf-token': 'bad' }))).statusCode, 403);
   const ok = await run(signedIn, request('POST', { action: 'contacts', sessionHash: 'a'.repeat(64), accountId: 'other', integrationId: 'other' }));
   assert.equal(ok.statusCode, 200);
-  assert.deepEqual(calls.at(-1), { operation: 'contacts', args: { sessionHash: 'd'.repeat(64) } });
+  assert.deepEqual(calls.at(-1), { operation: 'contacts', args: { sessionHash: 'd'.repeat(64), actorAccountId: 'acct' } });
   assert.equal((await run(signedIn, request('POST', { action: 'sync_templates' }))).body.reason, 'broadcast_unavailable');
   const overview = await run(signedIn, request('GET'));
   assert.equal(overview.body.broadcastEnabled, false);
+  assert.equal(overview.body.founderPreview, false);
+  const founder = await run({ accounts: async () => ({ id: 'founder', email: ' AHMED@BZNSFLOWAI.COM ', draftHash: 'd'.repeat(64) }) }, request('GET'));
+  assert.equal(founder.body.founderPreview, true, 'founder capability comes from the authenticated normalized email');
   // Vercel gate on, durable Convex gate off: templates may sync, campaigns stay off.
   const apiOn = response();
   await createDashboardApi({ env: { ...apiEnv, BLUE_BROADCAST_ENABLED: 'true', BLUE_LIVE_MESSAGING_ENABLED: 'true' }, store: async op => op === 'overview' ? { messaging: { broadcastAvailable: false } } : { templates: [] }, ...signedIn })(request('GET'), apiOn);

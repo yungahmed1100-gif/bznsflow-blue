@@ -14,7 +14,7 @@ const endpoint = '/api/layla-meta?surface=customer';
  * replies stay on. `section`: 'all', 'details' (Settings when Stock exists), or
  * 'services' (Stock → Services).
  */
-export function BusinessDetails({ s, section = 'all' }) {
+export function BusinessDetails({ s, section = 'all', initialIndustryId, onSaved }) {
   const { lang, ar } = s;
   const tr = (en, arabic) => ar ? arabic : en;
   const explain = reason => explainReason(reason, lang);
@@ -34,7 +34,7 @@ export function BusinessDetails({ s, section = 'all' }) {
   }, [lang]);
   const save = ({ profile, businessName }) => act(async () => {
     const r = await request({ action: 'profile', profile, businessName });
-    setSetup(r); setSaved(true);
+    setSetup(r); setSaved(true); onSaved?.();
   });
 
   if (!setup) return <p className="ld-state" role={error ? 'alert' : 'status'}>{error || s.t('loading')}</p>;
@@ -51,7 +51,7 @@ export function BusinessDetails({ s, section = 'all' }) {
         {error && <p className="layla-error" role="alert">{error}</p>}
         {saved && !error && <p className="layla-saved" role="status">{tr('Saved. Layla now answers with these details.', 'تم الحفظ. تجيب ليلى الآن بهذه المعلومات.')}</p>}
         {section === 'services' ? null : setup.profile
-          ? <BusinessDetailsForm key={setup.profileVersion} lang={lang} mode="dashboard" initial={{ profile: setup.profile, businessName: setup.profile.businessName }}
+          ? <BusinessDetailsForm key={`${setup.profileVersion}:${initialIndustryId || ''}`} lang={lang} mode="dashboard" initial={{ profile: setup.profile, businessName: setup.profile.businessName }} initialIndustryId={initialIndustryId}
               busy={busy} onSubmit={save} submitLabel={busy ? s.t('loading') : tr('Save changes', 'حفظ التغييرات')} />
           : <p>{tr('Finish setup first.', 'أكمل الإعداد أولاً.')} <a href={`${ar ? '' : '/en'}/layla/setup`}>{tr('Open setup', 'افتح الإعداد')}</a></p>}
         {setup.profile && section !== 'details' && <section {...(section === 'all' ? { 'aria-labelledby': 'business-catalog-heading' } : { 'aria-label': tr('Services', 'الخدمات') })}>

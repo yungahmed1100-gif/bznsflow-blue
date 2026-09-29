@@ -124,7 +124,7 @@ test('every Layla sector has a valid Hasib pack; retail is the first full pack',
     for (const [k, v] of Object.entries(pack.modules)) assert(['available', 'planned', 'off'].includes(v), `${id} ${k}=${v}`);
   }
   assert.deepEqual(hasibPack('retail').variantOptions.map(o => o.key), ['size', 'length', 'colour']);
-  assert.equal(hasibPack('dental').modules.appointments, 'planned');
+  assert.equal(hasibPack('dental').modules.appointments, 'available', 'appointment workflow is implemented behind the preview pack gate');
   assert.equal(hasibPack('real-estate').modules.stock, 'available');
   assert.equal(hasibPack('unknown-sector').id, 'other');
   assert.equal(Object.keys(HASIB_PACKS).length, PRIMARY_SECTOR_IDS.length + 2, 'sector packs + other + retail-tech');

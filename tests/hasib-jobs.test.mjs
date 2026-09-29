@@ -1,0 +1,102 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { convexMemory } from './helpers/convex-memory.mjs';
+import { executeJobs } from '../convex/hasib/jobsState.js';
+import { hasibPack } from '../config/hasib-packs.js';
+async function setup() {
+  const m = convexMemory(), tenant = { accountId: 'accounts_a', pack: hasibPack('retail'), row: {} };
+  const contactId = await m.db.insert('blueContacts', { accountId: tenant.accountId, state: 'active', name: 'Ali' });
+  const run = (operation, args = {}) => executeJobs(m.ctx, tenant, { operation, ...args }, m.now());
+  return { m, tenant, contactId, run };
+}
+const value = r => { assert.equal(r.ok, true, r.reason); return r.value; };
+test('garage estimate revisions invalidate approval; one charge drives parts and safe cancellation', async () => {
+  const { m, run, contactId, tenant } = await setup();
+  const itemId = await m.db.insert('hasibItems', { accountId: tenant.accountId, nameEn: 'Filter', nameAr: 'Filter', trackStock: true, kind: 'product' });
+  const variantId = await m.db.insert('hasibVariants', { accountId: tenant.accountId, itemId, sku: 'F', options: [], onHand: 10, priceMinor: 5000, costMinor: 2000, reorderPoint: 0 });
+  const requestId = randomUUID(), workflow = { title: 'Oil change', kind: 'garage', contactId, dueAt: m.now() + 1000, checklist: [{ text: 'Test drive', done: false }] };
+  let job = value(await run('job_create', { requestId, workflow }));
+  assert.equal(value(await run('job_create', { requestId, workflow })).id, job.id);
+  assert.equal((await executeJobs(m.ctx, { ...tenant, accountId: 'accounts_b' }, { operation: 'job', jobId: job.id }, m.now())).reason, 'job_not_found');
+  job = value(await run('job_estimate', { jobId: job.id, version: job.version, workflow: { lines: [{ name: 'Labour', qty: 1, unitPriceMinor: 10000 }, { variantId, qty: 1, unitPriceMinor: 5000 }] } }));
+  assert.equal((await run('job_approve', { jobId: job.id, version: job.version, workflow: { estimateVersion: 9, approvedBy: 'Ali' } })).reason, 'estimate_conflict');
+  job = value(await run('job_approve', { jobId: job.id, version: job.version, workflow: { estimateVersion: 1, approvedBy: 'Ali' } }));
+  const orderId = job.orderId;
+  job = value(await run('job_estimate', { jobId: job.id, version: job.version, workflow: { lines: [{ variantId, qty: 2, unitPriceMinor: 5000 }] } }));
+  assert.equal(job.approvedEstimateVersion, undefined);
+  assert.equal((await run('job_status', { jobId: job.id, version: job.version, workflow: { status: 'in_progress' } })).reason, 'invalid_transition');
+  job = value(await run('job_approve', { jobId: job.id, version: job.version, workflow: { estimateVersion: 2, approvedBy: 'Ali' } }));
+  assert.equal(job.orderId, orderId);
+  assert.equal(m.table('hasibOrders').length, 1);
+  job = value(await run('job_status', { jobId: job.id, version: job.version, workflow: { status: 'in_progress' } }));
+  assert.equal((await m.db.get(variantId)).onHand, 8);
+  assert.equal((await run('job_status', { jobId: job.id, version: job.version, workflow: { status: 'completed' } })).reason, 'checklist_incomplete');
+  job = value(await run('job_status', { jobId: job.id, version: job.version, workflow: { status: 'cancelled' } }));
+  assert.equal((await m.db.get(variantId)).onHand, 10);
+  assert.equal((await run('job_status', { jobId: job.id, version: job.version - 1, workflow: { status: 'cancelled' } })).reason, 'job_conflict');
+});
+test('construction distinguishes withheld money and requires explicit extra-work approval evidence', async () => {
+  const { run, m } = await setup();
+  let job = value(await run('job_create', { requestId: randomUUID(), workflow: { title: 'Office', kind: 'construction', dueAt: m.now(), budgetMinor: 10000, costs: [{ label: 'Subcontractor', amountMinor: 3000 }], milestones: [{ label: 'Retention', amountMinor: 1000, dueAt: m.now() - 1, withheld: true }, { label: 'Stage 1', amountMinor: 2000, dueAt: m.now() - 1, withheld: false }] } }));
+  assert.equal(job.budgetRemainingMinor, 7000);
+  assert.equal(job.milestones[0].overdue, false);
+  assert.equal(job.milestones[1].overdue, true);
+  assert.equal(job.recordedProfitMinor, null);
+  assert.equal((await run('job_update', { jobId: job.id, version: job.version, workflow: { extras: [{ label: 'Paint', amountMinor: 1000, approved: true }] } })).reason, 'invalid_job');
+  job = value(await run('job_update', { jobId: job.id, version: job.version, workflow: { extras: [{ label: 'Paint', amountMinor: 1000, approved: true, approvedBy: 'Ali', approvedAt: m.now() }] } }));
+  assert.equal(job.extras[0].approved, true);
+});
+test('equipment and repeat jobs cannot cross customers or tenants', async () => {
+  const { run, m, contactId } = await setup();
+  const other = await m.db.insert('blueContacts', { accountId: 'accounts_b' });
+  assert.equal((await run('equipment_save', { requestId: randomUUID(), workflow: { label: 'AC', contactId: other } })).reason, 'invalid_equipment');
+  const equipment = value(await run('equipment_save', { requestId: randomUUID(), workflow: { label: 'AC', contactId, nextServiceAt: m.now(), visitsRemaining: 2 } }));
+  const job = value(await run('job_create', { requestId: randomUUID(), workflow: { title: 'Service', kind: 'maintenance', contactId, equipmentId: equipment.id, dueAt: m.now() } }));
+  assert.equal(job.equipmentId, equipment.id);
+  assert.equal((await run('equipment_save', { equipmentId: equipment.id, version: 0, workflow: { label: 'new' } })).reason, 'equipment_conflict');
+});
+test('maintenance completion consumes a visit once; reversal restores it; cleaning repeats retain checklist', async () => {
+  const { run, m, contactId } = await setup();
+  const equipment = value(await run('equipment_save', { requestId: randomUUID(), workflow: { label: 'AC', contactId, visitsRemaining: 2 } }));
+  let job = value(await run('job_create', { requestId: randomUUID(), workflow: { title: 'Clean filters', kind: 'maintenance', contactId, equipmentId: equipment.id, recurringDays: 30, dueAt: m.now(), checklist: [{ text: 'Clean', done: true }], costsComplete: true, costs: [{ label: 'Labour cost excluding VAT', amountMinor: 2000 }] } }));
+  job = value(await run('job_estimate', { jobId: job.id, version: job.version, workflow: { lines: [{ name: 'Service', qty: 1, unitPriceMinor: 10000 }] } }));
+  job = value(await run('job_approve', { jobId: job.id, version: job.version, workflow: { estimateVersion: 1, approvedBy: 'Ali' } }));
+  job = value(await run('job_status', { jobId: job.id, version: job.version, workflow: { status: 'in_progress' } }));
+  assert.equal(job.expectedProfitMinor, 8000);
+  job = value(await run('job_status', { jobId: job.id, version: job.version, workflow: { status: 'completed' } }));
+  assert.equal(job.recordedProfitMinor, 8000);
+  assert.equal((await m.db.get(equipment.id)).visitsRemaining, 1);
+  const requestId = randomUUID();
+  const next = value(await run('job_repeat', { jobId: job.id, version: job.version, requestId }));
+  assert.equal(next.dueAt, job.dueAt + 30 * 86400000);
+  assert.equal(next.checklist[0].done, false);
+  assert.equal(value(await run('job_repeat', { jobId: job.id, version: job.version, requestId })).id, next.id);
+  job = value(await run('job_status', { jobId: job.id, version: job.version, workflow: { status: 'returned' } }));
+  assert.equal((await m.db.get(equipment.id)).visitsRemaining, 2);
+  assert.equal(job.recordedProfitMinor, null);
+  assert.equal((await run('job_status', { jobId: job.id, version: job.version, workflow: { status: 'returned' } })).reason, 'job_locked');
+});
+test('job costs linked to existing expenses use net of VAT and never create another expense', async () => {
+  const { run, m, tenant } = await setup();
+  const expenseId = await m.db.insert('hasibExpenses', { accountId: tenant.accountId, amountMinor: 1050, vatMinor: 50 });
+  let result = await run('job_create', { requestId: randomUUID(), workflow: { title: 'Clean', kind: 'cleaning', dueAt: m.now(), costs: [{ label: 'Supplies', amountMinor: 1050, expenseId }] } });
+  assert.equal(result.reason, 'invalid_job');
+  result = await run('job_create', { requestId: randomUUID(), workflow: { title: 'Clean', kind: 'cleaning', dueAt: m.now(), costs: [{ label: 'Supplies', amountMinor: 1000, expenseId }], costsComplete: true } });
+  assert.equal(result.ok, true);
+  assert.equal(m.table('hasibExpenses').length, 1);
+});
+
+test('job owns its linked charge lifecycle and unknown costs stay unknown in shared profit',async()=>{
+  const {run,m,tenant}=await setup();
+  const {executeOrders}=await import('../convex/hasib/ordersState.js');
+  const {orderProfit}=await import('../convex/hasib/profit.js');
+  let j=value(await run('job_create',{requestId:randomUUID(),workflow:{title:'Service',kind:'garage',dueAt:m.now()}}));
+  j=value(await run('job_estimate',{jobId:j.id,version:j.version,workflow:{lines:[{name:'Labour',qty:1,unitPriceMinor:10000}]}}));
+  j=value(await run('job_approve',{jobId:j.id,version:j.version,workflow:{estimateVersion:1,approvedBy:'Owner recorded customer approval'}}));
+  const o=await m.db.get(j.orderId);
+  assert.equal((await executeOrders(m.ctx,tenant,{operation:'order_status',orderId:o._id,version:o.version,to:'confirmed'},m.now())).reason,'use_job_status');
+  assert.equal(orderProfit(o).profitMinor,null);
+  j=value(await run('job_update',{jobId:j.id,version:j.version,workflow:{costsComplete:true,costs:[{label:'Labour',amountMinor:2000}]}}));
+  assert.equal(orderProfit(await m.db.get(j.orderId)).profitMinor,8000);
+});

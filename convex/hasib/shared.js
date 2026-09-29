@@ -4,6 +4,7 @@ import { owned } from '../blueTenant.js';
 import { applyStockPolicy } from './stock.js';
 import { sectorFor } from '../blueContacts.js';
 import { hasibPack } from '../../config/hasib-packs.js';
+import { businessIndustryId } from '../../src/lib/industries.js';
 
 export const ok = value => ({ ok: true, value }), fail = reason => ({ ok: false, reason });
 export const PAGE = 25;
@@ -13,16 +14,16 @@ export const clean = (value, n) => typeof value === 'string' ? value.replace(/[\
 /** Like `clean` but refuses over-long input instead of truncating it silently. */
 export const bounded = (value, n) => typeof value === 'string' && value.length <= n ? clean(value, n) : null;
 
-export const DEFAULT_SETTINGS = Object.freeze({ currency: 'OMR', vatRegistered: false, vatRateBps: 500, pricesIncludeVat: false, stockPolicy: 'warn' });
+export const DEFAULT_SETTINGS = Object.freeze({ currency: 'OMR', vatRegistered: false, vatRateBps: 500, pricesIncludeVat: false, stockPolicy: 'warn', constructionIncidentHoursDenominator: 200000 });
 
 export async function settingsFor(ctx, accountId) {
   const row = await ctx.db.query('hasibSettings').withIndex('by_account', q => q.eq('accountId', accountId)).unique();
   return row ? { ...DEFAULT_SETTINGS, ...row } : { ...DEFAULT_SETTINGS };
 }
-/** The Hasib industry pack: the owner's explicit Hasib choice, otherwise the pack for Layla's sector. */
+/** A legacy Hasib choice wins until the owner next saves the unified Business Setup. */
 export async function packFor(ctx, tenant) {
   const settings = await settingsFor(ctx, tenant.accountId);
-  return hasibPack(settings.packId || sectorFor(tenant.row));
+  return hasibPack(settings.packId || businessIndustryId(tenant.row?.profile?.sector) || sectorFor(tenant.row));
 }
 export const vatOf = s => ({ registered: s.vatRegistered, rateBps: s.vatRateBps, pricesIncludeVat: s.pricesIncludeVat });
 
@@ -67,18 +68,72 @@ export function precheckStock(changes, policy) {
   return { ok: true, short };
 }
 
-/** Append one ledger row and move on-hand in the same mutation. Returns the new on-hand. */
-export async function writeMove(ctx, { accountId, variantId, delta, reason, refType, refId, unitCostMinor, note, requestId, now }) {
-  const variant = await ctx.db.get(variantId);
-  const onHand = variant.onHand + delta;
+/** Allocate dated stock in expiry order and retain the exact lots on the ledger. */
+async function allocateLots(ctx, accountId, variantId, quantity) {
+  const rows = (await ctx.db.query('hasibStockLots').withIndex('by_variant_created', q => q.eq('variantId', variantId)).take(2000))
+    .filter(row => row.accountId === accountId && row.remainingQty > 0)
+    .sort((a, b) => (a.useBy || '9999-12-31').localeCompare(b.useBy || '9999-12-31') || a.createdAt - b.createdAt);
+  const allocations = [];
+  let remaining = quantity;
+  for (const row of rows) {
+    if (remaining <= 0) break;
+    const used = Math.min(row.remainingQty, remaining);
+    await ctx.db.patch(row._id, { remainingQty: row.remainingQty - used });
+    allocations.push({ lotId: row._id, qty: used });
+    remaining -= used;
+  }
+  return allocations;
+}
+
+/** Every stock path maintains lots, including opening balances, imports and counts. */
+export async function writeMove(ctx, { accountId, variantId, delta, reason, refType, refId, unitCostMinor, note, requestId, now, lot = {}, restoreFrom }) {
+  const variant = await owned(ctx, variantId, accountId, 'hasibVariants');
+  if (!variant) throw new Error('variant_not_found');
+  const existing = await ctx.db.query('hasibStockLots').withIndex('by_variant_created', q => q.eq('variantId', variantId)).take(2000);
+  // Additive migration: establish an undated lot only for an existing unallocated balance.
+  const represented = existing.filter(l => l.accountId === accountId).reduce((n, l) => n + l.remainingQty, 0);
+  if (variant.onHand > represented) await ctx.db.insert('hasibStockLots', { accountId, variantId, sourceType: 'opening_balance', originalQty: variant.onHand - represented,
+    remainingQty: variant.onHand - represented, unitCostMinor: variant.costMinor, createdAt: now });
+  const onHand = Math.round((variant.onHand + delta) * 1e9) / 1e9;
   const patch = { onHand, low: isLow(onHand, variant.reorderPoint), updatedAt: now };
-  // Moving-average cost on receipts; stock below zero contributes nothing to the average.
-  if (delta > 0 && Number.isSafeInteger(unitCostMinor)) {
+  if (delta > 0 && Number.isSafeInteger(unitCostMinor) && !restoreFrom) {
     const base = Math.max(variant.onHand, 0);
     patch.costMinor = Math.round((base * variant.costMinor + delta * unitCostMinor) / (base + delta));
+    patch.costKnown = true;
+  }
+  let allocations = [];
+  if (delta < 0) allocations = await allocateLots(ctx, accountId, variantId, -delta);
+  if (delta > 0 && restoreFrom) {
+    const original = await owned(ctx, restoreFrom, accountId, 'hasibStockMoves');
+    if (!original || original.variantId !== variantId || original.delta !== -delta) throw new Error('invalid_stock_reversal');
+    for (const allocation of original.lotAllocations || []) {
+      const row = await owned(ctx, allocation.lotId, accountId, 'hasibStockLots');
+      if (!row) throw new Error('lot_not_found');
+      await ctx.db.patch(row._id, { remainingQty: row.remainingQty + allocation.qty });
+      allocations.push(allocation);
+    }
+  } else if (delta > 0) {
+    // Receipts covering a prior negative balance do not create sellable extra units.
+    const quantity = Math.max(0, onHand) - Math.max(0, variant.onHand);
+    if (delta > 0) {
+      const lotId = await ctx.db.insert('hasibStockLots', { accountId, variantId, sourceType: lot.sourceType || reason, ...(lot.sourceId ? { sourceId: String(lot.sourceId) } : {}),
+        ...(lot.receivedOn ? { receivedOn: lot.receivedOn } : {}), ...(lot.useBy ? { useBy: lot.useBy } : {}), originalQty: delta, remainingQty: quantity, shortCoveredQty: delta - quantity, unitCostMinor: unitCostMinor ?? variant.costMinor, createdAt: now });
+      allocations.push({ lotId, qty: quantity });
+    }
+  }
+  if (restoreFrom) {
+    const rows = await ctx.db.query('hasibStockLots').withIndex('by_variant_created', q => q.eq('variantId', variantId)).take(2000);
+    let deficit = Math.max(0, onHand) - rows.filter(l => l.accountId === accountId).reduce((n,l) => n+l.remainingQty,0);
+    for (const row of rows.filter(l => l.accountId === accountId && l.shortCoveredQty > 0)) {
+      const release = Math.min(Math.max(0,deficit), row.shortCoveredQty);
+      if (!release) break;
+      await ctx.db.patch(row._id, { remainingQty: row.remainingQty + release, shortCoveredQty: row.shortCoveredQty - release });
+      deficit -= release;
+    }
+    if (deficit > 1e-8) await ctx.db.insert('hasibStockLots',{accountId,variantId,sourceType:'legacy_reversal',sourceId:restoreFrom,originalQty:deficit,remainingQty:deficit,unitCostMinor:unitCostMinor??variant.costMinor,createdAt:now});
   }
   await ctx.db.patch(variantId, patch);
-  await ctx.db.insert('hasibStockMoves', { accountId, variantId, delta, reason, onHandAfter: onHand, at: now,
-    ...(refType ? { refType, refId } : {}), ...(Number.isSafeInteger(unitCostMinor) ? { unitCostMinor } : {}), ...(note ? { note } : {}), ...(requestId ? { requestId } : {}) });
+  await ctx.db.insert('hasibStockMoves', { accountId, variantId, delta, reason, onHandAfter: onHand, at: now, lotAllocations: allocations,
+    ...(restoreFrom ? { reversesMoveId: restoreFrom } : {}), ...(refType ? { refType, refId } : {}), ...(Number.isSafeInteger(unitCostMinor) ? { unitCostMinor } : {}), ...(note ? { note } : {}), ...(requestId ? { requestId } : {}) });
   return onHand;
 }

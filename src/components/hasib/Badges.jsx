@@ -8,5 +8,7 @@ export const PaymentChip = ({ h, status }) => <span className={`ld-chip ${PAY_TO
 // The figure is isolated left-to-right; the currency follows it in the page's own direction,
 // so Arabic reads "25.000 ر.ع." instead of the bidi-scrambled ".ر.ع 25.000".
 export const Money = ({ h, minor, className = '' }) => (
-  <span className={`ld-num hb-amount ${className}`}><bdi dir="ltr">{h.amount(minor)}</bdi><span className="hb-currency">{h.t('currency')}</span></span>
+  Number.isFinite(minor)
+    ? <span className={`ld-num hb-amount ${className}`}><bdi dir="ltr">{h.amount(minor)}</bdi><span className="hb-currency">{h.t('currency')}</span></span>
+    : <span className={className}>{h.t('notEnoughRecords')}</span>
 );

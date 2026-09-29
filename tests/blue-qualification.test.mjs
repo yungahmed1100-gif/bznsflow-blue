@@ -55,10 +55,10 @@ test('partial answers accumulate, later questions ask only for missing fields, a
   assert.equal(qualificationStatus('real-estate', fields), 'in_progress');
   assert.deepEqual(nextQuestions('real-estate', fields).map(f => f.key), ['area']);
   fields = mergeFields(fields, extractQualification({ text: 'Qurum', sectorId: 'real-estate', asked: ['area'], existing: fields }).updates, 2).fields;
-  assert.deepEqual(nextQuestions('real-estate', fields).map(f => f.key), ['budget', 'timeline']);
-  assert.equal(questionText(nextQuestions('real-estate', fields), 'en'), 'To help you further, could you share your approximate budget and when you would like to start?');
-  assert.equal(questionText(nextQuestions('real-estate', fields), 'ar'), 'حتى نساعدك بشكل أفضل، ممكن تخبرنا ميزانيتك التقريبية ومتى تريد البدء؟');
-  fields = mergeFields(fields, extractQualification({ text: 'around 90k OMR, asap', sectorId: 'real-estate', existing: fields }).updates, 3).fields;
+  assert.deepEqual(nextQuestions('real-estate', fields).map(f => f.key), ['budget', 'finance_readiness', 'decision_maker']);
+  assert.ok(questionText(nextQuestions('real-estate', fields), 'en').includes('finance'));
+  assert.ok(questionText(nextQuestions('real-estate', fields), 'ar').includes('التمويل'));
+  fields = mergeFields(fields, extractQualification({ text: 'around 90k OMR, cash buyer, I decide, asap', sectorId: 'real-estate', existing: fields }).updates, 3).fields;
   assert.equal(qualificationStatus('real-estate', fields), 'qualified');
   assert.deepEqual(nextQuestions('real-estate', fields), []);
   // The same input always yields the same result.
@@ -88,7 +88,7 @@ test('owner-entered values outrank messages, and question plans respect intent, 
   assert.equal(planQuestions({ ...base, intent: 'services', asked: ['need'], lastAskedAt: base.now - 1000 }).text, '');
   assert.ok(planQuestions({ ...base, intent: 'services', asked: ['need'], lastAskedAt: base.now - 1000, answeredNow: true }).text);
   assert.ok(planQuestions({ ...base, intent: 'services', asked: ['need'], lastAskedAt: base.now - 1000, fields: [{ key: 'need', value: 'buy' }] }).text);
-  assert.equal(planQuestions({ ...base, intent: 'services', askCounts: ['need', 'property_type', 'area', 'budget', 'timeline'].map(key => ({ key, count: 2 })) }).text, '');
+  assert.equal(planQuestions({ ...base, intent: 'services', askCounts: ['need', 'property_type', 'area', 'budget', 'finance_readiness', 'decision_maker', 'timeline', 'bedrooms', 'must_haves'].map(key => ({ key, count: 2 })) }).text, '');
   assert.equal(sectorIdFor('عيادات الأسنان'), 'dental');
   assert.equal(sectorIdFor('Custom furniture'), 'other');
 });
@@ -109,9 +109,9 @@ test('live ingest answers first, asks up to three related questions once, captur
   h.m.advance(60000);
   await h.inbound(t, { id: 'm3', text: 'How much are they?', reply: 'From 500 OMR.', intent: 'prices' });
   replies = h.m.table('blueMessages').filter(r => r.direction === 'out').map(r => r.text);
-  assert.equal(replies.at(-1), 'From 500 OMR.\n\nTo help you further, could you share your approximate budget and when you would like to start?');
+  assert.ok(replies.at(-1).startsWith('From 500 OMR.\n\nTo help you further, could you share your approximate budget'));
   h.m.advance(60000);
-  await h.inbound(t, { id: 'm4', text: 'budget 600 OMR, next month', reply: 'Noted.', intent: 'prices' });
+  await h.inbound(t, { id: 'm4', text: 'budget 600 OMR, cash buyer, I decide, next month', reply: 'Noted.', intent: 'prices' });
   contact = h.m.table('blueContacts')[0];
   assert.equal(contact.qualificationStatus, 'qualified');
   assert.equal(h.m.table('blueMessages').filter(r => r.direction === 'out').at(-1).text, 'Noted.');

@@ -38,7 +38,7 @@ function badInput(p) {
 /** The variants to save for a product already in Stock: its own, updated from the file, plus new ones. */
 function mergeVariants(current, incoming, serialized) {
   const live = current.filter(c => !c.archived);
-  const merged = live.map(c => ({ variantId: c._id, sku: c.sku, options: c.options, priceMinor: c.priceMinor, costMinor: c.costMinor, reorderPoint: c.reorderPoint }));
+  const merged = live.map(c => ({ variantId: c._id, sku: c.sku, options: c.options, priceMinor: c.priceMinor, ...(c.costKnown !== false ? { costMinor: c.costMinor } : {}), reorderPoint: c.reorderPoint }));
   const counts = [];
   for (const v of incoming) {
     const hit = matchVariant(live, v);
@@ -47,7 +47,7 @@ function mergeVariants(current, incoming, serialized) {
       Object.assign(row, { priceMinor: v.priceMinor, costMinor: v.costMinor ?? row.costMinor, ...(v.reorderPoint !== undefined ? { reorderPoint: v.reorderPoint } : {}),
         ...(v.sku ? { sku: v.sku } : {}), ...(v.options?.length ? { options: v.options } : {}) });
       if (v.quantity !== undefined && !serialized) counts.push({ variantId: hit._id, quantity: v.quantity });
-    } else merged.push({ sku: v.sku || '', options: v.options || [], priceMinor: v.priceMinor, costMinor: v.costMinor ?? 0, reorderPoint: v.reorderPoint ?? 0,
+    } else merged.push({ sku: v.sku || '', options: v.options || [], priceMinor: v.priceMinor, ...(v.costMinor !== undefined ? { costMinor: v.costMinor } : {}), reorderPoint: v.reorderPoint ?? 0,
       ...(v.quantity !== undefined && !serialized ? { openingStock: v.quantity } : {}) });
   }
   return { merged, counts };

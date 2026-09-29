@@ -20,6 +20,7 @@ async function createExpense(ctx, tenant, a, now) {
   if (!REQUEST_ID.test(a.requestId || '')) return fail('invalid_request');
   const replay = await byRequest(ctx, 'hasibExpenses', accountId, a.requestId);
   if (replay) return ok(publicExpense(replay));
+  if (a.category === 'waste' && tenant.pack.modules.recipes === 'available') return fail('record_waste_in_stock');
   const categories = tenant.pack.expenseCategories.map(c => c.key);
   const vatMinor = a.vatMinor ?? 0, vendor = bounded(a.vendor ?? '', 80), note = bounded(a.note ?? '', 200);
   if (!categories.includes(a.category) || !isMinor(a.amountMinor) || !a.amountMinor || !isMinor(vatMinor) || vatMinor > a.amountMinor

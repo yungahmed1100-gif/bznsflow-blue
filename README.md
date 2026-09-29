@@ -156,5 +156,4 @@ available while the migration is verified.
 `/layla/dashboard?tab=orders|stock` when `BLUE_HASIB_ENABLED=true` and the durable
 `blueHasib:setEnabled` gate is on. Read the [Hasib engineering pack](docs/hasib-engineering.md)
 before changing it. Tests: `npm run test:hasib`; browser: `node tests/hasib-dashboard-browser.mjs <dev-url>`.
-Not deployed; not a shipping product.
-
+The medical-clinic release has a separate [engineering and release pack](docs/clinic-engineering.md). Its code is additive and locally tested, but `clinic` remains outside the live-pack registry until SEC-04, load, recovery, acceptance and explicit deployment gates pass.

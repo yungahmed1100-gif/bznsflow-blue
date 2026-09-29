@@ -1,4 +1,5 @@
 import React from 'react';
+import { hasibPack } from '../../../config/hasib-packs';
 
 // One icon per section, in the order the owner meets them.
 const ICONS = {
@@ -9,13 +10,15 @@ const ICONS = {
   service: 'M22.7 19.3 13.6 10.2a6 6 0 0 0-7.8-7.8l3.9 3.9-2.8 2.8-3.9-3.9a6 6 0 0 0 7.8 7.8l9.1 9.1a1 1 0 0 0 1.4 0l1.4-1.4a1 1 0 0 0 0-1.4z',
   money: 'M3 6h18v12H3V6zm2 2v8h14V8H5zm7 1.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM6 9h2v2H6V9zm10 4h2v2h-2v-2z',
   customers: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z',
+  team: 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm8-1a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM8 13c-3.3 0-6 1.7-6 4v2h12v-2c0-2.3-2.7-4-6-4zm8-.5c-.8 0-1.5.1-2.2.3 1.4 1 2.2 2.4 2.2 4.2v2h6v-2c0-2.5-2.7-4.5-6-4.5z',
   settings: 'M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4L10.7 6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.3 2.6h4l.3-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5-2.1-1.6zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z',
 };
 const HASIB_LABELS = new Set(['orders', 'stock', 'service']);
 
 /** Fixed start-side rail on desktop; a scrollable top bar on phones. */
-export function DashboardNav({ s, h, sections, tab, onSelect, badges = {} }) {
-  const label = id => (HASIB_LABELS.has(id) ? h.t(id) : s.t(id));
+export function DashboardNav({ s, h, sections, tab, onSelect, badges = {}, packId }) {
+  const pack = hasibPack(packId);
+  const label = id => id === 'team' ? (s.ar ? 'الفريق' : 'Team') : packId && ['orders', 'stock'].includes(id) ? pack.ownerUi[id === 'orders' ? 'work' : 'stock'][s.ar ? 'ar' : 'en'] : (HASIB_LABELS.has(id) ? h.t(id) : s.t(id));
   return (
     <nav className={`ld-nav ${sections.length > 4 ? 'has-hasib' : ''}`} aria-label={s.t('nav')}>
       <ul>

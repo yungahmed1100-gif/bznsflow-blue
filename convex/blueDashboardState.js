@@ -7,6 +7,9 @@ import { DAY, deleteContact, linkConversation, ownerContactPatch, publicContact,
 import { messagingReady } from './blueMessagingState.js';
 import { packDescription } from '../config/layla-qualification.js';
 import { renderTemplate } from '../config/layla-templates.js';
+import { planFor } from './hasib/plans.js';
+import { actorWorkspace } from './hasib/workspaceState.js';
+import { capabilitiesFor, effectivePlan } from './hasib/capabilities.js';
 
 const PAGE = 25, SEARCH_LIMIT = 30, THREAD_PAGE = 50, EXPORT_MESSAGES = 1000;
 const ok = value => ({ ok: true, value }), fail = reason => ({ ok: false, reason });
@@ -87,6 +90,12 @@ export async function executeDashboard(ctx, a, now = Date.now()) {
   if (tenant.error) return fail(tenant.error);
   tenant.secret = a.hashSecret;
   const { accountId, row } = tenant;
+  const rawPlan = await planFor(ctx, accountId), plan = effectivePlan(rawPlan);
+  const actor = rawPlan ? await actorWorkspace(ctx, accountId, a.actorAccountId, now) : { role: 'manager', actorAccountId: accountId, workspace: null };
+  if (!actor) return fail('workspace_access_revoked');
+  const capabilities = capabilitiesFor(plan, actor.role);
+  if (actor.role !== 'manager' && ['set_timezone', 'contact_delete', 'export_chat', 'export_contacts', 'export_account'].includes(a.operation)) return fail('manager_required');
+  if (['export_chat', 'export_contacts', 'export_account'].includes(a.operation) && !capabilities.exports) return fail('plan_required');
   const sectorId = sectorFor(row);
 
   if (a.operation === 'overview') {
@@ -97,7 +106,8 @@ export async function executeDashboard(ctx, a, now = Date.now()) {
         checks: row.connectionChecks || null, checkedAt: row.checkedAt || null } : null,
       instagram:publicInstagram(tenant.instagramConnection), instagramMessaging:tenant.instagram ? await messagingState(ctx,{...tenant,row:tenant.instagram,integration:tenant.instagram.integration},now) : null,
       messaging: await messagingState(ctx, tenant, now), timezone: settings?.timezone || null, migrationPending: unlinked,
-      qualification: packDescription(sectorId) });
+      qualification: packDescription(sectorId), plan, workspaceRole: actor.role, capabilities,
+      teamSummary: actor.workspace ? { role: actor.role, actorAccountId: actor.actorAccountId, employeeLimit: actor.workspace.employeeLimit } : { role: 'manager', actorAccountId: accountId, employeeLimit: 0 } });
   }
   if (a.operation === 'set_timezone') {
     if (typeof a.timezone !== 'string' || a.timezone.length > 64 || !TIMEZONE_PATTERN.test(a.timezone)) return fail('invalid_timezone');

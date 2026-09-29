@@ -7,12 +7,13 @@ import { parseAmount } from '../../../convex/hasib/money.js';
 import { businessDate } from '../../../convex/hasib/period.js';
 import { Dialog } from '../dashboard/Dialog';
 import { Money } from './Badges';
+import { EmptyState, PageHeader } from './DashboardVisuals';
 
 const PERIODS = ['month', 'prev_month', '30d', '7d', 'today'];
 const METHODS = ['cash', 'bank_transfer', 'card', 'other'];
 
 function ExpenseForm({ s, h, overview, timezone, onClose, onSaved }) {
-  const categories = overview.pack.expenseCategories;
+  const categories = overview.pack.expenseCategories.filter(c => !(c.key === 'waste' && ['restaurant', 'cafe', 'cakes'].includes(overview.pack.id)));
   const [form, setForm] = useState({ category: categories[0]?.key || 'other', amount: '', vat: '', method: 'cash', paidOn: businessDate(Date.now(), timezone || 'Asia/Muscat'), vendor: '', note: '' });
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [requestId] = useState(() => crypto.randomUUID());
@@ -51,8 +52,8 @@ function ExpenseForm({ s, h, overview, timezone, onClose, onSaved }) {
 }
 
 /** Expenses for a period, with void (never delete) and an accountant CSV. */
-export function ExpensesView({ s, h, overview, timezone }) {
-  const [period, setPeriod] = useState('month'), [adding, setAdding] = useState(false), [voiding, setVoiding] = useState(null), [notice, setNotice] = useState('');
+export function ExpensesView({ s, h, overview, timezone, initialCreate = false }) {
+  const [period, setPeriod] = useState('month'), [adding, setAdding] = useState(initialCreate), [voiding, setVoiding] = useState(null), [notice, setNotice] = useState('');
   const list = usePolling(() => hasib('expenses', { period }), [period], { interval: 60000 });
   const items = list.data?.items || [];
   const label = key => { const c = overview.pack.expenseCategories.find(x => x.key === key); return c ? (s.ar ? c.ar : c.en) : key; };
@@ -62,22 +63,20 @@ export function ExpensesView({ s, h, overview, timezone }) {
   };
   return (
     <div className="hb-expenses">
-      <div className="ld-page-head">
-        <h1>{h.t('expenses')}</h1>
+      <PageHeader title={h.t('expenses')} description={s.ar ? 'سجّل تكاليف النشاط وحافظ على سجل قابل للمراجعة.' : 'Record operating costs and keep an auditable ledger.'} icon="receipt" primary={{ label: h.t('addExpense'), onClick: () => setAdding(true) }}>
         <div className="ld-toolbar">
           <label><span className="ld-visually-hidden">{h.t('insights')}</span>
             <select value={period} onChange={e => setPeriod(e.target.value)}>{PERIODS.map(p => <option key={p} value={p}>{h.t(`period_${p}`)}</option>)}</select></label>
           <button type="button" className="ld-button ld-quiet" disabled={!items.length} onClick={() => download(`expenses-${list.data?.range?.fromDate || period}.csv`, expensesCsv(items), 'text/csv;charset=utf-8')}>{h.t('exportCsv')}</button>
-          <button type="button" className="ld-button ld-primary" onClick={() => setAdding(true)}>{h.t('addExpense')}</button>
         </div>
-      </div>
+      </PageHeader>
       {notice && <p className="ld-inline-error" role="alert">{notice}</p>}
       {voiding && <div className="hb-confirm" role="alert"><p>{h.t('voidConfirm')}</p>
         <button type="button" className="ld-button ld-danger" onClick={() => voidNow(voiding)}>{h.t('voidExpense')}</button>
         <button type="button" className="ld-button ld-quiet" onClick={() => setVoiding(null)}>{h.t('cancel')}</button></div>}
       {list.loading && !list.data ? <p className="ld-state" role="status">{h.t('loading')}</p>
         : list.error && !list.data ? <p className="ld-state" role="alert">{h.reason(list.error.reason) || s.reason(list.error.reason)}</p>
-        : !items.length ? <p className="ld-state">{h.t('noExpenses')}</p>
+        : !items.length ? <EmptyState icon="receipt" title={h.t('noExpenses')} description={s.ar ? 'سجّل أول مصروف ليظهر ضمن الربح والتقارير.' : 'Record the first expense so it appears in profit and reporting.'} action={{ label: h.t('addExpense'), onClick: () => setAdding(true) }} />
         : (
           <div className="ld-table-wrap">
             <table className="ld-table">

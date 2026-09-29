@@ -7,6 +7,7 @@ import { orderTotals, paymentStatus, MAX_QTY } from './totals.js';
 import { canTransition, isStatus, stockEffect, deductsStock } from './orderMachine.js';
 import { ok, fail, bounded, clampLimit, REQUEST_ID, byRequest, settingsFor, vatOf, nextNumber, sellableVariant, precheckStock, writeMove } from './shared.js';
 import { planOrderSerials, commitOrderSerials, transitionOrderSerials, averageCost, orderSerialRows, warrantyEnd, reserveMissingSerials } from './serialsState.js';
+import { recipeStockChanges, costLinesForRecipes } from './restaurantState.js';
 
 export const CHANNELS = ['whatsapp', 'instagram', 'walk_in', 'phone', 'website', 'other'];
 export const FULFILMENT = ['pickup', 'delivery', 'in_store'];
@@ -20,11 +21,12 @@ async function publicContactRef(ctx, contactId) {
   return contact?.state === 'active' ? { id: contact._id, name: displayName(contact).name } : null;
 }
 export async function publicOrder(ctx, o, { payments } = {}) {
-  return { id: o._id, number: o.number, status: o.status, channel: o.channel, contact: await publicContactRef(ctx, o.contactId), customerName: o.customerName || '',
+  const linkedJob = await ctx.db.query('hasibJobs').withIndex('by_order',q=>q.eq('orderId',o._id)).first();
+  return { id: o._id, linkedJobId: linkedJob?.accountId === o.accountId ? linkedJob._id : null, number: o.number, status: o.status, channel: o.channel, channelCostMinor: o.channelCostMinor || 0, operationalCostMinor: o.operationalCostMinor || 0, operationalCostKnown: o.operationalCostKnown !== false, contact: await publicContactRef(ctx, o.contactId), customerName: o.customerName || '',
     conversationId: o.conversationId || null, lines: o.lines, subtotalMinor: o.subtotalMinor, discountMinor: o.discountMinor, deliveryMinor: o.deliveryMinor,
     vatMinor: o.vatMinor, totalMinor: o.totalMinor, pricesIncludeVat: o.pricesIncludeVat, paidMinor: o.paidMinor, balanceMinor: o.totalMinor - o.paidMinor,
     paymentStatus: o.paymentStatus, fulfilment: o.fulfilment, customFields: o.customFields, notes: o.notes || '', stockShort: o.stockShort,
-    history: o.history, kind: o.kind || 'sale', source: o.source || 'owner', flags: o.flags || [], version: o.version, createdAt: o.createdAt, updatedAt: o.updatedAt, ...(payments ? { payments } : {}) };
+    preparationChecklist: o.preparationChecklist || [], history: o.history, kind: o.kind || 'sale', source: o.source || 'owner', flags: o.flags || [], version: o.version, createdAt: o.createdAt, updatedAt: o.updatedAt, ...(payments ? { payments } : {}) };
 }
 
 /** Resolve requested lines to snapshot lines. Throws `{ reason }` on anything invalid. */
@@ -41,7 +43,7 @@ async function resolveLines(ctx, accountId, raw) {
       const { variant, item } = found;
       const label = variant.options.map(o => o.value).join(' / ');
       lines.push({ variantId: variant._id, itemId: item._id, name: [item.nameAr || item.nameEn, label].filter(Boolean).join(' — ').slice(0, 160), sku: variant.sku || undefined,
-        qty: l.qty, unitPriceMinor: l.unitPriceMinor ?? variant.priceMinor, discountMinor: l.discountMinor || 0, unitCostMinor: variant.costMinor, tracked: item.trackStock, variant,
+        ...(l.modifierKeys ? { modifierKeys: l.modifierKeys } : {}), qty: l.qty, unitPriceMinor: l.unitPriceMinor ?? variant.priceMinor, discountMinor: l.discountMinor || 0, unitCostMinor: variant.costMinor, costKnown: variant.costKnown !== false, tracked: item.trackStock, variant,
         ...(item.serialized ? { serialized: true, warrantyMonths: item.warrantyMonths || 0, warrantyBy: item.warrantyBy || 'none' } : {}) });
     } else {
       const name = bounded(l.name ?? '', 120);
@@ -58,10 +60,22 @@ const serialLine = (line, rows, sold, now) => ({ ...line, serials: rows.map(r =>
   ...(sold && line.warrantyMonths ? { warrantyUntil: warrantyEnd(now, line.warrantyMonths) } : {}) });
 const stockChanges = (lines, sign) => lines.filter(l => l.tracked && l.variant).map(l => ({ variant: l.variant, delta: sign * l.qty }));
 
-async function applyOrderStock(ctx, accountId, order, lines, sign, now) {
-  for (const l of lines.filter(x => x.tracked && x.variantId)) {
-    await writeMove(ctx, { accountId, variantId: l.variantId, delta: sign * l.qty, reason: sign < 0 ? 'sale' : 'sale_reversal', refType: 'order', refId: order, now });
+async function applyOrderStock(ctx, accountId, order, lines, sign, now, recipeDriven = false, lotAware = false) {
+  if (sign > 0) {
+    const moves = await ctx.db.query('hasibStockMoves').withIndex('by_ref', q => q.eq('accountId', accountId).eq('refId', order)).take(3000);
+    for (const move of moves.filter(m => m.reason === 'sale' && m.delta < 0)) {
+      if (moves.some(m => m.reversesMoveId === move._id)) continue;
+      await writeMove(ctx, { accountId, variantId: move.variantId, delta: -move.delta, reason: 'sale_reversal', refType: move.refType, refId: order, unitCostMinor: move.unitCostMinor, restoreFrom: move._id, now });
+    }
+    return;
   }
+  const menuChanges = [];
+  for (const line of lines.filter(x => x.tracked && x.variantId)) {
+    const variant = line.variant || await ctx.db.get(line.variantId);
+    if (variant) menuChanges.push({ variant, delta: sign * line.qty });
+  }
+  const changes = [...menuChanges, ...(recipeDriven ? await recipeStockChanges(ctx, accountId, lines, sign) : [])];
+  for (const l of changes) await writeMove(ctx, { accountId, variantId: l.variant._id, delta: l.delta, reason: sign < 0 ? 'sale' : 'sale_reversal', refType: l.recipe ? 'recipe_order' : 'order', refId: order, unitCostMinor: l.unitCostMinor ?? l.variant.costMinor, now, lotAware });
 }
 
 function orderInput(a, pack) {
@@ -74,6 +88,7 @@ function orderInput(a, pack) {
   if (customFields.length > 10 || customFields.some(c => !allowed.has(c.key) || c.value === null)) return null;
   const notes = bounded(a.notes ?? '', 500), customerName = bounded(a.customerName ?? '', 80);
   if (notes === null || customerName === null) return null;
+  if (a.channelCostMinor !== undefined && !isMinor(a.channelCostMinor)) return null;
   if (a.deliveryFeeMinor !== undefined && !isMinor(a.deliveryFeeMinor)) return null;
   return { channel: a.channel, fulfilment: { type: f.type, ...(area ? { area } : {}), ...(f.dueAt ? { dueAt: f.dueAt } : {}) }, customFields: customFields.filter(c => c.value), notes, customerName };
 }
@@ -102,16 +117,21 @@ export async function createOrder(ctx, tenant, a, now, { internal = false } = {}
   const who = await contactFor(ctx, tenant, a);
   if (who.error) return fail(who.error);
   const settings = await settingsFor(ctx, accountId);
+  const recipeDriven = tenant.pack.modules.recipes === 'available';
   let lines, totals, serialPlan;
   try {
     lines = await resolveLines(ctx, accountId, a.lines);
+    if (recipeDriven) lines = await costLinesForRecipes(ctx, accountId, lines);
+    else if (lines.some(l => l.modifierKeys?.length)) return fail('invalid_modifier');
     totals = orderTotals({ lines, deliveryFeeMinor: a.deliveryFeeMinor || 0, vat: vatOf(settings) });
     serialPlan = await planOrderSerials(ctx, accountId, lines, (a.lines || []).map(l => l?.serials), { require: a.confirm === true });
   } catch (e) { return fail(e.reason || 'invalid_order_lines'); }
   const status = a.confirm === true ? 'confirmed' : 'pending';
+  const lotAware = tenant.pack.modules.shelfLife === 'available';
+  const costedLines = lines;
   let short = false;
   if (deductsStock(status)) {
-    const check = precheckStock(stockChanges(lines, -1), settings.stockPolicy);
+    const check = precheckStock([...stockChanges(lines, -1), ...(recipeDriven ? await recipeStockChanges(ctx, accountId, costedLines, -1) : [])], settings.stockPolicy);
     if (!check.ok) return fail(check.reason);
     short = check.short;
   }
@@ -119,37 +139,41 @@ export async function createOrder(ctx, tenant, a, now, { internal = false } = {}
   if (who.person) who.contact = await linkConversation(ctx, who.person, { sectorId: sectorFor(tenant.row), now, secret: tenant.secret });
   const sold = deductsStock(status);
   const snapshot = totals.lines.map((l, i) => {
-    const line = stripVariant({ ...lines[i], vatBps: l.vatBps, netMinor: l.netMinor, vatMinor: l.vatMinor, discountMinor: l.discountMinor });
+    const line = stripVariant({ ...costedLines[i], vatBps: l.vatBps, netMinor: l.netMinor, vatMinor: l.vatMinor, discountMinor: l.discountMinor });
     return serialPlan.has(i) ? serialLine(line, serialPlan.get(i), sold, now) : line;
   });
   const number = await nextNumber(ctx, accountId, 'order');
   const id = await ctx.db.insert('hasibOrders', { accountId, number, requestId: a.requestId, ...(who.contact ? { contactId: who.contact._id } : {}), ...(who.conversationId ? { conversationId: who.conversationId } : {}),
-    ...(input.customerName ? { customerName: input.customerName } : {}), channel: input.channel, status, lines: snapshot,
+    ...(input.customerName ? { customerName: input.customerName } : {}), channel: input.channel, channelCostMinor: a.channelCostMinor || 0, status, lines: snapshot,
     subtotalMinor: totals.subtotalMinor, discountMinor: totals.discountMinor, deliveryMinor: totals.deliveryMinor, vatMinor: totals.vatMinor, totalMinor: totals.totalMinor,
     pricesIncludeVat: settings.vatRegistered && settings.pricesIncludeVat, paidMinor: 0, paymentStatus: paymentStatus(totals.totalMinor, 0),
     fulfilment: input.fulfilment, customFields: input.customFields, ...(input.notes ? { notes: input.notes } : {}), stockShort: short,
     history: [{ status, at: now }], ...(a.kind ? { kind: a.kind } : {}), ...(internal && a.source ? { source: a.source } : {}), ...(internal && a.flags?.length ? { flags: a.flags } : {}), version: 1, createdAt: now, updatedAt: now });
   await commitOrderSerials(ctx, serialPlan, { orderId: id, sold, contactId: who.contact?._id, lines: snapshot, now });
-  if (sold) await applyOrderStock(ctx, accountId, id, lines, -1, now);
+  if (sold) await applyOrderStock(ctx, accountId, id, snapshot, -1, now, recipeDriven, lotAware);
   return ok(await publicOrder(ctx, await ctx.db.get(id)));
 }
 
-export async function changeStatus(ctx, accountId, a, now) {
+export async function changeStatus(ctx, accountId, a, now, recipeDriven = false, lotAware = false) {
   const order = await owned(ctx, a.orderId, accountId, 'hasibOrders');
   if (!order) return fail('order_not_found');
   if (a.version !== order.version) return fail('order_conflict');
   if (!isStatus(a.to) || !canTransition(order.status, a.to)) return fail('invalid_transition');
-  const effect = stockEffect(order.status, a.to);
+  const stockDelta = stockEffect(order.status, a.to);
+  if (recipeDriven && stockDelta > 0 && !['restock', 'discard'].includes(a.disposition)) return fail('food_disposition_required');
+  if (a.disposition !== undefined && stockDelta <= 0) return fail('invalid_disposition');
+  const effect = recipeDriven && stockDelta > 0 && a.disposition === 'discard' ? 0 : stockDelta;
   if (effect < 0 && order.lines.some(l => l.serialized)) {
     try { await reserveMissingSerials(ctx, order, a.lineSerials, now); } catch (e) { return fail(e.reason || 'serials_required'); }
   }
   const settings = await settingsFor(ctx, accountId);
   let lines = order.lines, short = order.stockShort;
   if (effect) {
-    const current = [];
+    let current = [];
     for (const l of order.lines) current.push(l.tracked && l.variantId ? { ...l, variant: await ctx.db.get(l.variantId) } : l);
     if (effect < 0) {
-      const check = precheckStock(stockChanges(current, -1), settings.stockPolicy);
+      if (recipeDriven) current = await costLinesForRecipes(ctx, accountId, current);
+      const check = precheckStock([...stockChanges(current, -1), ...(recipeDriven ? await recipeStockChanges(ctx, accountId, current, -1) : [])], settings.stockPolicy);
       if (!check.ok) return fail(check.reason);
       short = check.short;
       // Cost of goods is fixed when stock actually leaves; a serialized unit carries its own cost.
@@ -158,8 +182,18 @@ export async function changeStatus(ctx, accountId, a, now) {
         if (l.serialized) return serialLine(stripVariant(l), units.filter(r => r.variantId === l.variantId), true, now);
         return stripVariant(l.variant ? { ...l, unitCostMinor: l.variant.costMinor } : l);
       });
+      if (recipeDriven) lines = await costLinesForRecipes(ctx, accountId, lines);
     }
-    await applyOrderStock(ctx, accountId, order._id, order.lines, effect, now);
+    await applyOrderStock(ctx, accountId, order._id, lines, effect, now, recipeDriven, lotAware);
+  }
+  if (recipeDriven && stockDelta > 0 && a.disposition === 'discard') {
+    const moves = await ctx.db.query('hasibStockMoves').withIndex('by_ref',q=>q.eq('accountId',accountId).eq('refId',order._id)).take(3000);
+    for (const move of moves.filter(m=>m.reason==='sale'&&m.delta<0)) {
+      // Stock already left on confirmation: record the loss, never deduct stock again.
+      const unitCost = move.unitCostMinor ?? order.lines.find(l=>l.variantId===move.variantId)?.unitCostMinor;
+      if (!Number.isSafeInteger(unitCost)) throw new Error('missing_return_cost');
+      await ctx.db.insert('hasibWaste',{accountId,requestId:`discard:${order._id}:${move._id}`,variantId:move.variantId,qty:-move.delta,reason:'return_discard',costMinor:Math.round(-move.delta*unitCost),note:`Order ${order.number}`,at:now});
+    }
   }
   if (order.lines.some(l => l.serialized)) {
     await transitionOrderSerials(ctx, order, { to: a.to, effect, now });
@@ -252,8 +286,20 @@ async function conversationOrders(ctx, accountId, a) {
 
 export async function executeOrders(ctx, tenant, a, now) {
   const { accountId } = tenant;
+  if (a.operation === 'order_preparation') {
+    const order = await owned(ctx,a.orderId,accountId,'hasibOrders');
+    if (!order) return fail('order_not_found');
+    if (order.version !== a.version) return fail('order_conflict');
+    if (CLOSED.has(order.status) || !Array.isArray(a.checklist) || a.checklist.length > 30 || a.checklist.some(c=>!bounded(c.text,160)||typeof c.done!=='boolean')) return fail('invalid_checklist');
+    await ctx.db.patch(order._id,{preparationChecklist:a.checklist.map(c=>({text:bounded(c.text,160),done:c.done})),version:order.version+1,updatedAt:now});
+    return ok(await publicOrder(ctx,await ctx.db.get(order._id)));
+  }
   if (a.operation === 'order_create') return createOrder(ctx, tenant, a, now);
-  if (a.operation === 'order_status') return changeStatus(ctx, accountId, a, now);
+  if (a.operation === 'order_status') {
+    const job = await ctx.db.query('hasibJobs').withIndex('by_order',q=>q.eq('orderId',a.orderId)).first();
+    if (job?.accountId === accountId) return fail('use_job_status');
+    return changeStatus(ctx, accountId, a, now, tenant.pack.modules.recipes === 'available', tenant.pack.modules.shelfLife === 'available');
+  }
   if (a.operation === 'orders') return listOrders(ctx, accountId, a);
   if (a.operation === 'order') {
     const order = await owned(ctx, a.orderId, accountId, 'hasibOrders');

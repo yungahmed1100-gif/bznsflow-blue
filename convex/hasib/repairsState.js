@@ -20,7 +20,7 @@ async function publicRepair(ctx, r, { detail = false } = {}) {
     customer: contact?.state === 'active' ? { id: contact._id, name: displayName(contact).name } : null, customerName: r.customerName || '',
     underWarranty: r.underWarranty, warrantyBy: r.warrantyBy || null, labourMinor: r.labourMinor, parts: r.parts, dueAt: r.dueAt || null,
     order: order ? { ...(await publicOrder(ctx, order)), ...(detail ? { payments: await paymentsOf(ctx, order._id) } : {}) } : null,
-    history: r.history, version: r.version, createdAt: r.createdAt, updatedAt: r.updatedAt };
+    approvalStatus: r.approvalStatus || 'awaiting', approvedBy: r.approvedBy || '', approvedAt: r.approvedAt || null, history: r.history, version: r.version, createdAt: r.createdAt, updatedAt: r.updatedAt };
 }
 
 /** Is this device one we sold, still under warranty? Store warranty makes the labour free. */
@@ -49,7 +49,7 @@ async function createRepair(ctx, tenant, a, now) {
   const number = await nextNumber(ctx, accountId, 'repair');
   const id = await ctx.db.insert('hasibRepairs', { accountId, requestId: a.requestId, number, orderId: order._id, ...(order.contactId ? { contactId: order.contactId } : {}),
     ...(order.conversationId ? { conversationId: order.conversationId } : {}), ...(order.customerName ? { customerName: order.customerName } : {}),
-    device, ...(serial ? { serial } : {}), fault, ...(accessories ? { accessories } : {}), status: 'received', underWarranty: warranty.underWarranty, ...(warranty.warrantyBy ? { warrantyBy: warranty.warrantyBy } : {}),
+    device, ...(serial ? { serial } : {}), fault, ...(accessories ? { accessories } : {}), status: 'received', approvalStatus: 'awaiting', underWarranty: warranty.underWarranty, ...(warranty.warrantyBy ? { warrantyBy: warranty.warrantyBy } : {}),
     labourMinor, parts: [], ...(a.dueAt ? { dueAt: a.dueAt } : {}), history: [{ status: 'received', at: now }], version: 1, createdAt: now, updatedAt: now });
   return ok(await publicRepair(ctx, await ctx.db.get(id)));
 }
@@ -73,7 +73,7 @@ async function updateRepair(ctx, tenant, a, now) {
   if (!fault) return fail('invalid_repair');
   const updated = await updatePendingOrder(ctx, tenant.accountId, order, [labourLine(repair.device, labourMinor), ...parts], now, { serializedReason: 'serialized_part' });
   if (!updated.ok) return updated;
-  await ctx.db.patch(repair._id, { labourMinor, parts, fault, version: repair.version + 1, updatedAt: now });
+  await ctx.db.patch(repair._id, { labourMinor, parts, fault, approvalStatus:'awaiting',approvedBy:undefined,approvedAt:undefined,version: repair.version + 1, updatedAt: now });
   return ok(await publicRepair(ctx, await ctx.db.get(repair._id)));
 }
 
@@ -104,6 +104,15 @@ async function listRepairs(ctx, accountId, a) {
 }
 
 export async function executeRepairs(ctx, tenant, a, now) {
+  if (a.operation === 'repair_approval') {
+    const {repair,error}=await loadRepair(ctx,tenant.accountId,a);
+    if(error) return fail(error);
+    if(a.version===undefined) return fail('repair_conflict');
+    const approvedBy=bounded(a.approvedBy,100);
+    if(!approvedBy || ['collected','cancelled'].includes(repair.status)) return fail('invalid_repair');
+    await ctx.db.patch(repair._id,{approvalStatus:'approved',approvedBy,approvedAt:now,version:repair.version+1,updatedAt:now});
+    return ok(await publicRepair(ctx,await ctx.db.get(repair._id)));
+  }
   if (a.operation === 'repair_create') return createRepair(ctx, tenant, a, now);
   if (a.operation === 'repair_update') return updateRepair(ctx, tenant, a, now);
   if (a.operation === 'repair_status') return moveRepair(ctx, tenant, a, now);

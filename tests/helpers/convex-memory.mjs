@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 
 const ORDER_FIELD = {
+  by_account_start: 'startsAt', by_account_due: 'dueAt', by_membership_created: 'createdAt',
   by_account_updated: 'updatedAt', by_conversation_at: 'at', by_account_at: 'at', by_account_state_activity: 'lastActivityAt', by_contact_at: 'at',
   by_account_created: 'createdAt', by_status_scheduled: 'scheduledAt', by_status_next: 'nextAttemptAt', by_account_synced: 'syncedAt', by_status_at: 'at',
   by_owner_status_order: 'sortOrder',
@@ -40,6 +41,12 @@ export function convexMemory({ start = 1_800_000_000_000 } = {}) {
         order(direction) { descending = direction === 'desc'; return api; },
         async take(n) { return run().slice(0, n); },
         async collect() { return run(); },
+        async paginate({numItems,cursor}) {
+          const start=cursor===null?0:Number(cursor), all=run();
+          assert(Number.isSafeInteger(start)&&start>=0,'invalid synthetic pagination cursor');
+          const page=all.slice(start,start+numItems);
+          return {page,isDone:start+numItems>=all.length,continueCursor:String(start+page.length)};
+        },
         async first() { return run()[0] || null; },
         async unique() { const out = run(); assert(out.length < 2, `unique() matched ${out.length} rows in ${table}`); return out[0] || null; },
       };

@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { usePolling } from '../../hooks/usePolling';
 import { hasib } from '../../lib/dashboard/api';
 import { Money } from './Badges';
-import { Dialog } from '../dashboard/Dialog';
-import { IndustrySetup } from './IndustrySetup';
+import { ActionCards, PageHeader } from './DashboardVisuals';
 
 const PERIODS = ['today', '7d', '30d', 'month', 'prev_month'];
 
@@ -39,31 +38,33 @@ function DemandList({ title, rows, columns }) {
 }
 
 /** Insights: one period selector scopes every figure below it. */
-export function InsightsView({ s, h, overview, onIndustryChanged }) {
-  const [period, setPeriod] = useState('month'), [changing, setChanging] = useState(false);
+export function InsightsView({ s, h, overview, onGo }) {
+  const [period, setPeriod] = useState('month');
   const data = usePolling(() => hasib('insights', { period }), [period], { interval: 60000 });
   const i = data.data;
   const categoryLabel = key => { const c = overview.pack.expenseCategories.find(x => x.key === key); return c ? (s.ar ? c.ar : c.en) : key; };
   const name = r => <bdi>{h.name(r)}</bdi>;
+  const percentage = bps => Number.isFinite(bps) ? `${(bps / 100).toFixed(1)}%` : h.t('notEnoughRecords');
 
   return (
     <div className="hb-insights">
-      <div className="ld-page-head">
-        <h1>{h.t('insights')} {(() => { const live = overview.livePacks?.find(p => p.id === overview.pack.id); return live ? <span className="ld-chip hb-industry">{h.t('industry', { name: s.ar ? live.ar : live.en })}</span> : null; })()}
-          <button type="button" className="ld-button ld-quiet ld-compact hb-change-industry" onClick={() => setChanging(true)}>{h.t('changeIndustry')}</button></h1>
+      <PageHeader title={<>{h.t('insights')} {overview.industry && <span className="ld-chip hb-industry">{h.t('industry', { name: s.ar ? overview.industry.ar : overview.industry.en })}</span>}</>} description={s.ar ? 'افهم المبيعات والأرباح والطلب من السجلات الفعلية.' : 'Understand sales, profit and demand from recorded activity.'} icon="bar-chart">
         <div className="ld-segmented hb-periods" role="radiogroup" aria-label={h.t('insights')}>
           {PERIODS.map(p => <label key={p}><input type="radio" name="hb-period" checked={period === p} onChange={() => setPeriod(p)} /><span>{h.t(`period_${p}`)}</span></label>)}
         </div>
-      </div>
+      </PageHeader>
+      <ActionCards label={s.ar ? 'إجراءات مالية' : 'Money actions'} actions={[{ id: 'charge', label: s.ar ? 'تسجيل بيع أو رسوم' : 'Record sale or charge', icon: 'receipt', onClick: () => onGo?.('orders', { action: 'charge' }) }, { id: 'expense', label: h.t('addExpense'), icon: 'plus', onClick: () => onGo?.('money', { view: 'expenses', action: 'expense' }) }]} />
       {data.loading && !i ? <p className="ld-state" role="status">{h.t('loading')}</p>
         : data.error && !i ? <div className="ld-state" role="alert"><p>{h.reason(data.error.reason) || s.reason(data.error.reason)}</p><button className="ld-button" onClick={() => data.refresh()}>{h.t('retry')}</button></div>
         : (
           <div className={`hb-insights-body ${data.loading ? 'is-refreshing' : ''}`} aria-busy={data.loading}>
-            <section className="hb-hero" aria-labelledby="hb-net">
-              <p id="hb-net" className="hb-hero-label">{h.t('netProfit')}</p>
-              <p className={`hb-hero-value ${i.netProfitMinor < 0 ? 'is-negative' : ''}`}><Money h={h} minor={i.netProfitMinor} /></p>
-              <p className="ld-help">{h.t('netProfitHelp')}</p>
-            </section>
+            <dl className="hb-tiles hb-money-summary">
+              <Tile label={h.t('cashIn')}><Money h={h} minor={i.cash.reduce((n, c) => n + c.amountMinor, 0)} /></Tile>
+              <Tile label={h.t('owed')} note={h.t('owedHelp')}><Money h={h} minor={i.receivablesMinor} /></Tile>
+              <Tile label={h.t('netProfit')} note={h.t('netProfitHelp')}>{i.recordedProfitMinor == null ? h.t('notEnoughRecords') : <Money h={h} minor={i.recordedProfitMinor} />}</Tile>
+            </dl>
+            <details className="hb-report-details"><summary>{h.t('details')}</summary>
+            <dl className="hb-tiles"><Tile label={h.t('expectedProfit')}>{i.expectedProfitMinor == null ? h.t('notEnoughRecords') : <Money h={h} minor={i.expectedProfitMinor} />}</Tile></dl>
             {overview.counts?.laylaWaiting > 0 && <p className={`hb-layla-waiting ${overview.counts.laylaOverdue ? 'is-overdue' : ''}`} role="status">
               <strong>{h.t('laylaWaitingTile')}: {overview.counts.laylaWaiting}</strong>{overview.counts.laylaOverdue ? ` · ${h.t('laylaOverdue', { count: overview.counts.laylaOverdue })}` : ''}</p>}
             <dl className="hb-tiles">
@@ -74,6 +75,30 @@ export function InsightsView({ s, h, overview, onIndustryChanged }) {
               <Tile label={h.t('owed')} note={h.t('owedHelp')}><Money h={h} minor={i.receivablesMinor} /></Tile>
               <Tile label={h.t('pendingOrders')} note={h.orders(i.pending.orders)}><Money h={h} minor={i.pending.totalMinor} /></Tile>
             </dl>
+            {i.restaurant && <>
+              <dl className="hb-tiles">
+                <Tile label={h.t(overview.pack.id === 'cafe' ? 'productCost' : 'foodCost')}><span>{percentage(i.restaurant.foodCostBps)}</span></Tile>
+                <Tile label={h.t('laborCost')}><span>{percentage(i.restaurant.laborCostBps)}</span></Tile>
+                <Tile label={h.t('primeCost')}><span>{percentage(i.restaurant.primeCostBps)}</span></Tile>
+                <Tile label={h.t('wasteCost')}><Money h={h} minor={i.restaurant.wasteMinor} /></Tile>
+                <Tile label={h.t('stockVariance')}><Money h={h} minor={i.restaurant.stockVarianceMinor} /></Tile>
+                <Tile label={h.t('actualUsage')}>{i.restaurant.usageVarianceMinor == null ? h.t('notEnoughRecords') : <Money h={h} minor={i.restaurant.usageVarianceMinor} />}</Tile>
+              </dl>
+              {!!i.restaurant.priceIncreases?.length && <section className="hb-panel"><h2>{h.ar ? 'ارتفاع أسعار الموردين' : 'Supplier price increases'}</h2>{i.restaurant.priceIncreases.map((row, index) => <p key={index}>{row.vendor} · {row.receivedOn} · <Money h={h} minor={row.previousCostMinor} /> → <Money h={h} minor={row.unitCostMinor} /></p>)}</section>}
+              <div className="hb-panels">
+                <section className="hb-panel"><BarTable caption={h.t('menuPerformance')} rows={i.restaurant.menu} valueOf={r => Math.max(0, r.revenueMinor)} columns={[
+                  { key: 'name', label: h.t('products'), render: r => <bdi>{r.name}</bdi> },
+                  { key: 'qty', label: h.t('qty'), numeric: true, render: r => <span className="ld-num">{r.qty}</span> },
+                  { key: 'contribution', label: h.t('contribution'), numeric: true, render: r => <Money h={h} minor={r.contributionMinor} /> },
+                  { key: 'foodCost', label: h.t(overview.pack.id === 'cafe' ? 'productCost' : 'foodCost'), numeric: true, render: r => <span className="ld-num">{percentage(r.foodCostBps)}</span> },
+                ]} /></section>
+                <section className="hb-panel"><BarTable caption={h.t('channelPerformance')} rows={i.restaurant.channels} valueOf={r => Math.max(0, r.revenueMinor)} columns={[
+                  { key: 'channel', label: h.t('channel'), render: r => h.t(`ch_${r.channel}`) },
+                  { key: 'orders', label: h.t('orders'), numeric: true, render: r => <span className="ld-num">{r.orders}</span> },
+                  { key: 'contribution', label: h.t('contribution'), numeric: true, render: r => <Money h={h} minor={r.contributionMinor} /> },
+                ]} /></section>
+              </div>
+            </>}
 
             <div className="hb-panels">
               <section className="hb-panel">
@@ -137,11 +162,9 @@ export function InsightsView({ s, h, overview, onIndustryChanged }) {
             </dl>
             {i.truncated && <p className="ld-help" role="note">{h.t('truncated')}</p>}
             <p className="ld-help hb-definitions">{h.t('definitions')}</p>
+            </details>
           </div>
         )}
-      {changing && <Dialog s={s} title={h.t('changeIndustry')} onClose={() => setChanging(false)}>
-        <IndustrySetup s={s} h={h} livePacks={overview.livePacks} industries={overview.industries} current={overview.pack.id} heading={false} onChosen={() => { setChanging(false); onIndustryChanged?.(); }} />
-      </Dialog>}
     </div>
   );
 }

@@ -42,23 +42,33 @@ export function PaymentForm({ h, order, onRecorded }) {
 export function OrderDetail({ s, h, pack, business, orderId, timezone, onClose, onChanged, onExchange }) {
   const fieldLabel = key => { const f = pack.orderFields.find(x => x.key === key); return f ? (s.ar ? f.ar : f.en) : key; };
   const [order, setOrder] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(''), [copied, setCopied] = useState(false);
-  const [picking, setPicking] = useState(null);
+  const [newTask, setNewTask] = useState('');
+  const [picking, setPicking] = useState(null), [returnTo, setReturnTo] = useState(''), [disposition, setDisposition] = useState('');
+  const food = ['restaurant', 'cafe', 'cakes'].includes(pack.id);
   const load = useCallback(() => hasib('order', { orderId }).then(setOrder).catch(e => setError(h.reason(e.reason) || s.reason(e.reason))), [orderId, h, s]);
   useEffect(() => { load(); }, [load]);
 
   // IMEI lines Layla filed without units: the owner picks them before confirming.
   const unitsNeeded = o => o.lines.filter(l => l.serialized && (l.serials?.length || 0) < l.qty);
-  const move = async (to, lineSerials) => {
+  const move = async (to, lineSerials, chosenDisposition) => {
+    if (food && ['cancelled', 'returned'].includes(to) && !chosenDisposition) { setReturnTo(to); setDisposition(''); return; }
     if (to === 'confirmed' && !lineSerials && unitsNeeded(order).length) { setPicking(Object.fromEntries(unitsNeeded(order).map(l => [l.variantId, []]))); return; }
     setBusy(to); setError('');
-    try { setOrder({ ...(await hasib('order_status', { orderId, to, version: order.version, ...(lineSerials ? { lineSerials } : {}) })), payments: order.payments }); setPicking(null); onChanged(); }
+    try { setOrder({ ...(await hasib('order_status', { orderId, to, version: order.version, ...(chosenDisposition ? { disposition: chosenDisposition } : {}), ...(lineSerials ? { lineSerials } : {}) })), payments: order.payments }); setPicking(null); setReturnTo(''); onChanged(); }
     catch (e) { setError(h.reason(e.reason) || s.reason(e.reason)); if (e.reason === 'order_conflict') load(); } finally { setBusy(''); }
+  };
+
+  const savePreparation = async checklist => {
+    setBusy('preparation'); setError('');
+    try { const next = await hasib('order_preparation', { orderId, version: order.version, checklist }); setOrder(current => ({ ...current, ...next })); setNewTask(''); onChanged(); }
+    catch (e) { setError(h.reason(e.reason) || s.reason(e.reason)); } finally { setBusy(''); }
   };
 
   const copyReceipt = async () => {
     try { await navigator.clipboard.writeText(receiptText(order, h, business)); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setError(s.reason('copy_failed')); }
   };
   const exchange = async () => {
+    if (food) { setReturnTo('returned'); setDisposition(''); return; }
     setBusy('exchange'); setError('');
     try { const next = await hasib('order_status', { orderId, to: 'returned', version: order.version }); onChanged(); onExchange({ ...order, ...next }); }
     catch (e) { setError(h.reason(e.reason) || s.reason(e.reason)); setBusy(''); }
@@ -72,7 +82,7 @@ export function OrderDetail({ s, h, pack, business, orderId, timezone, onClose, 
             {order.stockShort && <span className="ld-chip is-coral">{h.t('stockShort')}</span>}
             <span>{h.t(`ch_${order.channel}`)} · {h.t(`ful_${order.fulfilment.type}`)}{order.fulfilment.area ? ` · ${order.fulfilment.area}` : ''}</span>
             <span><bdi>{order.contact?.name || order.customerName || h.t('walkIn')}</bdi></span>
-            {order.fulfilment.dueAt && <span className="ld-chip is-yellow">{h.t('due', { date: formatDateTime(order.fulfilment.dueAt, s.lang, timezone).split(',')[0] })}</span>}
+            {order.fulfilment.dueAt && <span className="ld-chip is-yellow">{h.t('due', { date: formatDateTime(order.fulfilment.dueAt, s.lang, timezone) })}</span>}
             <button type="button" className="ld-button ld-quiet ld-compact" onClick={copyReceipt} aria-live="polite">{copied ? h.t('copied') : h.t('copyReceipt')}</button>
           </p>
           <table className="ld-table hb-lines">
@@ -89,9 +99,14 @@ export function OrderDetail({ s, h, pack, business, orderId, timezone, onClose, 
             <div className="hb-grand"><dt>{h.t('balance')}</dt><dd><Money h={h} minor={order.balanceMinor} /></dd></div>
           </dl>
           {order.customFields.length > 0 && <dl className="ld-names">{order.customFields.map(f => <div key={f.key}><dt>{fieldLabel(f.key)}</dt><dd><bdi>{f.value}</bdi></dd></div>)}</dl>}
+          {pack.id === 'cakes' && <section className="hb-panel"><h3>{h.ar ? 'تحضير الكيك' : 'Cake preparation'}</h3>
+            {(order.preparationChecklist || []).map((task, index) => <label className="ld-check" key={index}><input type="checkbox" disabled={!!busy} checked={task.done} onChange={e => savePreparation(order.preparationChecklist.map((row, i) => i === index ? { ...row, done: e.target.checked } : row))} />{task.text}</label>)}
+            <label className="ld-field">{h.ar ? 'مهمة تحضير' : 'Preparation task'}<input value={newTask} maxLength="160" onChange={e => setNewTask(e.target.value)} /></label>
+            <button type="button" className="ld-button" disabled={!!busy || !newTask.trim()} onClick={() => savePreparation([...(order.preparationChecklist || []), { text: newTask.trim(), done: false }])}>{h.ar ? 'إضافة مهمة' : 'Add task'}</button>
+          </section>}
           {order.notes && <p className="ld-help"><bdi>{order.notes}</bdi></p>}
           {order.flags?.map(f => <p key={f} className="hb-flag" role="note">{h.t(`flag_${f}`)}</p>)}
-          {nextStatuses(order.status).length > 0 && (
+          {!order.linkedJobId && nextStatuses(order.status).length > 0 && (
             <div className="ld-actions" role="group" aria-label={h.t('moveTo')}>
               {['delivered', 'completed'].includes(order.status) && onExchange && (
                 <button type="button" className="ld-button ld-quiet" disabled={!!busy} onClick={exchange} title={h.t('exchangeHelp')} aria-describedby="hb-exchange-help">{h.t('exchange')}</button>
@@ -103,7 +118,12 @@ export function OrderDetail({ s, h, pack, business, orderId, timezone, onClose, 
               ))}
             </div>
           )}
-          {['delivered', 'completed'].includes(order.status) && onExchange && <p id="hb-exchange-help" className="ld-help">{h.t('exchangeHelp')}</p>}
+          {!order.linkedJobId && ['delivered', 'completed'].includes(order.status) && onExchange && <p id="hb-exchange-help" className="ld-help">{h.t('exchangeHelp')}</p>}
+          {order.linkedJobId && <a className="ld-button" href={`?tab=orders&job=${order.linkedJobId}`}>{h.ar ? 'حدّث الحالة في الأعمال' : 'Update status in Jobs'}</a>}
+          {returnTo && <fieldset className="ld-fieldset"><legend>{h.ar ? 'ماذا حدث للطعام؟' : 'What happened to the food?'}</legend>
+            <label className="ld-field">{h.ar ? 'اختر قبل إعادة المخزون' : 'Choose before adjusting stock'}<select value={disposition} onChange={e => setDisposition(e.target.value)}><option value="">—</option><option value="discard">{h.ar ? 'تخلص منه؛ غير قابل للبيع' : 'Discard; cannot be sold'}</option><option value="restock">{h.ar ? 'أؤكد أنه صالح لإعادته للبيع' : 'I confirm it can be sold again'}</option></select></label>
+            <button className="ld-button" disabled={!disposition || !!busy} onClick={() => move(returnTo, null, disposition)}>{h.t('save')}</button>
+          </fieldset>}
           {picking && <fieldset className="ld-fieldset"><legend>{h.t('pickToConfirm')}</legend>
             {unitsNeeded(order).map(l => (
               <div key={l.variantId}><p><bdi>{h.lineName(l)}</bdi> · {h.t('imeiNeeded', { count: l.qty - (l.serials?.length || 0), name: '' }).replace(/\s*(for|لـ)\s*$/, '')}</p>

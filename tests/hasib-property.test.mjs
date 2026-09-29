@@ -1,0 +1,25 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { convexMemory } from './helpers/convex-memory.mjs';
+import { executeProperty } from '../convex/hasib/propertyState.js';
+import { hasibPack } from '../config/hasib-packs.js';
+const value = r => { assert.equal(r.ok, true, r.reason); return r.value; };
+test('property journey charges only commission and locks a won enquiry against duplication', async () => {
+  const m = convexMemory(), tenant = { accountId: 'accounts_a', pack: hasibPack('retail'), row: {} };
+  const contactId = await m.db.insert('blueContacts', { accountId: tenant.accountId, state: 'active' });
+  const run = (operation, args = {}) => executeProperty(m.ctx, tenant, { operation, ...args }, m.now());
+  const requestId = randomUUID();
+  const property = value(await run('property_save', { requestId, workflow: { label: 'Villa', location: 'Muscat', askingPriceMinor: 100000000 } }));
+  assert.equal(value(await run('property_save', { requestId, workflow: {} })).id, property.id);
+  assert.equal(m.table('hasibOrders').length, 0);
+  let enquiry = value(await run('enquiry_create', { requestId: randomUUID(), workflow: { contactId, propertyId: property.id, budgetMinor: 95000000, location: 'Muscat' } }));
+  enquiry = value(await run('enquiry_update', { enquiryId: enquiry.id, version: enquiry.version, workflow: { status: 'viewing', viewingAt: m.now() + 1000, viewingOutcome: 'Wants a second visit', followUpAt: m.now() } }));
+  assert.equal(enquiry.followUpDue, true);
+  assert.equal((await run('enquiry_update', { enquiryId: enquiry.id, version: 1, workflow: { status: 'won' } })).reason, 'enquiry_conflict');
+  enquiry = value(await run('enquiry_update', { enquiryId: enquiry.id, version: enquiry.version, workflow: { status: 'won', commissionMinor: 2000000 } }));
+  assert.equal(enquiry.commissionOwedMinor, 2000000);
+  assert.equal(m.table('hasibOrders')[0].totalMinor, 2000000);
+  assert.equal((await run('enquiry_update', { enquiryId: enquiry.id, version: enquiry.version, workflow: { status: 'won' } })).reason, 'enquiry_locked');
+  assert.equal((await executeProperty(m.ctx, { ...tenant, accountId: 'accounts_b' }, { operation: 'property_save', propertyId: property.id, version: property.version, workflow: { availability: 'available' } }, m.now())).reason, 'property_not_found');
+});

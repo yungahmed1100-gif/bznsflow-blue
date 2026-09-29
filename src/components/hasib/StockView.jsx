@@ -5,11 +5,14 @@ import { ItemEditor } from './ItemEditor';
 import { StockMoveDialog } from './StockMoveDialog';
 import { StockImporter } from './StockImporter';
 import { Money } from './Badges';
+import { hasibPack } from '../../../config/hasib-packs';
+import { RestaurantControls } from './RestaurantControls';
+import { EmptyState, PageHeader } from './DashboardVisuals';
 
 /** Products and variants with on-hand, alert level and one-tap adjustments. */
-export function StockView({ s, h, overview, initialLow = false, onChanged }) {
+export function StockView({ s, h, overview, initialLow = false, initialAction = '', timezone, onChanged }) {
   const [search, setSearch] = useState(''), [lowOnly, setLowOnly] = useState(initialLow);
-  const [editing, setEditing] = useState(null), [moving, setMoving] = useState(null), [notice, setNotice] = useState(''), [importing, setImporting] = useState(false);
+  const [editing, setEditing] = useState(initialAction === 'product' ? { item: null } : null), [moving, setMoving] = useState(null), [notice, setNotice] = useState(''), [importing, setImporting] = useState(initialAction === 'import');
   const query = useDebounced(search.trim(), 300);
   const list = usePolling(() => lowOnly ? hasib('low_stock') : hasib('items', query ? { search: query } : {}), [query, lowOnly], { interval: 30000 });
   const refresh = () => { list.refresh({ quiet: true }); onChanged(); };
@@ -24,20 +27,19 @@ export function StockView({ s, h, overview, initialLow = false, onChanged }) {
 
   return (
     <div className="hb-stock">
-      <div className="ld-page-head">
-        <h1>{h.t('stock')}</h1>
+      <PageHeader title={hasibPack(overview.pack.id).ownerUi.stock[h.ar ? 'ar' : 'en']} description={s.ar ? 'صور وأسعار ومخزون واضح لكل منتج.' : 'Clear photos, prices and stock for every product.'} icon="box" primary={{ label: h.t('addProduct'), onClick: () => setEditing({ item: null }) }}>
         <div className="ld-toolbar">
           {!lowOnly && <label className="ld-search"><span className="ld-visually-hidden">{h.t('searchItems')}</span>
             <input type="search" value={search} placeholder={h.t('searchItems')} onChange={e => setSearch(e.target.value)} /></label>}
           <label className="ld-check"><input type="checkbox" checked={lowOnly} onChange={e => setLowOnly(e.target.checked)} /> {h.t('lowStockOnly')}{overview.counts.lowStock ? ` (${overview.counts.lowStock})` : ''}</label>
           <button type="button" className="ld-button" onClick={() => setImporting(true)}>{h.t('importStock')}</button>
-          <button type="button" className="ld-button ld-primary" onClick={() => setEditing({ item: null })}>{h.t('addProduct')}</button>
         </div>
-      </div>
+      </PageHeader>
       {notice && <p className="ld-inline-error" role="alert">{notice}</p>}
+      {overview.pack.modules.recipes === 'available' && <RestaurantControls timezone={timezone} onChanged={refresh} s={s} h={h} overview={overview} />}
       {list.loading && !list.data ? <p className="ld-state" role="status">{h.t('loading')}</p>
         : list.error && !list.data ? <p className="ld-state" role="alert">{h.reason(list.error.reason) || s.reason(list.error.reason)}</p>
-        : !items.length ? <p className="ld-state">{query || lowOnly ? h.t('noItemsFound') : h.t('noProducts')}</p>
+        : !items.length ? <EmptyState icon="box" title={query || lowOnly ? h.t('noItemsFound') : h.t('noProducts')} description={query || lowOnly ? (s.ar ? 'غيّر البحث أو ألغِ فلتر المخزون المنخفض.' : 'Change the search or clear the low-stock filter.') : (s.ar ? 'أضف أول منتج مع صورته وسعره وكمية البداية.' : 'Add the first product with its photo, price and opening quantity.')} action={query || lowOnly ? undefined : { label: h.t('addProduct'), onClick: () => setEditing({ item: null }) }} secondary={query || lowOnly ? { label: h.t('products'), onClick: () => { setSearch(''); setLowOnly(false); } } : { label: h.t('importStock'), onClick: () => setImporting(true) }} />
         : (
           <div className="ld-table-wrap">
             <table className="ld-table hb-stock-table">

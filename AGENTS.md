@@ -10,3 +10,7 @@ Blue customer onboarding now targets real Embedded Signup on the existing review
 
 # MCP setup and active repair checkpoint
 Project MCP connections are saved in `.codex/config.toml`; read `docs/MCP-CONNECTIONS.md` for connection status, safe tool discovery and exact Blue boundaries. Reuse existing OAuth login; do not recreate credentials on each session. For the interrupted Blue Meta signup repair, resume from `docs/SESSION-CHECKPOINT.md`. That checkpoint records unfinished edits and verification gaps; it is not release approval.
+
+# Hasib industry implementation — 2026-09-28
+
+Read [the industry handoff](docs/antigravity/industry-optimization-handoff.md) before Hasib work. It supersedes older industry proposals where scope conflicts. Use one integration owner for schemas, entry/API contracts, navigation and money; isolate delegated files per its assignment table. Preserve pre-existing staged work. Explicitly stage new in-scope files and inspect the manifest/diff. Statuses are planned, implemented, locally verified, release-ready and deployed; staged means none of these by itself. Preview packs use synthetic local records only. Clinical release requires SEC-04; deployment, schema pushes and live messages require separate authorization. Keep three Today measures, plain AR/EN labels, legacy URLs and electronics Service.

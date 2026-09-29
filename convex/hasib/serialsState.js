@@ -156,7 +156,7 @@ async function publicLookup(ctx, accountId, serial, now) {
   const customer = contact?.state === 'active' ? displayName(contact).name : order?.customerName || null;
   const until = row?.status === 'sold' ? row.warrantyUntil : undefined;
   return { serial, status: row?.status || null, source: row?.source || null, item: item ? { id: item._id, nameAr: item.nameAr, nameEn: item.nameEn } : null,
-    options: variant?.options || [], receivedAt: row?.receivedAt || null, soldAt: row?.soldAt || null,
+    daysInStock: row ? Math.max(0,Math.floor(((row.soldAt || now)-row.receivedAt)/DAY)) : null, options: variant?.options || [], receivedAt: row?.receivedAt || null, soldAt: row?.soldAt || null,
     warranty: { until: until || null, by: row?.warrantyBy || null, active: !!until && until > now, daysLeft: until ? Math.max(0, Math.ceil((until - now) / DAY)) : 0 },
     order: order ? { id: order._id, number: order.number } : null, customer, repairs };
 }
@@ -195,7 +195,7 @@ export async function executeSerials(ctx, tenant, a, now) {
     if (!variant) return fail('variant_not_found');
     const status = ['in_stock', 'reserved', 'sold', 'written_off'].includes(a.status) ? a.status : 'in_stock';
     const rows = await ctx.db.query('hasibSerials').withIndex('by_variant_status', q => q.eq('variantId', variant._id).eq('status', status)).take(200);
-    return ok({ items: rows.filter(r => r.accountId === accountId).map(r => ({ serial: r.serial, status: r.status, source: r.source, costMinor: r.costMinor, receivedAt: r.receivedAt })) });
+    return ok({ items: rows.filter(r => r.accountId === accountId).map(r => ({ serial: r.serial, status: r.status, source: r.source, costMinor: r.costMinor, receivedAt: r.receivedAt, daysInStock: Math.max(0,Math.floor(((r.soldAt || now)-r.receivedAt)/DAY)) })) });
   }
   if (a.operation === 'serial_lookup') {
     const serial = normSerial(a.serial);

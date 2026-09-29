@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
+import { hasibPack, industryCatalog, visibleModules } from '../config/hasib-packs.js';
 
 const BASE = process.argv[2] || 'http://127.0.0.1:5199';
 const OUT = process.env.LAYLA_BROWSER_OUT || 'work/layla-dashboard-browser';
@@ -33,8 +34,9 @@ function fixture() {
   return { contacts, messages, campaigns: [], calls: [], takeover: {} };
 }
 
-function api(state, { overviewStatus = 200, overviewReason } = {}) {
+function api(state, { overviewStatus = 200, overviewReason, founderPreview = false } = {}) {
   const overview = { ok: true, csrfToken: 'a'.repeat(64), account: { email: 'owner@example.test' }, dashboardAvailable: true, broadcastEnabled: true, connected: true,
+    founderPreview,
     business: { name: 'Blue Studio Properties', sector: 'Real estate', sectorId: 'real-estate' }, integration: { sender: '96890000000', path: 'new_number', status: 'connected', checks: { routing: true, registered: true, path: true }, checkedAt: now },
     messaging: { available: true, active: true, reason: '', broadcastAvailable: true, limits: { perMinute: 10, perDay: 100, usedToday: 7 } }, timezone: 'Asia/Muscat', migrationPending: false, qualification: pack };
   const template = { id: '111', name: 'autumn_offer', language: 'en', category: 'MARKETING', status: 'APPROVED', parameterFormat: 'positional', header: null, body: 'Hello {{1}}, enjoy {{2}} off this week.', footer: 'Tap Stop promotions to opt out',
@@ -64,6 +66,19 @@ function api(state, { overviewStatus = 200, overviewReason } = {}) {
   };
 }
 
+function hasibOverview(packId, preview = false) {
+  const value = hasibPack(packId), industry = industryCatalog().find(row => row.id === packId);
+  return { ok: true, csrfToken: 'a'.repeat(64), preview, readOnly: preview, synthetic: preview, setupRequired: false, selectedIndustryId: packId, industry,
+    pack: { id: value.id, archetype: value.archetype, version: value.version, ownerUi: value.ownerUi, todayMetrics: value.todayMetrics, thresholds: value.thresholds,
+      variantOptions: value.variantOptions, orderFields: value.orderFields, expenseCategories: value.expenseCategories, modules: value.modules },
+    livePacks: industryCatalog().filter(row => row.live), industries: industryCatalog(), modules: visibleModules(value),
+    settings: { currency: 'OMR', vatRegistered: false, vatRateBps: 500, pricesIncludeVat: false, stockPolicy: 'warn', unsoldDays: 60, absenceDays: 14 },
+    workspaceRole: packId === 'real-estate' ? 'manager' : undefined,
+    teamSummary: packId === 'real-estate' ? { members: 0, pending: 0, limit: 5 } : undefined,
+    capabilities: packId === 'real-estate' ? { hasib: true, realEstate: true, money: true, insights: true, approvals: true, team: true, settings: true, imports: true, exports: true } : undefined,
+    counts: { pendingOrders: 0, lowStock: 0, laylaWaiting: 0, laylaOverdue: 0 } };
+}
+
 async function openPage(browser, { width, lang = 'en', path, handler, extra }) {
   const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce' });
   const page = await context.newPage();
@@ -91,6 +106,65 @@ try {
   for (const [reason, expected] of [['sign_in_required', /\/en\/layla\/setup\?next=dashboard$/], ['setup_required', /\/en\/layla\/setup$/]]) {
     const { page, context } = await openPage(browser, { width: 1280, path: '/layla/dashboard', handler: api(fixture(), { overviewStatus: reason === 'sign_in_required' ? 401 : 409, overviewReason: reason }) });
     await page.waitForURL(expected); count++;
+    await context.close();
+  }
+
+  // The founder-only selector includes live and preview-only built dashboards.
+  // Pending packs are disabled and preview responses contain no customer data.
+  for (const lang of ['en', 'ar']) {
+    const state = fixture(), handler = api(state, { founderPreview: true });
+    const { page, context } = await openPage(browser, { width: 320, lang, path: '/layla/dashboard', handler, extra: (surface, request) => {
+      if (surface !== 'hasib') return null;
+      const previewId = new URL(request.url()).searchParams.get('previewIndustry');
+      if (request.method() === 'GET') return { status: 200, json: hasibOverview(previewId || state.livePack || 'retail', !!previewId) };
+      const body = request.postDataJSON();
+      if (body.action === 'settings_update') { state.livePack = body.packId; return { status: 200, json: { ok: true, csrfToken: 'a'.repeat(64), settings: {} } }; }
+      if (body.action === 'today') { const packId = body.previewIndustry || state.livePack || 'retail'; return { status: 200, json: { ok: true, csrfToken: 'a'.repeat(64), synthetic: !!body.previewIndustry, date: '2026-09-28', needsYou: { ordersCount: 0, orders: [], chats: 0, lowStockCount: 0, lowStock: [], repairsReady: 0 }, industryActions: [], industryMetrics: hasibPack(packId).todayMetrics.map(metric => ({ id: metric.id, value: 0, format: 'number', detail: '' })), setup: { products: false, photos: false, services: false } } }; }
+      return { status: 403, json: { ok: false, reason: 'preview_read_only' } };
+    } });
+    const ar = lang === 'ar';
+    const selector = page.locator('.hb-founder-preview select');
+    await selector.waitFor();
+    assert.equal(await selector.locator('option[value="retail-tech"]').count(), 1); count++;
+    assert.equal(await selector.locator('option[value="dental"]').count(), 1); count++;
+    assert.match(await selector.locator('option[value="retail-tech"]').textContent(), ar ? /مباشر/ : /Live/); count++;
+    assert.match(await selector.locator('option[value="dental"]').textContent(), ar ? /مباشر/ : /Live/); count++;
+    assert.match(await selector.locator('option[value=""]').textContent(), ar ? /بيانات حقيقية/ : /real data/); count++;
+    assert.notEqual(await selector.locator('option[value="travel"]').getAttribute('disabled'), null); count++;
+    await selector.selectOption('retail-tech');
+    await page.waitForFunction(() => document.querySelector('.hb-founder-preview select')?.value === 'retail-tech');
+    assert.equal(await page.getByText(ar ? /معاينة للقراءة فقط/ : /Read-only preview/).count(), 0); count++;
+    await selector.selectOption('dental');
+    await page.waitForFunction(() => document.querySelector('.hb-founder-preview select')?.value === 'dental');
+    assert.equal(await page.getByText(ar ? /معاينة للقراءة فقط/ : /Read-only preview/).count(), 0); count++;
+    await selector.selectOption('beauty');
+    await page.getByText(ar ? /معاينة للقراءة فقط/ : /Read-only preview/).first().waitFor(); count++;
+    assert.equal(await noOverflow(page), true); count++;
+    await context.close();
+  }
+
+  // Every released industry has visible, bilingual actions and truthful visuals at phone, tablet and desktop sizes.
+  for (const packId of ['retail', 'retail-tech', 'dental', 'real-estate', 'construction']) for (const lang of ['en', 'ar']) for (const width of [320, 768, 1440]) {
+    const state = fixture(), handler = api(state);
+    const { page, context } = await openPage(browser, { width, lang, path: '/layla/dashboard?tab=today', handler, extra: (surface, request) => {
+      if (surface !== 'hasib') return null;
+      if (request.method() === 'GET') return { status: 200, json: hasibOverview(packId) };
+      const body = request.postDataJSON();
+      if (body.action === 'today') return { status: 200, json: { ok: true, csrfToken: 'a'.repeat(64), date: '2026-09-29', needsYou: { ordersCount: 0, orders: [], chats: 0, lowStockCount: 0, lowStock: [], repairsReady: 0 }, industryActions: [], industryMetrics: hasibPack(packId).todayMetrics.map(metric => ({ id: metric.id, value: 0, format: 'number', detail: '' })), setup: { products: false, photos: false, services: false } } };
+      if (body.action === 'real_estate_overview') return { status: 200, json: { ok: true, csrfToken: 'a'.repeat(64), workspaceRole: 'manager', counts: { opportunities: 0, unassigned: 0, slaBreaches: 0, staleListings: 0, todayViewings: 0, tasks: 0 }, pipeline: { new: 0, contacted: 0, qualified: 0, viewing: 0, offer: 0, won: 0, lost: 0 }, listings: { available: 0, reserved: 0, unavailable: 0, verifiedFresh: 0, stale: 0 }, viewings: { today: 0, upcoming: 0, outcomeMissing: 0 }, offers: { draft: 0, approvalPending: 0, active: 0, accepted: 0 }, approvals: { offers: 0, drafts: 0, total: 0 }, tasks: [] } };
+      if (body.action === 'real_estate_tasks') return { status: 200, json: { ok: true, csrfToken: 'a'.repeat(64), items: [] } };
+      return { status: 200, json: { ok: true, csrfToken: 'a'.repeat(64), items: [], members: [], cursor: null, limit: 5 } };
+    } });
+    await page.locator('.hb-action-strip').first().waitFor();
+    assert.equal(await page.locator('.hb-action-card').count(), packId === 'real-estate' ? 5 : 4, `${packId} ${lang} actions at ${width}`); count++;
+    assert.equal(await page.locator('.hb-visual-metric').count(), packId === 'real-estate' ? 6 : 3, `${packId} ${lang} metrics at ${width}`); count++;
+    assert.equal(await page.locator('.ld').getAttribute('dir'), lang === 'ar' ? 'rtl' : 'ltr'); count++;
+    assert.equal(await noOverflow(page), true, `${packId} ${lang} no overflow at ${width}`); count++;
+    assert.deepEqual(await axe(page), [], `${packId} ${lang} axe at ${width}`); count++;
+    await page.locator('.hb-action-card').first().click();
+    const expectedTab = packId === 'real-estate' ? 'stock' : packId === 'retail-tech' ? 'service' : 'orders';
+    await page.waitForFunction(tab => new URL(location.href).searchParams.get('tab') === tab, expectedTab); count++;
+    if (width === 320 || width === 1440) await page.screenshot({ path: `${OUT}/live-${packId}-${lang}-${width}.png`, fullPage: true });
     await context.close();
   }
 

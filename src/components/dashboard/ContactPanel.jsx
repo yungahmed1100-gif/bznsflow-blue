@@ -4,7 +4,7 @@ import { dashboard } from '../../lib/dashboard/api';
 import { formatPhone } from '../../lib/dashboard/phone';
 import { formatDateTime } from '../../lib/dashboard/format';
 
-export function ContactPanel({ s, contact, pack, timezone, onSaved, onDeleted, onOpenChat }) {
+export function ContactPanel({ s, contact, pack, timezone, canDelete = true, onSaved, onDeleted, onOpenChat }) {
   const initialFields = Object.fromEntries(pack.fields.map(f => [f.key, contact.fields.find(x => x.key === f.key)?.value || '']));
   const [ownerName, setOwnerName] = useState(contact.ownerName);
   const [fields, setFields] = useState(initialFields);
@@ -56,9 +56,9 @@ export function ContactPanel({ s, contact, pack, timezone, onSaved, onDeleted, o
       <div className="ld-actions">
         <button type="submit" className="ld-button ld-primary" disabled={!!busy}>{busy === 'save' ? s.t('loading') : s.t('save')}</button>
         {contact.conversationId && <button type="button" className="ld-button ld-quiet" onClick={() => onOpenChat(contact.conversationId)}>{s.t('openChat')}</button>}
-        <button type="button" className="ld-button ld-danger" onClick={() => setConfirmDelete(true)}>{s.t('deleteContact')}</button>
+        {canDelete && <button type="button" className="ld-button ld-danger" onClick={() => setConfirmDelete(true)}>{s.t('deleteContact')}</button>}
       </div>
-      {confirmDelete && (
+      {canDelete && confirmDelete && (
         <div className="ld-confirm" role="alertdialog" aria-labelledby="ld-delete-text">
           <p id="ld-delete-text">{s.t('deleteConfirm', { name: displayName })}</p>
           <button type="button" className="ld-button ld-danger" disabled={!!busy} onClick={() => run('delete', async () => { await dashboard('contact_delete', { contactId: contact.id, confirm: true }); onDeleted(); }, s.t('contactDeleted'))}>{s.t('deleteNow')}</button>

@@ -16,6 +16,8 @@ import { executeMessaging } from '../convex/blueMessagingState.js';
 import { executeDashboard } from '../convex/blueDashboardState.js';
 import { executeCampaigns } from '../convex/blueCampaignState.js';
 import { executeHasib } from '../convex/hasib/hasibState.js';
+import { hasibArgs } from '../api/_lib/hasib/validate.js';
+import { hasibPack } from '../config/hasib-packs.js';
 import { grantPlan } from '../convex/hasib/plans.js';
 
 const PORT = Number(process.argv.find(a => /^\d+$/.test(a)) || 5310), DIST = new URL('../dist/', import.meta.url).pathname;
@@ -23,6 +25,8 @@ const PORT = Number(process.argv.find(a => /^\d+$/.test(a)) || 5310), DIST = new
 const PACK = (process.argv.find(a => a.startsWith('--pack=')) || '--pack=retail').slice(7);
 const DAY = 86400000, HOUR = 3600000, CSRF = 'd'.repeat(64);
 const m = convexMemory({ start: Date.now() - 30 * DAY });
+// Server-owned context flag, never accepted from an HTTP argument or live Convex.
+m.ctx.hasibPreview = true;
 
 // ── Seed ───────────────────────────────────────────────────────────────────
 const tenant = await seedTenant(m, { name: 'n', sector: 'Retail' });
@@ -138,7 +142,11 @@ async function seedFashion() {
 }
 
 if (PACK === 'retail-tech') await (await import('./hasib-demo-tech.mjs')).seedTech({ m, tenant, call, hasib, executeMessaging, DAY, HOUR });
-else await seedFashion();
+else if (PACK === 'retail') await seedFashion();
+else {
+  await hasib('settings_update', { packId: PACK });
+  await (await import('./hasib-demo-industries.mjs')).seedIndustry({ m, tenant, hasib, pack: hasibPack(PACK) });
+}
 
 // ── Server ─────────────────────────────────────────────────────────────────
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.woff2': 'font/woff2', '.ico': 'image/x-icon', '.webp': 'image/webp', '.xml': 'application/xml', '.txt': 'text/plain' };
@@ -152,7 +160,7 @@ async function api(req, res, url) {
   const body = req.method === 'POST' ? await readJson(req) : {};
   const reply = r => r.ok ? json(res, 200, { ok: true, ...(r.value || {}), csrfToken: CSRF }) : json(res, r.reason === 'sign_in_required' ? 401 : 409, { ok: false, reason: r.reason });
   const { action, ...args } = body;
-  if (surface === 'hasib') return reply(await call(executeHasib, req.method === 'GET' ? 'overview' : action, args, Date.now()));
+  if (surface === 'hasib') return reply(await call(executeHasib, req.method === 'GET' ? 'overview' : action, req.method === 'GET' ? {} : hasibArgs(action, args), Date.now()));
   if (surface === 'dashboard') {
     if (req.method === 'GET') {
       const r = await call(executeDashboard, 'overview', {}, Date.now());

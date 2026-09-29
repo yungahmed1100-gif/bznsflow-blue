@@ -14,7 +14,7 @@ const MAX_VARIANTS = 50, MAX_OPTIONS = 3, MAX_DELTA = 100_000;
 const CLIENT_REASONS = { stock_in: 1, return: 1, adjustment: 0, damage: -1 };
 const KINDS = ['product', 'service'];
 
-export const publicVariant = v => ({ id: v._id, sku: v.sku, options: v.options, priceMinor: v.priceMinor, costMinor: v.costMinor, onHand: v.onHand, reorderPoint: v.reorderPoint, low: v.low });
+export const publicVariant = v => ({ id: v._id, sku: v.sku, options: v.options, priceMinor: v.priceMinor, costMinor: v.costMinor, costKnown: v.costKnown !== false, onHand: v.onHand, reorderPoint: v.reorderPoint, low: v.low });
 export const publicItem = (item, variants) => ({ id: item._id, kind: item.kind, nameAr: item.nameAr, nameEn: item.nameEn, category: item.category, unit: item.unit,
   trackStock: item.trackStock, serialized: !!item.serialized, warrantyMonths: item.warrantyMonths || 0, warrantyBy: item.warrantyBy || 'none',
   catalogEntryKey: item.catalogEntryKey || null, variants: variants.filter(v => !v.archived).map(publicVariant), updatedAt: item.updatedAt });
@@ -42,7 +42,7 @@ function variantInput(raw) {
   if (!isMinor(raw.priceMinor) || !isMinor(raw.costMinor ?? 0) || !Number.isSafeInteger(raw.reorderPoint ?? 0) || (raw.reorderPoint ?? 0) < 0) return null;
   const opening = raw.openingStock ?? 0;
   if (!Number.isSafeInteger(opening) || opening < 0 || opening > MAX_DELTA) return null;
-  return { variantId: raw.variantId, sku, options, priceMinor: raw.priceMinor, costMinor: raw.costMinor ?? 0, reorderPoint: raw.reorderPoint ?? 0, openingStock: opening };
+  return { variantId: raw.variantId, sku, options, priceMinor: raw.priceMinor, costMinor: raw.costMinor ?? 0, costKnown: raw.costMinor !== undefined, reorderPoint: raw.reorderPoint ?? 0, openingStock: opening };
 }
 const searchText = (item, variants) => [item.nameEn, item.nameAr, item.category, ...variants.map(v => v.sku), ...variants.flatMap(v => v.options.map(o => o.value))]
   .filter(Boolean).join(' ').toLowerCase().slice(0, 1000);
@@ -92,7 +92,7 @@ export async function saveItem(ctx, accountId, pack, a, now) {
   }
   if (photoId) await releaseRegistration(ctx, photoId);
   for (const v of variants) {
-    const fields = { sku: v.sku, options: v.options, priceMinor: v.priceMinor, costMinor: v.costMinor, reorderPoint: v.reorderPoint, updatedAt: now };
+    const fields = { sku: v.sku, options: v.options, priceMinor: v.priceMinor, costMinor: v.costMinor, costKnown: v.costKnown, reorderPoint: v.reorderPoint, updatedAt: now };
     if (v.variantId) {
       const before = current.find(c => c._id === v.variantId);
       await ctx.db.patch(v.variantId, { ...fields, low: isLow(before.onHand, v.reorderPoint) });

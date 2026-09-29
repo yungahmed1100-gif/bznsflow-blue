@@ -27,6 +27,12 @@ export async function executeReview(ctx, a, now = Date.now()) {
   if (a.operation === 'profile') {
     if (row.operation || (row.attempt && !row.attempt.claimed && row.attempt.expiresAt > now && ['prepared','awaiting_meta'].includes(row.status))) return fail('operation_conflict');
     await patch({ profile: a.profile, metrics:{...row.metrics,draftSavedAt:row.metrics?.draftSavedAt || now}, profileVersion: (row.profileVersion || (row.profile ? 1 : 0)) + 1, lastPreview: undefined, previewIntents: [], journeyStep: [undefined, 0, 2].includes(row.journeyStep) ? 1 : row.journeyStep, status: row.integration || row.pendingSelection || row.attempt ? row.status : 'business_saved' });
+    // A pre-unification Hasib choice is only a migration hint. Once Business
+    // Setup is saved, its single industry becomes authoritative.
+    if (row.accountId) {
+      const hasibSettings = await ctx.db.query('hasibSettings').withIndex('by_account', q => q.eq('accountId', row.accountId)).unique();
+      if (hasibSettings?.packId) await ctx.db.patch(hasibSettings._id, { packId: undefined, updatedAt: now });
+    }
   } else if (a.operation === 'preview_result') {
     if (!row.profile?.reviewed || a.profileVersion !== (row.profileVersion || 1)) return fail('profile_changed');
     if (!a.preview || typeof a.preview.question !== 'string' || a.preview.question.length > 1000 || typeof a.preview.text !== 'string' || a.preview.text.length > 1200) return fail('invalid_state');

@@ -1,3 +1,5 @@
+import { activatePendingInvitation } from './hasib/workspaceState.js';
+
 const hash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 export async function executeBlueAuth(ctx,a,now = Date.now()) {
   const fail = reason => ({ok:false,reason}), ok = value => ({ok:true,value});
@@ -48,6 +50,7 @@ export async function executeBlueAuth(ctx,a,now = Date.now()) {
     await ctx.db.delete(r._id);
     let account = await lookup('accounts','by_email','email',a.email);
     if (!account) account = await ctx.db.get(await ctx.db.insert('accounts',{email:a.email,role:'customer',createdAt:now}));
+    await activatePendingInvitation(ctx, account, now);
     await ctx.db.insert('sessions',{accountId:account._id,tokenHash:a.tokenHash,createdAt:now,expiresAt:now+2592000000});
     return ok({id:account._id,email:account.email});
   }
@@ -74,7 +77,15 @@ export async function executeBlueAuth(ctx,a,now = Date.now()) {
       await ctx.db.patch(account._id,{draftHash:a.draftHash});
       return ok({draftHash:a.draftHash});
     }
-    return ok({id:account._id,email:account.email,name:account.name || '',draftHash:account.draftHash || null});
+    const membership = await lookup('ascendWorkspaceMembers','by_account','accountId',account._id);
+    let workspaceDraftHash = null, workspaceRole = 'manager';
+    if (membership?.status === 'active') {
+      const workspace = await ctx.db.get(membership.workspaceId);
+      const manager = workspace ? await ctx.db.get(workspace.managerAccountId) : null;
+      workspaceDraftHash = manager?.draftHash || null;
+      workspaceRole = 'employee';
+    }
+    return ok({id:account._id,email:account.email,name:account.name || '',draftHash:account.draftHash || null,workspaceDraftHash,workspaceRole});
   }
   return fail('invalid_state');
 }

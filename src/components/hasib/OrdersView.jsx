@@ -4,14 +4,16 @@ import { hasib } from '../../lib/dashboard/api';
 import { listTimestamp } from '../../lib/dashboard/format';
 import { OrderComposer } from './OrderComposer';
 import { OrderDetail } from './OrderDetail';
+import { ProductRequests } from './ProductRequests';
 import { Money, OrderStatus, PaymentChip } from './Badges';
+import { EmptyState, PageHeader } from './DashboardVisuals';
 
 const FILTERS = ['', 'layla_waiting', 'pending', 'confirmed', 'ready', 'out_for_delivery', 'delivered', 'completed', 'cancelled'];
 
 /** Orders tab. Layla files orders from chats; "Waiting for you" lists the ones to confirm. */
-export function OrdersView({ s, h, overview, business, timezone, onChanged }) {
+export function OrdersView({ s, h, overview, business, timezone, onChanged, initialCreate = false, initialOrderId = null }) {
   const [status, setStatus] = useState(overview.counts?.laylaWaiting ? 'layla_waiting' : ''), [more, setMore] = useState({ items: [], cursor: undefined });
-  const [composer, setComposer] = useState(null), [openId, setOpenId] = useState(null), [notice, setNotice] = useState('');
+  const [composer, setComposer] = useState(initialCreate ? { prefill: null } : null), [openId, setOpenId] = useState(initialOrderId), [notice, setNotice] = useState('');
   const list = usePolling(() => hasib('orders', status ? { status } : {}), [status], { interval: 15000 });
   const items = [...(list.data?.items || []), ...more.items.filter(i => !(list.data?.items || []).some(x => x.id === i.id))];
   const cursor = more.cursor === undefined ? list.data?.cursor : more.cursor;
@@ -24,20 +26,19 @@ export function OrdersView({ s, h, overview, business, timezone, onChanged }) {
 
   return (
     <div className="hb-orders">
-      <div className="ld-page-head">
-        <h1>{h.t('orders')}</h1>
+      <PageHeader title={h.t('orders')} description={s.ar ? 'أنشئ الطلبات وتابع الدفع والتنفيذ من مكان واحد.' : 'Create orders and track payment and fulfilment in one place.'} icon="receipt" primary={{ label: h.t('newOrder'), icon: 'plus', onClick: () => setComposer({ prefill: null }) }}>
         <div className="ld-toolbar">
           <label><span className="ld-visually-hidden">{h.t('status')}</span>
             <select value={status} onChange={e => { setStatus(e.target.value); setMore({ items: [], cursor: undefined }); }}>
               {FILTERS.map(v => <option key={v} value={v}>{v === 'layla_waiting' ? h.t('waitingForYou') : v ? h.t(`st_${v}`) : h.t('allOrders')}</option>)}
             </select></label>
-          <button type="button" className="ld-button ld-primary" onClick={() => setComposer({ prefill: null })}>{h.t('newOrder')}</button>
         </div>
-      </div>
+      </PageHeader>
+      {overview.pack.id === 'retail' && <ProductRequests s={s} h={h} />}
       {notice && <p className={notice === h.t('depositFailed') ? 'ld-inline-error' : 'ld-help'} role="status">{notice}</p>}
       {list.loading && !list.data ? <p className="ld-state" role="status">{h.t('loading')}</p>
         : list.error && !list.data ? <div className="ld-state" role="alert"><p>{h.reason(list.error.reason) || s.reason(list.error.reason)}</p><button className="ld-button" onClick={() => list.refresh()}>{h.t('retry')}</button></div>
-        : !items.length ? <p className="ld-state">{h.t('noOrders')}</p>
+        : !items.length ? <EmptyState icon="receipt" title={h.t('noOrders')} description={s.ar ? 'سجّل أول طلب لتظهر حالات التنفيذ والدفع هنا.' : 'Record the first order to see fulfilment and payment status here.'} action={{ label: h.t('newOrder'), onClick: () => setComposer({ prefill: null }) }} />
         : (
           <div className="ld-table-wrap">
             <table className="ld-table hb-order-table">

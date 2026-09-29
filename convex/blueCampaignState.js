@@ -169,11 +169,11 @@ async function accountRow(ctx, accountId, integrationId) {
 }
 async function jobBlockReason(ctx, job, campaign, now) {
   if (!campaign || campaign.status !== 'processing') return 'campaign_not_processing';
-  if (!await broadcastEnabled(ctx)) return 'broadcast_paused';
+  if (campaign.origin !== 'chat' && !await broadcastEnabled(ctx)) return 'broadcast_paused';
   const row = await accountRow(ctx, job.accountId, job.integrationId);
   if (!row || !messagingReady(row, now)) return 'connection_not_ready';
   const contact = await ctx.db.get(job.contactId);
-  const eligibility = marketingEligibility(contact);
+  const eligibility = campaign.origin === 'chat' ? (!contact || contact.state !== 'active' ? 'contact_inactive' : contact.optout ? 'contact_opted_out' : null) : marketingEligibility(contact);
   if (eligibility) return eligibility;
   if (contact.numberHash !== job.numberHash || !job.waId) return 'contact_changed';
   return null;
@@ -246,6 +246,7 @@ export async function executeCampaignWorker(ctx, a, now = Date.now()) {
         await ctx.db.patch(job._id, { status, ...(a.providerId ? { providerId: a.providerId } : {}), ...(a.reason ? { reason: String(a.reason).slice(0, 60) } : {}), ...code, updatedAt: now });
       }
     } else if (a.providerId && !job.providerId) await ctx.db.patch(job._id, { providerId: a.providerId, updatedAt: now });
+    if (job.realEstateDraftId) await ctx.db.patch(job.realEstateDraftId, { status: a.status === 'submitted' ? 'provider_submitted' : a.status === 'retry' ? 'queued_template' : a.status, updatedAt: now, ...(a.status === 'submitted' ? { providerSubmittedAt: now } : {}) });
     if (campaign && typeof a.campaignBlock === 'string' && campaign.status === 'processing') await blockCampaign(ctx, campaign, a.campaignBlock.slice(0, 60), now);
     else if (campaign) await nextQueued(ctx, a, campaign._id, now);
     if (campaign) await finishIfDone(ctx, await ctx.db.get(campaign._id), now);

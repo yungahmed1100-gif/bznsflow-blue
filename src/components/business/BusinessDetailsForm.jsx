@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { INDUSTRIES } from '../../lib/industries.js';
+import { BUSINESS_INDUSTRIES } from '../../lib/industries.js';
 import { prefillFor, isSectorDefaultService } from '../../lib/sector-prefill.generated.js';
 import { GuidedSetup } from '../onboarding/GuidedSetup.jsx';
 
@@ -15,7 +15,7 @@ function Chapter({ ar, n, title, lede, required = false }) {
     {lede && <p className="layla-chapter-lede">{lede}</p>}
   </>;
 }
-export function inferIndustry(value) { const found = INDUSTRIES.find(item => item.en === value || item.ar === value); return value ? found?.id || 'other' : 'other'; }
+export function inferIndustry(value) { const found = BUSINESS_INDUSTRIES.find(item => item.en === value || item.ar === value); return value ? found?.id || 'other' : 'other'; }
 /** Splits a saved team contact back into the form's email / country-code / number fields. */
 function parseContact(raw = '') {
   if (raw.includes('@')) return { mode: 'email', code: '968', value: raw };
@@ -33,14 +33,15 @@ function parseContact(raw = '') {
  * Saving there is the owner confirming the facts, and Layla answers with them
  * straight away.
  */
-export function BusinessDetailsForm({ lang, initial = {}, mode = 'onboarding', busy = false, submitLabel, onSubmit, children }) {
+export function BusinessDetailsForm({ lang, initial = {}, initialIndustryId, mode = 'onboarding', busy = false, submitLabel, onSubmit, children }) {
   const ar = lang === 'ar';
   const tr = (en, arabic) => ar ? arabic : en;
   const dashboard = mode === 'dashboard';
   const saved = parseContact(initial.profile?.humanContact || '');
-  const [profile, setProfile] = useState({ ...blank, ...(initial.profile || {}), reviewed: dashboard || !!initial.profile?.reviewed });
+  const initialIndustry = initialIndustryId && BUSINESS_INDUSTRIES.find(item => item.id === initialIndustryId);
+  const [profile, setProfile] = useState({ ...blank, ...(initial.profile || {}), ...(initialIndustry ? { sector: initialIndustry[lang] || initialIndustry.en } : {}), reviewed: dashboard || !!initial.profile?.reviewed });
   const [businessName, setName] = useState(initial.businessName || initial.profile?.businessName || '');
-  const [industryId, setIndustryId] = useState(inferIndustry(initial.profile?.sector));
+  const [industryId, setIndustryId] = useState(initialIndustryId || inferIndustry(initial.profile?.sector));
   const [contactMode, setContactMode] = useState(saved.mode), [countryCode, setCountryCode] = useState(saved.code), [contactValue, setContactValue] = useState(saved.value);
   const [faqQuestion, setFaqQuestion] = useState(''), [faqAnswer, setFaqAnswer] = useState('');
   const tailored = prefillFor(industryId, lang);
@@ -50,7 +51,7 @@ export function BusinessDetailsForm({ lang, initial = {}, mode = 'onboarding', b
   // boilerplate. Once the owner has written their own, it is never clobbered.
   function selectSector(id) {
     setIndustryId(id);
-    const next = INDUSTRIES.find(item => item.id === id);
+    const next = BUSINESS_INDUSTRIES.find(item => item.id === id);
     const suggested = prefillFor(id, lang).service;
     setProfile(current => ({
       ...current,
@@ -68,7 +69,7 @@ export function BusinessDetailsForm({ lang, initial = {}, mode = 'onboarding', b
           <label>{tr('What does your business do?', 'ما مجال نشاطك؟')}
             <select required value={industryId} onChange={e => selectSector(e.target.value)}>
               <option value="">{tr('Choose your business type', 'اختر نوع نشاطك')}</option>
-              {INDUSTRIES.map(item => <option key={item.id} value={item.id}>{item[lang] || item.en}</option>)}
+              {BUSINESS_INDUSTRIES.map(item => <option key={item.id} value={item.id}>{item[lang] || item.en}</option>)}
             </select>
             {industryId === 'other' && <textarea aria-label={tr('Describe your business', 'صف نشاطك')} required maxLength={350} rows={2} value={profile.sector} placeholder={tr('Describe your business in a few words', 'صف نشاطك بكلمات قليلة')} onChange={e => edit({ sector: e.target.value })} />}
           </label>

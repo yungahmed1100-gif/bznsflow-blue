@@ -57,8 +57,8 @@ function QuoteEditor({ s, h, repair, onSaved }) {
   const [options, setOptions] = useState([]), [busy, setBusy] = useState(false), [error, setError] = useState('');
   useEffect(() => {
     hasib('items', { limit: 50 }).then(r => setOptions(r.items.filter(i => i.kind === 'product' && !i.serialized).flatMap(i => i.variants.map(v => ({ id: v.id, label: `${h.name(i)}${v.options.length ? ` — ${v.options.map(o => o.value).join(' / ')}` : ''}`, onHand: v.onHand })))))
-      .catch(() => setOptions([]));
-  }, [h]);
+      .catch(err => setError(h.reason(err.reason) || s.reason(err.reason)));
+  }, [h, s]);
   const labourMinor = parseAmount(labour);
   const save = async () => {
     if (labourMinor === null) return;
@@ -87,6 +87,26 @@ function QuoteEditor({ s, h, repair, onSaved }) {
   );
 }
 
+function RepairApproval({ s, h, repair, timezone, onSaved, onConflict }) {
+  const [approvedBy, setApprovedBy] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const approve = async event => {
+    event.preventDefault();
+    if (!approvedBy.trim() || busy) return;
+    setBusy(true); setError('');
+    try { await hasib('repair_approval', { repairId: repair.id, version: repair.version, approvedBy: approvedBy.trim() }); onSaved(); }
+    catch (e) { setError(h.reason(e.reason) || s.reason(e.reason)); if (e.reason === 'repair_conflict') onConflict(); }
+    finally { setBusy(false); }
+  };
+  if (repair.approvalStatus === 'approved') return <p role="status"><span className="ld-chip is-green">{s.ar ? 'وافق العميل على عرض السعر' : 'Customer approved this quote'}</span> <bdi>{repair.approvedBy}</bdi>{repair.approvedAt && <> · {formatDateTime(repair.approvedAt, s.lang, timezone)}</>}</p>;
+  if (['collected', 'cancelled'].includes(repair.status)) return <p className="ld-help">{s.ar ? 'لا توجد موافقة مسجلة' : 'No approval recorded'}</p>;
+  return <form className="hb-move" onSubmit={approve}>
+    <p className="ld-help">{s.ar ? 'سجّل موافقة العميل على عرض السعر الحالي. تعديل السعر أو القطع يتطلب موافقة جديدة.' : 'Record the customer’s approval of this quote. Changing the quote or parts requires a new approval.'}</p>
+    <label className="ld-field">{s.ar ? 'اسم العميل الذي وافق' : 'Name of customer who approved'}<input value={approvedBy} onChange={e => setApprovedBy(e.target.value)} dir="auto" maxLength={100} required disabled={busy} /></label>
+    <button type="submit" className="ld-button ld-primary" disabled={busy || !approvedBy.trim()}>{busy ? h.t('saving') : (s.ar ? 'تسجيل موافقة العميل' : 'Record customer approval')}</button>
+    {error && <p className="ld-inline-error" role="alert">{error}</p>}
+  </form>;
+}
+
 export function RepairDetail({ s, h, repairId, timezone, onClose, onChanged }) {
   const [repair, setRepair] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState('');
   const load = useCallback(() => hasib('repair', { repairId }).then(setRepair).catch(e => setError(h.reason(e.reason) || s.reason(e.reason))), [repairId, h, s]);
@@ -107,13 +127,14 @@ export function RepairDetail({ s, h, repairId, timezone, onClose, onChanged }) {
             <span><bdi>{repair.customer?.name || repair.customerName || h.t('walkIn')}</bdi></span>
             {repair.dueAt && <span className="ld-chip is-yellow">{h.t('due', { date: formatDateTime(repair.dueAt, s.lang, timezone).split(',')[0] })}</span>}</p>
           <p><strong>{h.t('fault')}:</strong> <bdi>{repair.fault}</bdi>{repair.accessories && <> · {h.t('accessoriesLeft')}: <bdi>{repair.accessories}</bdi></>}</p>
-          {EDITABLE.includes(repair.status) ? <QuoteEditor s={s} h={h} repair={repair} onSaved={() => { load(); onChanged(); }} /> : <p className="ld-help">{h.t('repairLocked')}</p>}
+          {EDITABLE.includes(repair.status) ? <QuoteEditor key={repair.version} s={s} h={h} repair={repair} onSaved={() => { load(); onChanged(); }} /> : <p className="ld-help">{h.t('repairLocked')}</p>}
           {o && <dl className="hb-totals">
             {o.lines.map((l, i) => <div key={i}><dt><bdi>{l.qty > 1 ? `${l.qty} × ` : ''}{h.lineName(l)}</bdi></dt><dd><Money h={h} minor={l.netMinor} /></dd></div>)}
             <div className="hb-grand"><dt>{h.t('total')}</dt><dd><Money h={h} minor={o.totalMinor} /></dd></div>
             <div><dt>{h.t('paid')}</dt><dd><Money h={h} minor={o.paidMinor} /></dd></div>
             <div className="hb-grand"><dt>{h.t('balance')}</dt><dd><Money h={h} minor={o.balanceMinor} /></dd></div>
           </dl>}
+          <RepairApproval key={`approval-${repair.version}`} s={s} h={h} repair={repair} timezone={timezone} onSaved={() => { load(); onChanged(); }} onConflict={load} />
           {repair.next.length > 0 && <div className="ld-actions" role="group" aria-label={h.t('moveTo')}>
             {repair.next.map(to => <button key={to} type="button" className={`ld-button ${to === 'cancelled' ? 'ld-quiet ld-danger' : 'ld-quiet'}`} disabled={!!busy} onClick={() => move(to)}>{h.t('moveTo')}: {h.t(`rs_${to}`)}</button>)}
           </div>}

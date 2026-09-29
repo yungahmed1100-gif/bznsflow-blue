@@ -38,6 +38,14 @@ export const INDUSTRIES = [
   { id: 'other',         en: 'Something else',           ar: 'مجال آخر' },
 ];
 
+// Layla business setup and Hasib share this complete catalog. Electronics is
+// retained as the one existing Hasib-specific choice in addition to the 22
+// named Setup sectors and the free-form escape hatch.
+export const ELECTRONICS_INDUSTRY = { id: 'retail-tech', en: 'Electronics and phone store', ar: 'متجر الإلكترونيات والهواتف' };
+export const BUSINESS_INDUSTRIES = Object.freeze([...INDUSTRIES.slice(0, -1), ELECTRONICS_INDUSTRY, INDUSTRIES.at(-1)]);
+export function businessIndustryId(value) {
+  return BUSINESS_INDUSTRIES.find(industry => industry.en === value || industry.ar === value)?.id || null;
+}
+
 /** Every valid slug, as a Set — the validator's only real question. */
 export const INDUSTRY_IDS = new Set(INDUSTRIES.map((i) => i.id));
-

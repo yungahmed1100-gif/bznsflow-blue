@@ -4,6 +4,7 @@ import { instagramConnection, instagramRow, rowForIntegration } from './blueInst
 import { applyInbound, applyOptout, linkConversation, recordQuestions, sectorFor, TEXT_RETENTION_MS, MESSAGE_RETENTION_MS } from './blueContacts.js';
 import { recordDemand } from './hasib/demandState.js';
 import { commerceTurn } from './hasib/laylaOrders.js';
+import { realEstateTurn } from './hasib/realEstateTurn.js';
 // Router intents whose generic answer is replaced by a live stock line when a product is named.
 const GENERIC_INTENTS=new Set(['prices','services','unknown']);
 const DAY = 86400000;
@@ -41,6 +42,7 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     if(!target || target.integrationId!==a.integrationId || (target.waId && target.waId!==e.recipient) || (target.providerId && target.providerId!==e.id)) return;
     if((receiptRank[e.status] || 0)<=(receiptRank[target.status] || 0)) return;
     await ctx.db.patch(target._id,{status:e.status,providerId:e.id,updatedAt:now,...(e.status==='failed'&&Number.isSafeInteger(e.errorCode)?{errorCode:e.errorCode,reason:'provider_delivery_failed'}:{})});
+    if(target.realEstateDraftId && ['delivered','read'].includes(e.status)) await ctx.db.patch(target.realEstateDraftId,{status:e.status,deliveredAt:now,updatedAt:now});
   }
   async function rowForControl(control) {
     if (!control) return null;
@@ -56,9 +58,9 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     return row ? rowForIntegration(ctx,row,job.integrationId,now) : null;
   }
   const ready = row => messagingReady(row, now);
-  async function queue(row, person, text, key, manual = false, handoff = false, media = undefined) {
+  async function queue(row, person, text, key, manual = false, handoff = false, media = undefined, tracking = undefined) {
     const pending = await ctx.db.query('blueMessages').withIndex('by_integration_status',q=>q.eq('integrationId',row.integration.id).eq('status','queued')).take(100);
-    const record = {key,integrationId:row.integration.id,accountId:row.accountId,conversationId:person._id,conversationVersion:person.version || 0,profileVersion:row.profileVersion || 1,direction:'out',text,at:now,expiresAt:now+MESSAGE_RETENTION_MS,textExpiresAt:now+TEXT_RETENTION_MS,status:pending.length>=100?'blocked':'queued',manual,handoff,...(media?{media}:{}),...(pending.length>=100?{reason:'queue_limit'}:{})};
+    const record = {key,integrationId:row.integration.id,accountId:row.accountId,conversationId:person._id,conversationVersion:person.version || 0,profileVersion:row.profileVersion || 1,direction:'out',text,at:now,expiresAt:now+MESSAGE_RETENTION_MS,textExpiresAt:now+TEXT_RETENTION_MS,status:pending.length>=100?'blocked':'queued',manual,handoff,...(media?{media}:{}),...(tracking?.opportunityId?{realEstateOpportunityId:tracking.opportunityId}:{}),...(pending.length>=100?{reason:'queue_limit'}:{})};
     const id=await ctx.db.insert('blueMessages',record);
     if(record.status==='queued') await schedule(id);
     return id;
@@ -201,7 +203,11 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
         if(target.integrationId!==a.integrationId || target.direction!=='out') continue;
         const person=await ctx.db.get(target.conversationId);
         if(person?.number!==e.recipient || (target.providerId && target.providerId!==e.id)) continue;
-        if((receiptRank[e.status] || 0)>(receiptRank[target.status] || 0)) await ctx.db.patch(target._id,{status:e.status,providerId:e.id,...(e.status==='failed'&&Number.isSafeInteger(e.errorCode)?{errorCode:e.errorCode}:{})});
+        if((receiptRank[e.status] || 0)>(receiptRank[target.status] || 0)) {
+          await ctx.db.patch(target._id,{status:e.status,providerId:e.id,...(e.status==='failed'&&Number.isSafeInteger(e.errorCode)?{errorCode:e.errorCode}:{})});
+          if(target.realEstateOpportunityId && ['delivered','read'].includes(e.status)) await ctx.db.patch(target.realEstateOpportunityId,{deliveredAt:now,updatedAt:now});
+          if(target.realEstateDraftId && ['delivered','read'].includes(e.status)) await ctx.db.patch(target.realEstateDraftId,{status:e.status,deliveredAt:now,updatedAt:now});
+        }
         continue;
       }
       const key=`${a.integrationId}:${e.from}`;
@@ -221,7 +227,7 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
       if(e.kind!=='message' && e.kind!=='echo') continue;
       const msgKey=`incoming:${a.integrationId}:${e.id}`;
       if(await message(msgKey)) continue;
-      await ctx.db.insert('blueMessages',{key:msgKey,integrationId:a.integrationId,accountId:row.accountId,conversationId:person._id,direction:e.kind==='echo'?'human':'in',text:e.text,at:e.at,expiresAt:now+MESSAGE_RETENTION_MS,textExpiresAt:now+TEXT_RETENTION_MS,status:'received'});
+      await ctx.db.insert('blueMessages',{key:msgKey,integrationId:a.integrationId,accountId:row.accountId,conversationId:person._id,direction:e.kind==='echo'?'human':'in',...(e.medicalContentWithheld?{reason:'medical_content_withheld'}:{text:e.text}),at:e.at,expiresAt:now+MESSAGE_RETENTION_MS,textExpiresAt:e.medicalContentWithheld?Number.MAX_SAFE_INTEGER:now+TEXT_RETENTION_MS,status:'received'});
       if(e.kind==='echo') {
         await ctx.db.patch(person._id,{takeover:true,updatedAt:now,version:(person.version || 0)+1});
         await stopQueued(a.integrationId,person._id,'human_takeover');
@@ -235,6 +241,13 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
       catalog ??= await approvedCatalog(row.accountId);
       // Fields are captured even while a person has taken over the chat.
       const applied=await applyInbound(ctx,contact,{text:e.text,intent:e.intent,handoff:!!e.handoff,at:e.at,now,sectorId,catalog});
+      if(e.medicalContentWithheld) {
+        const existing=await ctx.db.query('clinicTasks').withIndex('by_entity',q=>q.eq('entityType','conversation').eq('entityId',String(person._id))).take(20);
+        if(!existing.some(task=>task.status==='open'&&task.kind==='medical_handoff')) await ctx.db.insert('clinicTasks',{accountId:row.accountId,kind:'medical_handoff',entityType:'conversation',entityId:String(person._id),status:'open',reason:'medical_content_withheld',createdAt:now,updatedAt:now});
+        if(enabled&&control.active&&ready(row)&&!person.optout&&!contact.optout&&now-e.at<DAY&&e.reply) await queue(row,{...person,version},e.reply,`reply:${a.integrationId}:${e.id}`,false,true);
+        await ctx.db.patch(person._id,{takeover:true,updatedAt:now,version});
+        continue;
+      }
       // Hasib's lost-demand report: a product question becomes a PII-free signal (no-op while Hasib is off).
       // Hasib must never stop Layla replying: a failed signal is logged and the message carries on.
       try { await recordDemand(ctx,{accountId:row.accountId,contact:applied.contact,conversationId:person._id,updates:applied.updates,intent:e.intent,at:e.at}); }
@@ -243,11 +256,17 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
       let commerce=null;
       try { commerce=await commerceTurn(ctx,{row,person,contact:applied.contact,text:e.text,intent:e.intent,now,secret:a.hashSecret}); }
       catch(err) { console.error('hasib_order_failed',err?.message); }
+      let realEstate=null;
+      try { realEstate=await realEstateTurn(ctx,{row,person,contact:applied.contact,text:e.text,now,secret:a.hashSecret}); }
+      catch(err) { console.error('real_estate_turn_failed',err?.message); }
       if(!enabled || !control.active || !ready(row) || person.optout || person.takeover || contact.optout || now-e.at>=DAY || !e.reply) continue;
       // Stock facts replace a generic price/services/unknown answer and follow anything else (a greeting, hours).
-      const lead=commerce?.facts ? (GENERIC_INTENTS.has(e.intent) ? [commerce.facts] : [e.reply,commerce.facts]) : [e.reply];
+      const liveFacts=realEstate?.facts || commerce?.facts;
+      const lead=liveFacts ? (GENERIC_INTENTS.has(e.intent) ? [liveFacts] : [e.reply,liveFacts]) : [e.reply];
       const reply=[...lead,commerce?.ack,applied.plan.text].filter(Boolean).join('\n\n').slice(0,MAX_REPLY_LENGTH);
-      await queue(row,{...person,version},reply,`reply:${a.integrationId}:${e.id}`,false,!!e.handoff);
+      await queue(row,{...person,version},reply,`reply:${a.integrationId}:${e.id}`,false,!!e.handoff || !!realEstate?.handoff,undefined,realEstate);
+      if(realEstate?.opportunityId) await ctx.db.patch(realEstate.opportunityId,{replyQueuedAt:now,updatedAt:now});
+      if(realEstate?.handoff) await ctx.db.patch(person._id,{takeover:true,updatedAt:now,version});
       // The product photo follows the answer, once per product per chat each day.
       if(commerce?.photo) {
         const recent=await ctx.db.query('blueMessages').withIndex('by_conversation_at',q=>q.eq('conversationId',person._id).gte('at',now-DAY)).take(200);
@@ -284,6 +303,15 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     const job=await ctx.db.get(a.jobId);
     if(!job || job.intent!==a.intent || !['submitted','ambiguous','failed','blocked'].includes(a.status)) return fail('invalid_state');
     if(!terminal.has(job.status)) await ctx.db.patch(job._id,{status:a.status,...(a.reason?{reason:a.reason}:{}),...(a.providerId?{providerId:a.providerId}:{}),...(a.status==='failed'&&Number.isSafeInteger(a.errorCode)?{errorCode:a.errorCode}:{})});
+    if(job.realEstateOpportunityId) {
+      if(a.status==='submitted') await ctx.db.patch(job.realEstateOpportunityId,{providerSubmittedAt:now,lastAttemptAt:now,updatedAt:now});
+      if(['failed','ambiguous','blocked'].includes(a.status)) {
+        await ctx.db.patch(job.realEstateOpportunityId,{lastAttemptAt:now,updatedAt:now});
+        const existing=await ctx.db.query('realEstateTasks').withIndex('by_entity',q=>q.eq('entityType','opportunity').eq('entityId',String(job.realEstateOpportunityId))).take(20);
+        if(!existing.some(task=>task.status==='open'&&task.kind==='send_failed')) await ctx.db.insert('realEstateTasks',{accountId:job.accountId,kind:'send_failed',entityType:'opportunity',entityId:String(job.realEstateOpportunityId),status:'open',reason:a.reason || a.status,createdAt:now,updatedAt:now});
+      }
+    }
+    if(job.realEstateDraftId) await ctx.db.patch(job.realEstateDraftId,{status:a.status==='submitted'?'provider_submitted':a.status,updatedAt:now,...(a.status==='submitted'?{providerSubmittedAt:now}:{})});
     if(a.status==='ambiguous' || a.status==='failed' || ['connection_not_ready','connection_check_failed'].includes(a.reason)) {
       const control=await controls(job.integrationId);
       if(control) await ctx.db.patch(control._id,{active:false,reason:a.status==='ambiguous'?'send_outcome_unknown':'provider_failed'});

@@ -5,6 +5,10 @@ import { executeDashboard } from './blueDashboardState.js';
 import { executeAudience } from './blueAudienceState.js';
 import { executeCampaigns } from './blueCampaignState.js';
 import { linkConversation, sectorFor } from './blueContacts.js';
+import { resolveTenant } from './blueTenant.js';
+import { planFor } from './hasib/plans.js';
+import { effectivePlan, capabilitiesFor } from './hasib/capabilities.js';
+import { actorWorkspace } from './hasib/workspaceState.js';
 
 type Result = Promise<{ ok: boolean; value?: Value; reason?: string }>;
 const DASHBOARD = ['overview', 'set_timezone', 'conversations', 'thread', 'contacts', 'contact_update', 'contact_delete', 'export_chat', 'export_contacts', 'export_account'];
@@ -19,7 +23,7 @@ const templateRecord = v.object({ templateId: v.string(), name: v.string(), lang
 export const execute = internalMutation({
   args: {
     operation: v.union(...[...DASHBOARD, ...CAMPAIGNS, 'import_contacts'].map(s => v.literal(s))),
-    sessionHash: v.string(), channel:v.optional(v.union(v.literal('whatsapp'),v.literal('instagram'))), cursor: v.optional(v.string()), search: v.optional(v.string()), limit: v.optional(v.number()), status: v.optional(v.string()),
+    sessionHash: v.string(), actorAccountId:v.optional(v.string()), channel:v.optional(v.union(v.literal('whatsapp'),v.literal('instagram'))), cursor: v.optional(v.string()), search: v.optional(v.string()), limit: v.optional(v.number()), status: v.optional(v.string()),
     before: v.optional(v.number()), conversationId: v.optional(v.string()), contactId: v.optional(v.string()), confirm: v.optional(v.boolean()), timezone: v.optional(v.string()),
     patch: v.optional(v.object({ ownerName: v.optional(v.string()), fields: v.optional(v.array(field)), qualificationOverride: v.optional(v.union(v.string(), v.null())) })),
     requestId: v.optional(v.string()), origin: v.optional(v.string()), requireConsent: v.optional(v.boolean()),
@@ -29,8 +33,15 @@ export const execute = internalMutation({
     mapping: v.optional(v.array(v.object({ key: v.string(), source: v.string(), value: v.string() }))), contactIds: v.optional(v.array(v.string())),
     allowance: v.optional(v.number()), scheduledAt: v.optional(v.number()), name: v.optional(v.string()), campaignId: v.optional(v.string()),
   },
-  handler: (ctx, args): Result => {
+  handler: async (ctx, args): Result => {
     const a = { ...args, hashSecret: process.env.BLUE_REVIEW_SERVICE_SECRET };
+    const tenant = await resolveTenant(ctx, args.sessionHash, Date.now());
+    if (tenant.error) return { ok: false, reason: tenant.error };
+    const rawPlan = await planFor(ctx, tenant.accountId), capabilities = capabilitiesFor(effectivePlan(rawPlan));
+    const actor = rawPlan ? await actorWorkspace(ctx, tenant.accountId, args.actorAccountId, Date.now()) : { role: 'manager' };
+    if (!actor) return { ok: false, reason: 'workspace_access_revoked' };
+    if (args.operation === 'import_contacts' && (!capabilities.imports || actor.role !== 'manager')) return { ok: false, reason: actor.role !== 'manager' ? 'manager_required' : 'plan_required' };
+    if (CAMPAIGNS.includes(args.operation) && (!capabilities.broadcasts || actor.role !== 'manager')) return { ok: false, reason: actor.role !== 'manager' ? 'manager_required' : 'plan_required' };
     if (args.operation === 'import_contacts') return executeAudience(ctx, a);
     if (CAMPAIGNS.includes(args.operation)) return executeCampaigns(ctx, a);
     return executeDashboard(ctx, a);

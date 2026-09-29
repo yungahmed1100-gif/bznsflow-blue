@@ -40,7 +40,7 @@ const onHand = (h, id) => h.m.table('hasibVariants').find(v => v._id === id).onH
 const sell = (hasib, variantId, serials, extra = {}) => hasib('order_create', { requestId: randomUUID(), channel: 'walk_in', fulfilment: { type: 'in_store' }, lines: [{ variantId, qty: serials.length, serials }], ...extra });
 
 test('the tech-store pack is live, with its own variants and modules', () => {
-  assert.deepEqual(HASIB_LIVE_PACKS, ['retail', 'retail-tech']);
+  assert.deepEqual(HASIB_LIVE_PACKS, ['retail', 'retail-tech', 'dental', 'real-estate', 'construction', 'automotive']);
   const p = hasibPack('retail-tech');
   assert.equal(p.id, 'retail-tech');
   assert.deepEqual(p.variantOptions.map(o => o.key), ['model', 'storage', 'colour', 'condition']);
@@ -195,4 +195,21 @@ test('the fashion pack does not expose tech operations', async () => {
   const hasibB = (operation, args = {}) => executeHasib(h.m.ctx, { operation, sessionHash: b.draftHash, hashSecret: SECRET, ...args }, h.m.now());
   assert.equal((await hasibB('repairs', {})).reason, 'module_unavailable');
   assert.equal((await hasibB('trade_in', { requestId: randomUUID(), variantId: 'x', serial: '1', costMinor: 1, method: 'cash' })).reason, 'module_unavailable');
+});
+
+test('device age and repair approval remain tenant-scoped and quote edits invalidate approval', async () => {
+  const {h,hasib,other}=await setup();
+  const {variantId}=await phone(hasib);
+  await receive(hasib,variantId,['AGE-001'],100000);
+  h.m.advance(61*DAY);
+  assert.equal((await hasib('serials',{variantId})).value.items[0].daysInStock,61);
+  let repair=(await hasib('repair_create',{requestId:randomUUID(),device:'Phone',fault:'Screen',quoteMinor:10000})).value;
+  assert.equal(repair.approvalStatus,'awaiting');
+  assert.equal((await other('repair_approval',{repairId:repair.id,version:repair.version,approvedBy:'Customer'})).reason,'repair_not_found');
+  repair=(await hasib('repair_approval',{repairId:repair.id,version:repair.version,approvedBy:'Customer'})).value;
+  assert.equal(repair.approvalStatus,'approved');
+  const stale=repair.version;
+  repair=(await hasib('repair_update',{repairId:repair.id,version:repair.version,labourMinor:12000})).value;
+  assert.equal(repair.approvalStatus,'awaiting');
+  assert.equal((await hasib('repair_approval',{repairId:repair.id,version:stale,approvedBy:'Customer'})).reason,'repair_conflict');
 });

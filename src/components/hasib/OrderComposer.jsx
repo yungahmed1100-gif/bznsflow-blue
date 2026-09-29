@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { hasib } from '../../lib/dashboard/api';
-import { useDebounced } from '../../hooks/usePolling';
+import { useDebounced, usePolling } from '../../hooks/usePolling';
 import { parseAmount, formatMinor } from '../../../convex/hasib/money.js';
-import { dayNoon, validDate } from '../../../convex/hasib/period.js';
+import { zonedLocalToUtc } from '../../lib/timezone';
 import { orderTotals } from '../../../convex/hasib/totals.js';
 import { Dialog } from '../dashboard/Dialog';
 import { Money } from './Badges';
@@ -18,7 +18,7 @@ function toLines(rows) {
     // An IMEI-tracked line sells exactly the units picked.
     const qty = r.serialized ? r.serials.length : Number(r.qty), unitPriceMinor = parseAmount(r.price);
     if (!Number.isSafeInteger(qty) || qty < 1 || unitPriceMinor === null || (!r.variantId && !r.name.trim())) return null;
-    out.push(r.variantId ? { variantId: r.variantId, qty, unitPriceMinor, ...(r.serialized ? { serials: r.serials } : {}) } : { name: r.name.trim(), qty, unitPriceMinor });
+    out.push(r.variantId ? { variantId: r.variantId, qty, unitPriceMinor, ...(r.modifierKeys?.length ? { modifierKeys: r.modifierKeys } : {}), ...(r.serialized ? { serials: r.serials } : {}) } : { name: r.name.trim(), qty, unitPriceMinor });
   }
   return out.length ? out : null;
 }
@@ -31,10 +31,11 @@ function previewTotals(lines, feeMinor, settings) {
 
 /** Pick the exact units (IMEIs) sold on a line: tap one in stock, or scan/type it. */
 export function SerialPicker({ h, variantId, picked, onChange }) {
+  const [unitAges, setUnitAges] = useState({});
   const [units, setUnits] = useState([]), [typed, setTyped] = useState(''), [miss, setMiss] = useState(false);
   useEffect(() => {
     let live = true;
-    hasib('serials', { variantId }).then(r => { if (live) setUnits(r.items.map(u => u.serial)); }).catch(() => {});
+    hasib('serials', { variantId }).then(r => { if (live) { setUnits(r.items.map(u => u.serial)); setUnitAges(Object.fromEntries(r.items.map(u => [u.serial, u.daysInStock]))); } }).catch(() => {});
     return () => { live = false; };
   }, [variantId]);
   const toggle = serial => onChange(picked.includes(serial) ? picked.filter(x => x !== serial) : [...picked, serial]);
@@ -47,7 +48,7 @@ export function SerialPicker({ h, variantId, picked, onChange }) {
     <div className="hb-serial-picker">
       {!units.length ? <p className="ld-help">{h.t('noImeis')}</p> : (
         <ul className="hb-serial-chips" role="list" aria-label={h.t('pickImeis')}>
-          {units.map(u => <li key={u}><button type="button" aria-pressed={picked.includes(u)} onClick={() => toggle(u)}><bdi dir="ltr">{u}</bdi></button></li>)}
+          {units.map(u => <li key={u}><button type="button" aria-pressed={picked.includes(u)} onClick={() => toggle(u)}><bdi dir="ltr">{u}</bdi>{Number.isInteger(unitAges[u]) && <small> · {h.ar ? `${unitAges[u]} يوم في المخزون` : `${unitAges[u]} days in stock`}</small>}</button></li>)}
         </ul>
       )}
       <div className="hb-serial-scan">
@@ -95,15 +96,18 @@ function ItemPicker({ s, h, onPick }) {
 export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSaved }) {
   const [rows, setRows] = useState(() => prefill ? fromPrefill(prefill) : []);
   const [type, setType] = useState(prefill?.fulfilment.type || 'pickup'), [area, setArea] = useState(prefill?.fulfilment.area || '');
+  const [channelCost, setChannelCost] = useState('');
   const [fee, setFee] = useState(''), [customerName, setCustomerName] = useState(prefill?.customerName || ''), [notes, setNotes] = useState(''), [confirm, setConfirm] = useState(true);
   const [fields, setFields] = useState({}), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [readyBy, setReadyBy] = useState(''), [deposit, setDeposit] = useState(''), [depositMethod, setDepositMethod] = useState('cash');
   const [requestId] = useState(newId), [depositRequestId] = useState(newId);
   const depositMinor = deposit.trim() ? parseAmount(deposit) : 0;
+  const recipes = usePolling(() => hasib('recipes'), [], { enabled: overview.pack.id === 'cafe', interval: 60000 });
   const settings = overview.settings;
   const linked = !!(prefill?.conversationId || prefill?.contactId);
   const lines = toLines(rows), feeMinor = fee.trim() ? parseAmount(fee) : 0;
-  const totals = previewTotals(lines, feeMinor, settings);
+  const pricedLines = lines?.map(line => { const recipe = recipes.data?.items?.find(r => r.menuVariantId === line.variantId); const extra = (recipe?.modifiers || []).filter(m => line.modifierKeys?.includes(m.key)).reduce((n, m) => n + m.priceMinor, 0); return { ...line, unitPriceMinor: line.unitPriceMinor + extra }; });
+  const totals = previewTotals(pricedLines, feeMinor, settings);
   const set = (key, patch) => setRows(rs => rs.map(r => r.key === key ? { ...r, ...patch } : r));
   const add = (item, v) => setRows(rs => [...rs, { key: newId(), variantId: v.id, label: { nameAr: item.nameAr, nameEn: item.nameEn, options: v.options }, qty: item.serialized ? '0' : '1', price: priceText(v.priceMinor),
     onHand: item.trackStock ? v.onHand : null, serialized: !!item.serialized, serials: [] }]);
@@ -113,9 +117,9 @@ export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSa
     if (!totals || depositMinor === null) return;
     setBusy(true); setError('');
     try {
-      const dueAt = validDate(readyBy) ? dayNoon(readyBy, timezone || 'Asia/Muscat') : undefined;
+      const dueAt = readyBy ? zonedLocalToUtc(readyBy, timezone || 'Asia/Muscat') : undefined;
       const who = prefill?.conversationId ? { conversationId: prefill.conversationId } : prefill?.contactId ? { contactId: prefill.contactId } : {};
-      const order = await hasib('order_create', { requestId, channel: prefill?.channel || 'walk_in', confirm, lines, deliveryFeeMinor: feeMinor || undefined,
+      const order = await hasib('order_create', { requestId, channel: prefill?.channel || 'walk_in', confirm, lines, deliveryFeeMinor: feeMinor || undefined, ...(channelCost.trim() ? { channelCostMinor: parseAmount(channelCost) } : {}),
         fulfilment: { type, ...(type === 'delivery' && area.trim() ? { area: area.trim() } : {}), ...(dueAt ? { dueAt } : {}) }, ...who,
         ...(!linked && customerName.trim() ? { customerName: customerName.trim() } : {}), ...(notes.trim() ? { notes: notes.trim() } : {}),
         customFields: Object.entries(fields).filter(([, v]) => String(v).trim()).map(([key, value]) => ({ key, value: String(value).trim() })) });
@@ -142,6 +146,7 @@ export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSa
               <tr key={r.key}>
                 <td>{r.variantId ? <><bdi>{h.name(r.label)}</bdi>{r.label.options?.length ? ` — ${r.label.options.map(o => o.value).join(' / ')}` : ''}
                   {!r.serialized && r.onHand !== null && r.onHand !== undefined && Number(r.qty) > r.onHand && <span className="ld-chip is-coral">{h.t('onHand', { count: r.onHand })}</span>}
+                  {overview.pack.id === 'cafe' && (recipes.data?.items?.find(recipe => recipe.menuVariantId === r.variantId)?.modifiers || []).map(modifier => <label className="ld-check" key={modifier.key}><input type="checkbox" checked={r.modifierKeys?.includes(modifier.key) || false} onChange={e => set(r.key, { modifierKeys: e.target.checked ? [...(r.modifierKeys || []), modifier.key] : r.modifierKeys.filter(key => key !== modifier.key) })} />{modifier.label} · {h.money(modifier.priceMinor)}</label>)}
                   {r.serialized && <SerialPicker h={h} variantId={r.variantId} picked={r.serials} onChange={serials => set(r.key, { serials })} />}</>
                   : <input aria-label={h.t('lineName')} value={r.name} maxLength={120} dir="auto" onChange={e => set(r.key, { name: e.target.value })} />}</td>
                 <td>{r.serialized ? <span className="ld-num" aria-label={h.t('qty')}>{r.serials.length}</span>
@@ -163,6 +168,7 @@ export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSa
             <label className="ld-field">{h.t('deliveryFee')}<input className="hb-money" inputMode="decimal" dir="ltr" value={fee} aria-invalid={feeMinor === null} onChange={e => setFee(e.target.value)} /></label>
           </>}
         </fieldset>
+        {['restaurant', 'cafe', 'cakes'].includes(overview.pack.id) && <label className="ld-field">{h.ar ? 'رسوم تطبيق التوصيل أو السائق (ر.ع. بدون ضريبة)' : 'Delivery app or courier cost (OMR, excludes VAT)'}<input inputMode="decimal" value={channelCost} onChange={e => setChannelCost(e.target.value)} /></label>}
         {overview.pack.orderFields.map(f => (
           <label key={f.key} className={f.type === 'boolean' ? 'ld-check' : 'ld-field'}>
             {f.type === 'boolean' ? <><input type="checkbox" checked={fields[f.key] === 'yes'} onChange={e => setFields({ ...fields, [f.key]: e.target.checked ? 'yes' : '' })} /> {s.ar ? f.ar : f.en}</>
@@ -170,7 +176,7 @@ export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSa
           </label>
         ))}
         <div className="hb-grid-2">
-          <label className="ld-field">{h.t('readyBy')}<input type="date" value={readyBy} onChange={e => setReadyBy(e.target.value)} /></label>
+          <label className="ld-field">{h.t('readyBy')}<input type="datetime-local" value={readyBy} onChange={e => setReadyBy(e.target.value)} /></label>
           <label className="ld-field">{h.t('depositNow')}<input className="hb-money" inputMode="decimal" dir="ltr" value={deposit} aria-invalid={depositMinor === null} onChange={e => setDeposit(e.target.value)} /></label>
           {depositMinor > 0 && <label className="ld-field">{h.t('depositMethod')}<select value={depositMethod} onChange={e => setDepositMethod(e.target.value)}>
             {['cash', 'bank_transfer', 'card', 'payment_link'].map(m => <option key={m} value={m}>{h.t(`pm_${m}`)}</option>)}</select></label>}

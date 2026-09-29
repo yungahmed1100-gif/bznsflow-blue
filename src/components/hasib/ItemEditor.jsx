@@ -6,7 +6,7 @@ import { photoProblem, uploadProductPhoto, PHOTO_TYPES } from '../../lib/hasib/p
 
 const blankVariant = keys => ({ key: crypto.randomUUID(), sku: '', options: Object.fromEntries(keys.map(k => [k, ''])), price: '', cost: '', reorderPoint: '2', openingStock: '0' });
 const fromVariant = (v, keys) => ({ key: v.id, variantId: v.id, sku: v.sku, options: Object.fromEntries(keys.map(k => [k, v.options.find(o => o.key === k)?.value || ''])),
-  price: formatMinor(v.priceMinor), cost: formatMinor(v.costMinor), reorderPoint: String(v.reorderPoint), onHand: v.onHand });
+  price: formatMinor(v.priceMinor), cost: v.costKnown === false ? '' : formatMinor(v.costMinor), reorderPoint: String(v.reorderPoint), onHand: v.onHand });
 
 /** Variant rows as the server reads them, or null while any is invalid. */
 function toVariants(rows) {
@@ -14,7 +14,7 @@ function toVariants(rows) {
   for (const r of rows) {
     const priceMinor = parseAmount(r.price), costMinor = r.cost.trim() ? parseAmount(r.cost) : 0, reorderPoint = Number(r.reorderPoint || 0), opening = Number(r.openingStock || 0);
     if (priceMinor === null || costMinor === null || !Number.isSafeInteger(reorderPoint) || !Number.isSafeInteger(opening)) return null;
-    out.push({ ...(r.variantId ? { variantId: r.variantId } : {}), sku: r.sku.trim(), priceMinor, costMinor, reorderPoint,
+    out.push({ ...(r.variantId ? { variantId: r.variantId } : {}), sku: r.sku.trim(), priceMinor, ...(r.cost.trim() ? { costMinor } : {}), reorderPoint,
       options: Object.entries(r.options).filter(([, v]) => v.trim()).map(([key, value]) => ({ key, value: value.trim() })),
       ...(!r.variantId && opening > 0 ? { openingStock: opening } : {}) });
   }
