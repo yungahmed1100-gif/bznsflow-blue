@@ -17,6 +17,7 @@ import type * as blueCampaignState from "../blueCampaignState.js";
 import type * as blueCatalog from "../blueCatalog.js";
 import type * as blueContacts from "../blueContacts.js";
 import type * as blueDashboard from "../blueDashboard.js";
+import type * as blueDashboardGate from "../blueDashboardGate.js";
 import type * as blueDashboardState from "../blueDashboardState.js";
 import type * as blueHasib from "../blueHasib.js";
 import type * as blueInstagram from "../blueInstagram.js";
@@ -98,6 +99,7 @@ declare const fullApi: ApiFromModules<{
   blueCatalog: typeof blueCatalog;
   blueContacts: typeof blueContacts;
   blueDashboard: typeof blueDashboard;
+  blueDashboardGate: typeof blueDashboardGate;
   blueDashboardState: typeof blueDashboardState;
   blueHasib: typeof blueHasib;
   blueInstagram: typeof blueInstagram;
