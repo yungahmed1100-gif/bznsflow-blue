@@ -9,7 +9,7 @@ const SERIAL_REASONS = { stock_in: 1, damage: -1 };
 const parseSerials = text => [...new Set(text.split(/[\n,;]+/).map(x => x.trim()).filter(Boolean))];
 
 /** Receive, return, write off or correct stock for one variant. One request id per dialog. */
-export function StockMoveDialog({ s, h, item, variant, onClose, onSaved }) {
+export function StockMoveDialog({ s, h, item, variant, onClose, onSaved, staff = false }) {
   const serialized = !!item.serialized;
   const reasons = serialized ? SERIAL_REASONS : REASONS;
   const [reason, setReason] = useState('stock_in'), [qty, setQty] = useState(''), [cost, setCost] = useState(''), [note, setNote] = useState('');
@@ -57,7 +57,7 @@ export function StockMoveDialog({ s, h, item, variant, onClose, onSaved }) {
             ))}
           </fieldset>
         )}
-        {reason === 'stock_in' && <label className="ld-field">{h.t('unitCost')}<input className="hb-money" inputMode="decimal" dir="ltr" value={cost} aria-invalid={unitCostMinor === null} onChange={e => setCost(e.target.value)} /></label>}
+        {reason === 'stock_in' && !staff && <label className="ld-field">{h.t('unitCost')}<input className="hb-money" inputMode="decimal" dir="ltr" value={cost} aria-invalid={unitCostMinor === null} onChange={e => setCost(e.target.value)} /></label>}
         <label className="ld-field">{h.t('notes')}<input value={note} maxLength={200} dir="auto" onChange={e => setNote(e.target.value)} /></label>
         {error && <p className="ld-inline-error" role="alert">{error}</p>}
         <div className="ld-actions">

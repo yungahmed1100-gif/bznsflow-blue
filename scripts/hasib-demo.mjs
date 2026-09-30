@@ -19,16 +19,24 @@ import { executeHasib } from '../convex/hasib/hasibState.js';
 import { hasibArgs } from '../api/_lib/hasib/validate.js';
 import { hasibPack } from '../config/hasib-packs.js';
 import { grantPlan } from '../convex/hasib/plans.js';
+import { checkPhotoBytes } from '../convex/hasib/photoBytes.js';
 
 const PORT = Number(process.argv.find(a => /^\d+$/.test(a)) || 5310), DIST = new URL('../dist/', import.meta.url).pathname;
 // --pack=retail-tech seeds a Muscat phone and electronics store instead of the abaya boutique.
 const PACK = (process.argv.find(a => a.startsWith('--pack=')) || '--pack=retail').slice(7);
 // --plan=catalyst runs a Layla-only account: no plan grant, no Hasib, real chat controls.
 const CATALYST = process.argv.includes('--plan=catalyst');
+// --role=employee signs in as an invited employee of the seeded business instead of its manager.
+const EMPLOYEE = process.argv.includes('--role=employee');
 const DAY = 86400000, HOUR = 3600000, CSRF = 'd'.repeat(64);
 const m = convexMemory({ start: Date.now() - 30 * DAY });
 // Server-owned context flag, never accepted from an HTTP argument or live Convex.
-m.ctx.hasibPreview = true;
+// Retail runs as production does (live pack checks on); other packs are previews.
+m.ctx.hasibPreview = !['retail', 'retail-tech'].includes(PACK);
+// Photos upload to this server and are served back from it, like Convex storage.
+m.ctx.storage.generateUploadUrl = async () => `http://localhost:${PORT}/demo/upload`;
+m.ctx.storage.getUrl = async id => `http://localhost:${PORT}/demo/file/${encodeURIComponent(id)}`;
+const uploads = new Map();
 
 // ── Seed ───────────────────────────────────────────────────────────────────
 const tenant = await seedTenant(m, { name: 'n', sector: 'Retail' });
@@ -37,6 +45,8 @@ for (const key of ['global', 'broadcast', 'hasib']) await m.db.insert('blueMessa
 if (!CATALYST) await grantPlan(m.ctx, { email: 'n@example.com', plan: 'ascend', packId: PACK === 'retail-tech' ? 'retail-tech' : 'retail' }, m.now());
 await m.db.insert('blueBusinessSettings', { accountId: tenant.accountId, timezone: 'Asia/Muscat', updatedAt: m.now() });
 const call = (fn, operation, args = {}, at = m.now()) => fn(m.ctx, { operation, sessionHash: tenant.sessionHash, hashSecret: SECRET, workerFunction: 'dispatch', ...args }, at);
+// The signed-in person for HTTP calls; seeding always runs as the manager.
+let actorAccountId = null;
 const hasib = async (operation, args, at) => { const r = await call(executeHasib, operation, args, at); if (!r.ok) throw Error(`${operation}: ${r.reason}`); return r.value; };
 await call(executeMessaging, 'activate');
 
@@ -162,12 +172,19 @@ else {
   await (await import('./hasib-demo-industries.mjs')).seedIndustry({ m, tenant, hasib, pack: hasibPack(PACK) });
 }
 
+if (EMPLOYEE && !CATALYST) {
+  // An invited, verified employee of the seeded business.
+  const member = await hasib('team_invite', { email: 'staff@noor.example' });
+  actorAccountId = await m.db.insert('accounts', { email: 'staff@noor.example', role: 'customer', createdAt: m.now() });
+  await m.db.patch(member.id, { accountId: actorAccountId, status: 'active', activatedAt: m.now() });
+}
+const asActor = args => (actorAccountId ? { ...args, actorAccountId } : args);
+
 // ── Server ─────────────────────────────────────────────────────────────────
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.woff2': 'font/woff2', '.ico': 'image/x-icon', '.webp': 'image/webp', '.xml': 'application/xml', '.txt': 'text/plain' };
 const json = (res, status, body) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
 const readJson = req => new Promise(resolve => { let b = ''; req.on('data', c => { b += c; if (b.length > 70000) req.destroy(); }); req.on('end', () => { try { resolve(b ? JSON.parse(b) : {}); } catch { resolve({}); } }); });
 const DASHBOARD_OPS = new Set(['overview', 'set_timezone', 'conversations', 'thread', 'contacts', 'contact_update', 'contact_delete', 'export_chat', 'export_contacts', 'export_account']);
-const messagingState = { ok: true, available: true, active: true, reason: '', limits: { perMinute: 10, perDay: 100, usedToday: 0 }, csrfToken: CSRF };
 
 async function api(req, res, url) {
   const surface = url.searchParams.get('surface');
@@ -175,24 +192,30 @@ async function api(req, res, url) {
   const reply = r => r.ok ? json(res, 200, { ok: true, ...(r.value || {}), csrfToken: CSRF }) : json(res, r.reason === 'sign_in_required' ? 401 : 409, { ok: false, reason: r.reason });
   const { action, ...args } = body;
   if (surface === 'hasib' && CATALYST) return json(res, 403, { ok: false, reason: 'plan_required' });
-  if (surface === 'hasib') return reply(await call(executeHasib, req.method === 'GET' ? 'overview' : action, req.method === 'GET' ? {} : hasibArgs(action, args), Date.now()));
+  if (surface === 'hasib') {
+    const hasibCall = req.method === 'GET' ? {} : hasibArgs(action, args);
+    // As in convex/http.ts: only the server says whether an uploaded photo's bytes are an image.
+    if (action === 'photo_register') hasibCall.photoCheck = await checkPhotoBytes(m.ctx, hasibCall.storageId);
+    return reply(await call(executeHasib, req.method === 'GET' ? 'overview' : action, asActor(hasibCall), Date.now()));
+  }
   if (surface === 'dashboard') {
     if (req.method === 'GET') {
-      const r = await call(executeDashboard, 'overview', {}, Date.now());
+      const r = await call(executeDashboard, 'overview', asActor({}), Date.now());
       return r.ok ? json(res, 200, { ok: true, ...r.value, account: { email: 'owner@noor.example' }, dashboardAvailable: true, broadcastApiEnabled: false, broadcastEnabled: false, csrfToken: CSRF }) : reply(r);
     }
-    if (DASHBOARD_OPS.has(action)) return reply(await call(executeDashboard, action, args, Date.now()));
+    if (DASHBOARD_OPS.has(action)) return reply(await call(executeDashboard, action, asActor(args), Date.now()));
     if (['templates', 'campaigns'].includes(action)) return reply(await call(executeCampaigns, action, args, Date.now()));
     return json(res, 409, { ok: false, reason: 'broadcast_unavailable' });
   }
-  if (surface === 'messaging' && CATALYST) {
+  if (surface === 'messaging') {
     // The real messaging state machine; provider calls (activate checks, disconnect) are not in the demo.
+    // As in the API: an employee cannot switch the whole business on or off, or check its connection.
+    if (actorAccountId && ['disconnect', 'activate', 'pause', 'check_connection'].includes(action)) return json(res, 403, { ok: false, reason: 'manager_required' });
     const op = req.method === 'GET' || action === 'check_connection' ? 'state' : action;
     if (!['state', 'pause', 'activate', 'takeover', 'resume_conversation', 'manual_reply'].includes(op)) return json(res, 409, { ok: false, reason: 'not_in_demo' });
     const r = await call(executeMessaging, op, { ...(args.conversationId ? { conversationId: args.conversationId } : {}), ...(args.text ? { text: args.text } : {}), ...(args.requestId ? { requestId: args.requestId } : {}) }, Date.now());
     return r.ok ? json(res, 200, { ok: true, ...(r.value || {}), csrfToken: CSRF }) : json(res, 409, { ok: false, reason: r.reason });
   }
-  if (surface === 'messaging') return json(res, 200, messagingState);
   return json(res, 404, { ok: false, reason: 'not_in_demo' });
 }
 
@@ -210,6 +233,25 @@ createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://localhost:${PORT}`);
     if (url.pathname === '/api/layla-meta') return await api(req, res, url);
+    // Like a Convex upload URL, the upload address accepts a cross-origin POST (localhost vs 127.0.0.1).
+    const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type' };
+    if (url.pathname === '/demo/upload' && req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
+    if (url.pathname === '/demo/upload' && req.method === 'POST') {
+      for (const [key, value] of Object.entries(cors)) res.setHeader(key, value);
+      const chunks = [];
+      for await (const chunk of req) { chunks.push(chunk); if (chunks.reduce((n, c) => n + c.length, 0) > 6 * 1024 * 1024) return json(res, 413, { ok: false }); }
+      const bytes = new Uint8Array(Buffer.concat(chunks));
+      const storageId = m.putFile({ contentType: req.headers['content-type'] || 'application/octet-stream', size: bytes.length, bytes });
+      uploads.set(storageId, req.headers['content-type'] || 'application/octet-stream');
+      return json(res, 200, { storageId });
+    }
+    if (url.pathname.startsWith('/demo/file/')) {
+      const id = decodeURIComponent(url.pathname.slice('/demo/file/'.length));
+      const blob = await m.ctx.storage.get(id);
+      if (!blob) { res.writeHead(404); return res.end(); }
+      res.writeHead(200, { 'Content-Type': uploads.get(id) || 'image/jpeg', 'Cache-Control': 'no-store' });
+      return res.end(Buffer.from(await blob.arrayBuffer()));
+    }
     if (url.pathname === '/demo/inbound' && req.method === 'POST') {
       const { from = '96899000001', text = '', name } = await readJson(req);
       await call(executeMessaging, 'ingest', { integrationId: tenant.integration.id, events: [{ kind: 'message', id: `live-${randomUUID()}`, from: String(from).replace(/\D/g, '').slice(0, 15), at: Date.now(),
@@ -220,5 +262,5 @@ createServer(async (req, res) => {
     return await staticFile(res, url.pathname === '/' ? '/layla/dashboard' : url.pathname);
   } catch (e) { json(res, 500, { ok: false, reason: 'demo_error', detail: String(e.message).slice(0, 200) }); }
 }).listen(PORT, '127.0.0.1', () => {
-  console.log(`Hasib demo (${PACK === 'retail-tech' ? 'Muscat Mobile' : 'Noor Abayas'}) → http://localhost:${PORT}/layla/dashboard?tab=insights   ·   English: http://localhost:${PORT}/en/layla/dashboard?tab=insights`);
+  console.log(`Hasib demo (${PACK === 'retail-tech' ? 'Muscat Mobile' : 'Noor Abayas'}${EMPLOYEE ? ', signed in as an employee' : ''}) → http://localhost:${PORT}/layla/dashboard?tab=insights   ·   English: http://localhost:${PORT}/en/layla/dashboard?tab=insights`);
 });

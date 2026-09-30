@@ -12,13 +12,13 @@ import { EmptyState, PageHeader } from './DashboardVisuals';
 /** Products and variants with on-hand, alert level and one-tap adjustments. */
 export function StockView({ s, h, overview, initialLow = false, initialAction = '', timezone, onChanged }) {
   const [search, setSearch] = useState(''), [lowOnly, setLowOnly] = useState(initialLow);
-  const [editing, setEditing] = useState(initialAction === 'product' ? { item: null } : null), [moving, setMoving] = useState(null), [notice, setNotice] = useState(''), [importing, setImporting] = useState(initialAction === 'import');
+  const [editing, setEditing] = useState(initialAction === 'product' && overview.workspaceRole !== 'employee' ? { item: null } : null), [moving, setMoving] = useState(null), [importing, setImporting] = useState(initialAction === 'import' && overview.workspaceRole !== 'employee');
   const query = useDebounced(search.trim(), 300);
   const list = usePolling(() => lowOnly ? hasib('low_stock') : hasib('items', query ? { search: query } : {}), [query, lowOnly], { interval: 30000 });
   const refresh = () => { list.refresh({ quiet: true }); onChanged(); };
-  const archive = async item => {
-    try { await hasib('item_archive', { itemId: item.id }); setEditing(null); refresh(); } catch (e) { setNotice(h.reason(e.reason) || s.reason(e.reason)); }
-  };
+  // ItemEditor shows a failure inside its own dialog.
+  const archive = async item => { await hasib('item_archive', { itemId: item.id }); setEditing(null); refresh(); };
+  const manager = overview.workspaceRole !== 'employee';
   // The low-stock endpoint returns variants; group them back under their product.
   const items = lowOnly ? Object.values((list.data?.items || []).reduce((acc, v) => {
     acc[v.itemId] ||= { id: v.itemId, nameAr: v.nameAr, nameEn: v.nameEn, trackStock: true, serialized: v.serialized, variants: [], partial: true };
@@ -27,19 +27,18 @@ export function StockView({ s, h, overview, initialLow = false, initialAction = 
 
   return (
     <div className="hb-stock">
-      <PageHeader title={hasibPack(overview.pack.id).ownerUi.stock[h.ar ? 'ar' : 'en']} description={s.ar ? 'صور وأسعار ومخزون واضح لكل منتج.' : 'Clear photos, prices and stock for every product.'} icon="box" primary={{ label: h.t('addProduct'), onClick: () => setEditing({ item: null }) }}>
+      <PageHeader title={hasibPack(overview.pack.id).ownerUi.stock[h.ar ? 'ar' : 'en']} description={s.ar ? 'صور وأسعار ومخزون واضح لكل منتج.' : 'Clear photos, prices and stock for every product.'} icon="box" primary={manager ? { label: h.t('addProduct'), onClick: () => setEditing({ item: null }) } : null}>
         <div className="ld-toolbar">
           {!lowOnly && <label className="ld-search"><span className="ld-visually-hidden">{h.t('searchItems')}</span>
             <input type="search" value={search} placeholder={h.t('searchItems')} onChange={e => setSearch(e.target.value)} /></label>}
           <label className="ld-check"><input type="checkbox" checked={lowOnly} onChange={e => setLowOnly(e.target.checked)} /> {h.t('lowStockOnly')}{overview.counts.lowStock ? ` (${overview.counts.lowStock})` : ''}</label>
-          <button type="button" className="ld-button" onClick={() => setImporting(true)}>{h.t('importStock')}</button>
+          {manager && <button type="button" className="ld-button" onClick={() => setImporting(true)}>{h.t('importStock')}</button>}
         </div>
       </PageHeader>
-      {notice && <p className="ld-inline-error" role="alert">{notice}</p>}
       {overview.pack.modules.recipes === 'available' && <RestaurantControls timezone={timezone} onChanged={refresh} s={s} h={h} overview={overview} />}
       {list.loading && !list.data ? <p className="ld-state" role="status">{h.t('loading')}</p>
-        : list.error && !list.data ? <p className="ld-state" role="alert">{h.reason(list.error.reason) || s.reason(list.error.reason)}</p>
-        : !items.length ? <EmptyState icon="box" title={query || lowOnly ? h.t('noItemsFound') : h.t('noProducts')} description={query || lowOnly ? (s.ar ? 'غيّر البحث أو ألغِ فلتر المخزون المنخفض.' : 'Change the search or clear the low-stock filter.') : (s.ar ? 'أضف أول منتج مع صورته وسعره وكمية البداية.' : 'Add the first product with its photo, price and opening quantity.')} action={query || lowOnly ? undefined : { label: h.t('addProduct'), onClick: () => setEditing({ item: null }) }} secondary={query || lowOnly ? { label: h.t('products'), onClick: () => { setSearch(''); setLowOnly(false); } } : { label: h.t('importStock'), onClick: () => setImporting(true) }} />
+        : list.error && !list.data ? <div className="ld-state" role="alert"><p>{h.reason(list.error.reason) || s.reason(list.error.reason)}</p><button className="ld-button" onClick={() => list.refresh()}>{h.t('retry')}</button></div>
+        : !items.length ? <EmptyState icon="box" title={query || lowOnly ? h.t('noItemsFound') : h.t('noProducts')} description={query || lowOnly ? (s.ar ? 'غيّر البحث أو ألغِ فلتر المخزون المنخفض.' : 'Change the search or clear the low-stock filter.') : (s.ar ? 'أضف أول منتج مع صورته وسعره وكمية البداية.' : 'Add the first product with its photo, price and opening quantity.')} action={query || lowOnly || !manager ? undefined : { label: h.t('addProduct'), onClick: () => setEditing({ item: null }) }} secondary={query || lowOnly ? { label: h.t('products'), onClick: () => { setSearch(''); setLowOnly(false); } } : manager ? { label: h.t('importStock'), onClick: () => setImporting(true) } : undefined} />
         : (
           <div className="ld-table-wrap">
             <table className="ld-table hb-stock-table">
@@ -62,9 +61,9 @@ export function StockView({ s, h, overview, initialLow = false, initialAction = 
             </table>
           </div>
         )}
-      {editing && <ItemEditor s={s} h={h} pack={overview.pack} item={editing.item} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} onArchive={archive} />}
-      {importing && <StockImporter s={s} h={h} pack={overview.pack} onClose={() => setImporting(false)} onImported={refresh} />}
-      {moving && <StockMoveDialog s={s} h={h} item={moving.item} variant={moving.variant} onClose={() => setMoving(null)} onSaved={() => { setMoving(null); refresh(); }} />}
+      {editing && <ItemEditor s={s} h={h} pack={overview.pack} item={editing.item} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} onArchive={archive} staff={!manager} />}
+      {importing && manager && <StockImporter s={s} h={h} pack={overview.pack} onClose={() => setImporting(false)} onImported={refresh} />}
+      {moving && <StockMoveDialog s={s} h={h} staff={!manager} item={moving.item} variant={moving.variant} onClose={() => setMoving(null)} onSaved={() => { setMoving(null); refresh(); }} />}
     </div>
   );
 }

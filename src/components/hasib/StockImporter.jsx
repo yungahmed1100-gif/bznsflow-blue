@@ -117,9 +117,9 @@ export function StockImporter({ s, h, pack, onClose, onImported }) {
   const save = async () => {
     setStep('saving'); setError('');
     const batches = importBatches(preview.products);
-    const total = preview.products.length, outcome = { created: 0, updated: 0, failed: [], items: [] };
+    const total = preview.products.length, outcome = { created: 0, updated: 0, failed: [], items: [], notSaved: 0 };
+    let offset = 0;
     try {
-      let offset = 0;
       for (const batch of batches) {
         setProgress({ label: 'savingProducts', done: offset, total });
         const r = await hasib('items_import', { products: batch }, { timeout: 60000 });
@@ -133,7 +133,11 @@ export function StockImporter({ s, h, pack, onClose, onImported }) {
       }
       const withImages = outcome.items.filter(x => x.product.image).map(x => ({ itemId: x.itemId, blob: file.images.find(i => i.url === x.product.image).blob }));
       outcome.photos = withImages.length ? await attachPhotos(withImages, withImages.length) : 0;
-    } catch (err) { setError(h.reason(err.reason) || s.reason(err.reason)); }
+    } catch (err) {
+      // Stop at the first batch that fails and say how many were not saved; importing the file again updates, never duplicates.
+      outcome.notSaved = total - offset;
+      setError(`${h.reason(err.reason) || s.reason(err.reason)} ${h.t('importStopped', { count: outcome.notSaved })}`);
+    }
     setProgress(null); setResult(outcome); setStep('done');
     onImported?.();
   };
@@ -188,7 +192,7 @@ export function StockImporter({ s, h, pack, onClose, onImported }) {
             <p role="status" className="hb-import-summary">{h.t('importDone', result)}{result.photos ? ` ${h.t('photosAdded', { count: result.photos })}` : ''}</p>
             {!!result.failed.length && (
               <div className="hb-import-issues"><p>{h.t('importFailedList', { count: result.failed.length })}</p>
-                <ul>{result.failed.slice(0, ISSUE_ROWS).map((f, i) => <li key={i}><bdi>{f.name}</bdi> — {h.reason(f.reason) || f.reason}</li>)}</ul></div>
+                <ul>{result.failed.slice(0, ISSUE_ROWS).map((f, i) => <li key={i}><bdi>{f.name}</bdi> — {h.reason(f.reason) || h.t('actionFailed')}</li>)}</ul></div>
             )}
             {!!result.items.length && (
               <div className="hb-photo-actions">

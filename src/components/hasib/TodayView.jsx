@@ -68,7 +68,10 @@ export function TodayView({ s, h, hasibOverview, connected, onGo }) {
       </div>
     );
   }
-  if (!t) return <p className="ld-state" role={today.error ? 'alert' : 'status'}>{today.error ? (h.reason(today.error.reason) || s.reason(today.error.reason)) : h.t('loading')}</p>;
+  if (!t && today.error) return <div className="ld-state" role="alert"><p>{h.reason(today.error.reason) || s.reason(today.error.reason)}</p><button type="button" className="ld-button" onClick={() => today.refresh()}>{h.t('retry')}</button></div>;
+  if (!t) return <p className="ld-state" role="status">{h.t('loading')}</p>;
+  // Employees don't import stock or run setup; those stay with the manager.
+  const staff = hasibOverview.workspaceRole === 'employee';
 
   const pack = hasibPack(hasibOverview.pack.id);
   const n = t.needsYou;
@@ -91,7 +94,7 @@ export function TodayView({ s, h, hasibOverview, connected, onGo }) {
   return (
     <div className="hb-today">
       <PageHeader title={h.t('todayTitle')} description={<time dateTime={t.date}>{longDate(t.date, h.ar)}</time>} icon={pack.dashboard.icon} />
-      <ActionCards label={h.ar ? 'إجراءات سريعة' : 'Quick actions'} actions={pack.dashboard.actions.map(action => ({ id: action[0], label: h.ar ? action[2] : action[1], icon: action[3], onClick: () => onGo(...action[4]) }))} />
+      <ActionCards label={h.ar ? 'إجراءات سريعة' : 'Quick actions'} actions={pack.dashboard.actions.filter(action => !(staff && action[0] === 'import')).map(action => ({ id: action[0], label: h.ar ? action[2] : action[1], icon: action[3], onClick: () => onGo(...action[4]) }))} />
       <section className="hb-today-card hb-needs" aria-labelledby="hb-needs-title">
         <h2 id="hb-needs-title">{h.t('needsYou')}</h2>
         {needs.length ? <ul className="hb-need-rows">{needs.slice(0, 4)}</ul> : <EmptyState icon="check" title={h.t('allClear')} description={h.ar ? 'لا توجد مهام عاجلة الآن. استخدم الإجراءات أعلاه لتسجيل العمل الجديد.' : 'There are no urgent tasks right now. Use the actions above to record new work.'} />}
@@ -101,7 +104,7 @@ export function TodayView({ s, h, hasibOverview, connected, onGo }) {
           const value = result?.value;
           return { id: metric.id, icon: ['trending-up', 'clock', 'target'][index], tone: ['blue', 'yellow', 'coral'][index], label: (h.ar ? metric.ar : metric.en).replace('60', String(hasibOverview.settings?.unsoldDays || 60)).replace('٦٠', String(hasibOverview.settings?.unsoldDays || 60)), help: result?.detail || '', value: value == null ? h.t('notEnoughRecords') : result.format === 'money' ? <Money h={h} minor={value} /> : <bdi>{value}{result.format === 'percent' ? '%' : ''}</bdi>, onClick: () => onGo(...metric.go) };
         })} />
-      <SetupChecklist h={h} steps={steps} onGo={onGo} />
+      {!staff && <SetupChecklist h={h} steps={steps} onGo={onGo} />}
     </div>
   );
 }

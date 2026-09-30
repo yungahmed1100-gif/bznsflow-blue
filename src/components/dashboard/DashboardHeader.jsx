@@ -30,12 +30,12 @@ export function DashboardHeader({ s, data, onChange }) {
         {active ? s.t('active') : s.t('paused')}
         <small className="ld-num">{s.t('repliesToday', { used: data.messaging?.limits?.usedToday || 0, limit: data.messaging?.limits?.perDay || 100 })}</small>
       </p>
-      <div className="ld-header-actions">
+      {data.workspaceRole !== 'employee' && <div className="ld-header-actions">
         <button type="button" className="ld-button ld-quiet" disabled={!!busy} onClick={() => run('check_connection')}>{busy === 'check_connection' ? s.t('loading') : s.t('checkConnection')}</button>
         {active
           ? <button type="button" className="ld-button" disabled={!!busy} onClick={() => run('pause')}>{s.t('pause')}</button>
           : <button type="button" className="ld-button ld-primary" disabled={!!busy || !data.messaging?.available} onClick={() => run('activate')}>{s.t('activate')}</button>}
-      </div>
+      </div>}
       </>}
       {!data.integration && <a className="ld-button" href={setupPath(s.lang)}>{s.ar?'ربط واتساب':'Connect WhatsApp'}</a>}
 

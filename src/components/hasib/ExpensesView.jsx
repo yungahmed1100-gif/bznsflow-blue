@@ -58,24 +58,28 @@ export function ExpensesView({ s, h, overview, timezone, initialCreate = false }
   const items = list.data?.items || [];
   const label = key => { const c = overview.pack.expenseCategories.find(x => x.key === key); return c ? (s.ar ? c.ar : c.en) : key; };
   const total = items.filter(e => !e.voided).reduce((n, e) => n + e.amountMinor, 0);
+  const [voidBusy, setVoidBusy] = useState(false);
   const voidNow = async id => {
+    if (voidBusy) return;
+    setVoidBusy(true); setNotice('');
     try { await hasib('expense_void', { expenseId: id }); setVoiding(null); list.refresh({ quiet: true }); } catch (e) { setNotice(h.reason(e.reason) || s.reason(e.reason)); }
+    finally { setVoidBusy(false); }
   };
   return (
     <div className="hb-expenses">
       <PageHeader title={h.t('expenses')} description={s.ar ? 'سجّل تكاليف النشاط وحافظ على سجل قابل للمراجعة.' : 'Record operating costs and keep an auditable ledger.'} icon="receipt" primary={{ label: h.t('addExpense'), onClick: () => setAdding(true) }}>
         <div className="ld-toolbar">
-          <label><span className="ld-visually-hidden">{h.t('insights')}</span>
+          <label><span className="ld-visually-hidden">{h.t('period')}</span>
             <select value={period} onChange={e => setPeriod(e.target.value)}>{PERIODS.map(p => <option key={p} value={p}>{h.t(`period_${p}`)}</option>)}</select></label>
           <button type="button" className="ld-button ld-quiet" disabled={!items.length} onClick={() => download(`expenses-${list.data?.range?.fromDate || period}.csv`, expensesCsv(items), 'text/csv;charset=utf-8')}>{h.t('exportCsv')}</button>
         </div>
       </PageHeader>
       {notice && <p className="ld-inline-error" role="alert">{notice}</p>}
       {voiding && <div className="hb-confirm" role="alert"><p>{h.t('voidConfirm')}</p>
-        <button type="button" className="ld-button ld-danger" onClick={() => voidNow(voiding)}>{h.t('voidExpense')}</button>
-        <button type="button" className="ld-button ld-quiet" onClick={() => setVoiding(null)}>{h.t('cancel')}</button></div>}
+        <button type="button" className="ld-button ld-danger" disabled={voidBusy} onClick={() => voidNow(voiding)}>{h.t('voidExpense')}</button>
+        <button type="button" className="ld-button ld-quiet" disabled={voidBusy} onClick={() => setVoiding(null)}>{h.t('cancel')}</button></div>}
       {list.loading && !list.data ? <p className="ld-state" role="status">{h.t('loading')}</p>
-        : list.error && !list.data ? <p className="ld-state" role="alert">{h.reason(list.error.reason) || s.reason(list.error.reason)}</p>
+        : list.error && !list.data ? <div className="ld-state" role="alert"><p>{h.reason(list.error.reason) || s.reason(list.error.reason)}</p><button type="button" className="ld-button" onClick={() => list.refresh()}>{h.t('retry')}</button></div>
         : !items.length ? <EmptyState icon="receipt" title={h.t('noExpenses')} description={s.ar ? 'سجّل أول مصروف ليظهر ضمن الربح والتقارير.' : 'Record the first expense so it appears in profit and reporting.'} action={{ label: h.t('addExpense'), onClick: () => setAdding(true) }} />
         : (
           <div className="ld-table-wrap">

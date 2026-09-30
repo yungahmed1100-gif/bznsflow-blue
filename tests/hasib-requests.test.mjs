@@ -6,7 +6,7 @@ import { executeRequests } from '../convex/hasib/requestsState.js';
 const value = r => { assert.equal(r.ok, true, r.reason); return r.value; };
 test('exact size/colour request becomes available and cannot be filled twice by one sale', async () => {
   const m = convexMemory(), tenant = { accountId: 'accounts_a' };
-  const contactId = await m.db.insert('blueContacts', { accountId: tenant.accountId });
+  const contactId = await m.db.insert('blueContacts', { accountId: tenant.accountId, state: 'active' });
   const itemId = await m.db.insert('hasibItems', { accountId: tenant.accountId });
   const variantId = await m.db.insert('hasibVariants', { accountId: tenant.accountId, itemId, onHand: 0, options: [{ key: 'size', value: 'M' }, { key: 'colour', value: 'Red' }] });
   const run = (operation, args = {}) => executeRequests(m.ctx, tenant, { operation, ...args }, m.now());

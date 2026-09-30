@@ -1,5 +1,6 @@
 // Operational follow-up only. Owners choose dates and reasons; this module never sends messages.
 import { owned } from '../blueTenant.js';
+import { displayName } from '../blueContacts.js';
 import { ok, fail, bounded, REQUEST_ID, clampLimit } from './shared.js';
 
 export const workflowTime = value => Number.isSafeInteger(value) && value >= 0;
@@ -37,20 +38,30 @@ export async function workflowLinks(ctx, accountId, args) {
   return { contact };
 }
 
+const FILTER_PAGES = 5;
 const LINK_TABLES = Object.freeze({ booking: 'hasibBookings', membership: 'hasibMemberships', order: 'hasibOrders', job: 'hasibJobs', property: 'hasibProperties' });
 async function followupPublic(ctx, row) {
   // Resolve the existing conversation on read, so adding a conversation later still gives an action.
   const conversation = row.conversationId ? await owned(ctx, row.conversationId, row.accountId, 'blueConversations')
     : (await ctx.db.query('blueConversations').withIndex('by_contact', q => q.eq('contactId', row.contactId)).collect()).find(c => c.accountId === row.accountId);
-  return { ...workflowPublic(row), chatHref: conversation ? `?tab=chats&chat=${encodeURIComponent(conversation._id)}` : null };
+  const contact = await ctx.db.get(row.contactId);
+  const contactName = contact?.accountId === row.accountId && contact.state === 'active' ? displayName(contact).name : null;
+  return { ...workflowPublic(row), contactName, chatHref: conversation ? `?tab=chats&chat=${encodeURIComponent(conversation._id)}` : null };
 }
 
 export async function executeFollowups(ctx, tenant, a, now) {
   const { accountId } = tenant;
   if (a.operation === 'followups') {
-    const page = await ctx.db.query('hasibFollowups').withIndex('by_account_due', q => q.eq('accountId', accountId)).order('asc').paginate({ numItems: clampLimit(a.limit, 200), cursor: a.cursor || null });
-    const filtered = page.page.filter(r => !a.status || r.status === a.status);
-    return ok({ cursor: page.isDone ? null : page.continueCursor, items: await Promise.all(filtered.map(row => followupPublic(ctx, row))) });
+    // The status filter runs after each page, so keep reading (a few pages at most) until the page is full.
+    const limit = clampLimit(a.limit, 200);
+    let cursor = a.cursor || null, rows = [], done = false;
+    for (let reads = 0; reads < FILTER_PAGES && rows.length < limit && !done; reads++) {
+      const page = await ctx.db.query('hasibFollowups').withIndex('by_account_due', q => q.eq('accountId', accountId)).order('asc').paginate({ numItems: limit, cursor });
+      rows = [...rows, ...page.page.filter(r => !a.status || r.status === a.status)];
+      cursor = page.continueCursor;
+      done = page.isDone;
+    }
+    return ok({ cursor: done ? null : cursor, items: await Promise.all(rows.map(row => followupPublic(ctx, row))) });
   }
   if (!['followup_save', 'followup_complete'].includes(a.operation)) return null;
   const begun = await workflowBegin(ctx, accountId, a);

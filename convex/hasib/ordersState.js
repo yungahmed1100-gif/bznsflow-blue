@@ -13,7 +13,7 @@ export const CHANNELS = ['whatsapp', 'instagram', 'walk_in', 'phone', 'website',
 export const FULFILMENT = ['pickup', 'delivery', 'in_store'];
 export const PAYMENT_METHODS = ['cash', 'cod', 'card', 'bank_transfer', 'payment_link', 'other'];
 const CLOSED = new Set(['cancelled', 'returned']);
-const HISTORY = 30;
+const HISTORY = 30, WAITING_SCAN = 200;
 
 async function publicContactRef(ctx, contactId) {
   if (!contactId) return null;
@@ -172,6 +172,8 @@ export async function changeStatus(ctx, accountId, a, now, recipeDriven = false,
     let current = [];
     for (const l of order.lines) current.push(l.tracked && l.variantId ? { ...l, variant: await ctx.db.get(l.variantId) } : l);
     if (effect < 0) {
+      // An archived product has left the catalogue; it cannot leave the shelf on a new sale.
+      if (current.some(l => l.tracked && l.variantId && (!l.variant || l.variant.archived))) return fail('item_archived');
       if (recipeDriven) current = await costLinesForRecipes(ctx, accountId, current);
       const check = precheckStock([...stockChanges(current, -1), ...(recipeDriven ? await recipeStockChanges(ctx, accountId, current, -1) : [])], settings.stockPolicy);
       if (!check.ok) return fail(check.reason);
@@ -241,10 +243,19 @@ async function recordPayment(ctx, accountId, a, now) {
   if (reference === null) return fail('invalid_amount');
   if (a.amountMinor > 0 && CLOSED.has(order.status)) return fail('order_closed');
   if (a.amountMinor < 0 && -a.amountMinor > order.paidMinor) return fail('refund_exceeds_paid');
+  if (a.amountMinor > 0 && a.amountMinor > order.totalMinor - order.paidMinor) return fail('payment_exceeds_balance');
   await ctx.db.insert('hasibPayments', { accountId, orderId: order._id, requestId: a.requestId, amountMinor: a.amountMinor, method: a.method, ...(reference ? { reference } : {}), at: now });
   const paidMinor = order.paidMinor + a.amountMinor;
   await ctx.db.patch(order._id, { paidMinor, paymentStatus: paymentStatus(order.totalMinor, paidMinor), updatedAt: now });
   return ok({ order: await publicOrder(ctx, await ctx.db.get(order._id)) });
+}
+
+async function laylaWaitingCandidates(ctx, accountId, cursor) {
+  const rows = [];
+  for (const status of ['pending', 'confirmed', 'ready']) {
+    rows.push(...await ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => cursor ? q.eq('accountId', accountId).eq('status', status).lte('createdAt', cursor.at) : q.eq('accountId', accountId).eq('status', status)).order('desc').take(WAITING_SCAN));
+  }
+  return rows.sort((x, y) => y.createdAt - x.createdAt || String(y._id).localeCompare(String(x._id)));
 }
 
 async function listOrders(ctx, accountId, a) {
@@ -255,7 +266,9 @@ async function listOrders(ctx, accountId, a) {
     ? ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => cursor ? q.eq('accountId', accountId).eq('status', status).lte('createdAt', cursor.at) : q.eq('accountId', accountId).eq('status', status))
     : ctx.db.query('hasibOrders').withIndex('by_account_created', q => cursor ? q.eq('accountId', accountId).lte('createdAt', cursor.at) : q.eq('accountId', accountId));
   const waiting = o => o.source === 'layla' && (o.status === 'pending' || o.flags?.includes('change_requested'));
-  const rows = afterCursor(await query.order('desc').take(laylaWaiting ? 400 : limit + 25), cursor, 'createdAt').filter(o => !laylaWaiting || waiting(o)).slice(0, limit);
+  // Waiting orders are pending, or confirmed/ready with a change request: read those statuses directly, as the overview count does.
+  const candidates = laylaWaiting ? await laylaWaitingCandidates(ctx, accountId, cursor) : await query.order('desc').take(limit + 25);
+  const rows = afterCursor(candidates, cursor, 'createdAt').filter(o => !laylaWaiting || waiting(o)).slice(0, limit);
   const items = [];
   for (const o of rows) {
     const p = await publicOrder(ctx, o);

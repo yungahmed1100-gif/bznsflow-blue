@@ -150,16 +150,17 @@ try {
             assert.ok((await inviteResponse.json()).ok); await page.getByText(`construction-${lang}-${width}@example.com`,{exact:true}).waitFor(); await owner.noOverflow('Construction Team');
             assert.deepEqual(errors, []); results.push({name,status:'passed'}); console.log(`PASS ${name}`); continue;
           }
-          await page.locator('.hb-industry-figures').waitFor();
-          assert.equal(await page.locator('.hb-industry-figures .hb-figure').count(), 3);
-          assert.equal(await page.locator('.hb-today > .ld-primary').count(), 1);
+          // Today: three industry measures as metric cards, and one primary quick action.
+          await page.locator('.hb-today .hb-visual-metrics').waitFor();
+          assert.equal(await page.locator('.hb-today .hb-visual-metrics .hb-visual-metric').count(), 3);
+          assert.equal(await page.locator('.hb-today .hb-action-card.is-primary').count(), 1);
           assert.equal(await page.locator('.ld').evaluate(el => getComputedStyle(el).direction), lang === 'ar' ? 'rtl' : 'ltr');
           const digits = value => value.replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)));
-          for (const metric of pack.todayMetrics) assert.ok(digits(await page.locator('.hb-industry-figures').textContent()).includes(digits(metric[lang])));
+          for (const metric of pack.todayMetrics) assert.ok(digits(await page.locator('.hb-today .hb-visual-metrics').textContent()).includes(digits(metric[lang])));
           await owner.noOverflow('Today'); await owner.screenshot(`${name}-today`);
           if (width === 320) await owner.accessible();
           // Keyboard activation verifies the primary action and modal focus.
-          await page.locator('.hb-today > .ld-primary').focus(); await page.keyboard.press('Enter');
+          await page.locator('.hb-today .hb-action-card.is-primary').focus(); await page.keyboard.press('Enter');
           const dialog = page.getByRole('dialog'); await dialog.waitFor();
           assert.ok(new URL(page.url()).searchParams.get('tab') === 'orders');
           assert.ok(await dialog.evaluate(el => el.contains(document.activeElement)), 'modal owns keyboard focus');

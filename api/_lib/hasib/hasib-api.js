@@ -22,8 +22,8 @@ export async function sendTeamInvitation({ member, env, fetcher = fetch }) {
   if (!blueAccountsAvailable(env) || !member?.email) throw new PilotError('invite_send_failed', 502);
   const response = await fetcher('https://api.resend.com/emails', { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15000), headers: {
     Authorization: `Bearer ${env.BLUE_RESEND_API_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': `ascend-invite/${member.id}/${member.resentAt || member.invitedAt}`,
-  }, body: JSON.stringify({ from: env.BLUE_AUTH_FROM, to: [member.email], subject: 'You have been invited to an Ascend workspace',
-    text: `You have been invited to your brokerage's Ascend workspace. Sign in with this email at https://bznsflow-blue.vercel.app/en/layla/dashboard — your invitation activates only after the email-code sign-in is verified.\n\nتمت دعوتك إلى مساحة عمل Ascend للوساطة العقارية. سجّل الدخول بهذا البريد عبر https://bznsflow-blue.vercel.app/layla/dashboard، ولن تتفعّل الدعوة إلا بعد التحقق من رمز البريد.` }) });
+  }, body: JSON.stringify({ from: env.BLUE_AUTH_FROM, to: [member.email], subject: 'You have been invited to join a BznsFlow team',
+    text: `You have been invited to join your team's BznsFlow dashboard. Sign in with this email at https://bznsflow-blue.vercel.app/en/layla/dashboard — your invitation activates only after the email-code sign-in is verified.\n\nتمت دعوتك للانضمام إلى لوحة فريقك على BznsFlow. سجّل الدخول بهذا البريد عبر https://bznsflow-blue.vercel.app/layla/dashboard، ولن تتفعّل الدعوة إلا بعد التحقق من رمز البريد.` }) });
   if (!response.ok || typeof (await response.json())?.id !== 'string') throw new PilotError('invite_send_failed', 502);
 }
 

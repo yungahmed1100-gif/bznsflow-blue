@@ -80,6 +80,17 @@ const en = {
   help_laylaReplies: 'Messages Layla wrote to customers today.', help_laylaConfirmed: 'Orders Layla checked against your stock and confirmed by herself today.', help_laylaQuestions: 'Times a customer asked about one of your products today.',
   setupTitle: 'Finish setting up', setupProgress: '{done} of {total} done', setup_whatsapp: 'Connect WhatsApp', setup_industry: 'Choose your type of shop', setup_products: 'Add your products', setup_photos: 'Add product photos', setup_services: 'Add your services',
   moreDetails: 'More details', fewerDetails: 'Fewer details', moreDetailsHelp: 'Cost, low-stock alert and SKU are under “More details”.',
+  period: 'Period', keepOrder: 'Keep it', actionFailed: 'That didn’t save. Check your connection and try again.',
+  cancelConfirm: 'Cancel order {number}? Any stock it took goes back on the shelf. Payments stay recorded; refund them separately if needed.', returnConfirm: 'Mark order {number} as returned? Its pieces go back into stock. Payments stay recorded; refund them separately if needed.',
+  exchangeReturnFailed: 'The new order is saved, but the original couldn’t be marked returned. Open it and mark it returned.',
+  importStopped: '{count} products were not saved. Import the same file again: products already saved are updated, not duplicated.',
+  prTitle: 'Customers waiting for a product', prRecord: 'Record missing size or colour', prRecordTitle: 'Record a product request', prExactVariant: 'Exact size and colour', prEmpty: 'No customer is waiting for a size or colour right now.',
+  prBackInStock: 'Back in stock — contact this customer.', prMarkFilled: 'Mark filled', prFillHelp: 'Choose the order where {name} bought this exact size and colour.', prNoOrders: 'This customer has no confirmed order yet. Create the order first, then mark the request filled.',
+  prOrderWithVariant: 'Order with this exact size and colour', prCancel: 'Cancel request', prCancelConfirm: 'Cancel the request for {name}? It leaves the waiting list.', prMore: 'Showing the 50 most recent requests.', prProductGone: 'Archived product',
+  fuTitle: 'Follow-ups', fuAdd: 'Add follow-up', fuEmpty: 'No follow-ups due. Add one to remember to get back to a customer.', fuDone: 'Mark done', fuDueNow: 'Due', fuMore: 'Showing the next 50 follow-ups.',
+  fuLinked: 'Linked record (optional)', fuChooseRecord: 'Choose record', fuReason: 'Reason', fuDue: 'Due date', fuInvalidDate: 'Enter a valid date and time.',
+  fuLink_order: 'Order', fuLink_booking: 'Booking', fuLink_membership: 'Membership', fuLink_job: 'Job', fuLink_property: 'Property',
+  teamTitle: 'Team', teamLimit: 'You and up to {limit} employees. Employees sell, take payments and manage stock; money, settings and the team stay with you.', teamInvite: 'Invite employee', teamInviteHelp: 'They sign in with this email and a code we send them. They never see your costs, profit or cash totals.', teamEmail: 'Employee email', teamSendInvite: 'Send invitation', teamInviteSent: 'Invitation sent to {email}.', teamInviteNotSent: 'Invitation saved, but the email didn’t send. Use Resend in a minute.', teamResend: 'Resend', teamRevoke: 'Remove access', teamRevokeConfirm: 'Remove {email} from your team? They are signed out at once and can no longer open your dashboard.', teamEmpty: 'No employees yet', teamEmptyHelp: 'Invite up to five people to take orders and manage stock with you.', teamStatus_pending: 'Invitation sent', teamStatus_active: 'Active', teamStatus_revoked: 'Access removed',
   setupDone: 'Done', setupTodo: 'To do', setupStart: 'Start', onHandShort: '{count} left',
 };
 const ar = {
@@ -161,6 +172,17 @@ const ar = {
   help_laylaReplies: 'الرسائل التي كتبتها ليلى للعملاء اليوم.', help_laylaConfirmed: 'طلبات راجعتها ليلى مع مخزونك وأكّدتها بنفسها اليوم.', help_laylaQuestions: 'عدد المرات التي سأل فيها عميل عن أحد منتجاتك اليوم.',
   setupTitle: 'أكمل الإعداد', setupProgress: 'أُنجز {done} من {total}', setup_whatsapp: 'ربط واتساب', setup_industry: 'اختيار نوع متجرك', setup_products: 'إضافة منتجاتك', setup_photos: 'إضافة صور المنتجات', setup_services: 'إضافة خدماتك',
   moreDetails: 'تفاصيل أكثر', fewerDetails: 'تفاصيل أقل', moreDetailsHelp: 'التكلفة وتنبيه نفاد المخزون ورمز SKU ضمن «تفاصيل أكثر».',
+  period: 'الفترة', keepOrder: 'إبقاء', actionFailed: 'لم يُحفظ. تحقّق من الاتصال وحاول مرة أخرى.',
+  cancelConfirm: 'إلغاء الطلب {number}؟ تعود أي بضاعة خُصمت إلى المخزون. تبقى الدفعات مسجلة، ويمكنك استردادها بشكل منفصل.', returnConfirm: 'تسجيل الطلب {number} كمرتجع؟ تعود قطعه إلى المخزون. تبقى الدفعات مسجلة، ويمكنك استردادها بشكل منفصل.',
+  exchangeReturnFailed: 'حُفظ الطلب الجديد، لكن تعذّر تسجيل الطلب الأصلي كمرتجع. افتحه وسجّله كمرتجع.',
+  importStopped: 'لم يُحفظ {count} منتجاً. استورد الملف نفسه مرة أخرى: المنتجات المحفوظة تُحدَّث ولا تتكرر.',
+  prTitle: 'عملاء ينتظرون منتجاً', prRecord: 'تسجيل مقاس أو لون غير متوفر', prRecordTitle: 'تسجيل طلب منتج', prExactVariant: 'المقاس واللون المحددان', prEmpty: 'لا يوجد عميل ينتظر مقاساً أو لوناً الآن.',
+  prBackInStock: 'متوفر الآن — تواصل مع هذا العميل.', prMarkFilled: 'تم توفير الطلب', prFillHelp: 'اختر الطلب الذي اشترى فيه {name} هذا المقاس واللون تحديداً.', prNoOrders: 'لا يوجد لهذا العميل طلب مؤكد بعد. أنشئ الطلب أولاً ثم سجّل توفير الطلب.',
+  prOrderWithVariant: 'طلب بنفس المقاس واللون', prCancel: 'إلغاء الطلب', prCancelConfirm: 'إلغاء طلب {name}؟ سيخرج من قائمة الانتظار.', prMore: 'يظهر أحدث 50 طلباً.', prProductGone: 'منتج مؤرشف',
+  fuTitle: 'المتابعات', fuAdd: 'إضافة متابعة', fuEmpty: 'لا توجد متابعات مستحقة. أضف متابعة لتتذكر العودة إلى عميل.', fuDone: 'تمت المتابعة', fuDueNow: 'مستحقة', fuMore: 'تظهر أقرب 50 متابعة.',
+  fuLinked: 'سجل مرتبط (اختياري)', fuChooseRecord: 'اختر السجل', fuReason: 'السبب', fuDue: 'موعد المتابعة', fuInvalidDate: 'أدخل تاريخاً ووقتاً صالحين.',
+  fuLink_order: 'طلب', fuLink_booking: 'حجز', fuLink_membership: 'اشتراك', fuLink_job: 'عمل', fuLink_property: 'عقار',
+  teamTitle: 'الفريق', teamLimit: 'أنت وحتى {limit} موظفين. الموظفون يبيعون ويسجلون الدفعات ويديرون المخزون، وتبقى الأموال والإعدادات والفريق لك.', teamInvite: 'دعوة موظف', teamInviteHelp: 'يسجّل الدخول بهذا البريد ورمز نرسله إليه، ولا يرى تكاليفك أو أرباحك أو مجاميع النقد.', teamEmail: 'بريد الموظف', teamSendInvite: 'إرسال الدعوة', teamInviteSent: 'أُرسلت الدعوة إلى {email}.', teamInviteNotSent: 'حُفظت الدعوة لكن البريد لم يُرسل. استخدم إعادة الإرسال بعد دقيقة.', teamResend: 'إعادة الإرسال', teamRevoke: 'إلغاء الوصول', teamRevokeConfirm: 'إزالة {email} من فريقك؟ سيُسجَّل خروجه فوراً ولن يتمكن من فتح لوحتك.', teamEmpty: 'لا يوجد موظفون بعد', teamEmptyHelp: 'ادعُ حتى خمسة أشخاص لتسجيل الطلبات وإدارة المخزون معك.', teamStatus_pending: 'أُرسلت الدعوة', teamStatus_active: 'نشط', teamStatus_revoked: 'أُلغي الوصول',
   setupDone: 'تم', setupTodo: 'مطلوب', setupStart: 'ابدأ', onHandShort: 'المتبقي {count}',
 };
 const reasons = {
@@ -194,6 +216,44 @@ const workflowReasons = {
   invalid_unit: ['Choose a compatible unit, such as grams for kilograms or millilitres for litres.', 'اختر وحدة متوافقة، مثل الغرام للكيلوغرام أو الملليلتر للتر.'],
 };
 for (const [key, [english, arabic]] of Object.entries(workflowReasons)) { reasons.en[key] = english; reasons.ar[key] = arabic; }
+
+// Refusals every catalog shop can meet, with the next step in both languages.
+const shopReasons = {
+  module_unavailable: ['That isn’t part of your industry setup.', 'هذه الميزة ليست ضمن إعداد نشاطك.'],
+  invalid_request: ['That didn’t go through. Reload the page and try again.', 'لم يتم ذلك. أعد تحميل الصفحة وحاول مرة أخرى.'],
+  order_not_found: ['That order is no longer available. It may have been removed or belongs to another customer.', 'هذا الطلب لم يعد متاحاً، ربما حُذف أو يخص عميلاً آخر.'],
+  order_locked: ['This order is confirmed, so its lines can’t be changed. Cancel it and create a new one.', 'هذا الطلب مؤكد ولا يمكن تعديل بنوده. ألغِه وأنشئ طلباً جديداً.'],
+  invalid_order: ['Check the order: sales channel, delivery method and the extra fields.', 'راجع الطلب: قناة البيع وطريقة التسليم والحقول الإضافية.'],
+  invalid_payment_method: ['Choose how the customer paid.', 'اختر طريقة الدفع.'],
+  invalid_stock_move: ['Check the quantity: it must match the reason (received adds, damaged removes).', 'راجع الكمية: يجب أن تناسب السبب (الاستلام يضيف والتالف يخصم).'],
+  invalid_quantity: ['Enter a quantity between 1 and 10,000.', 'أدخل كمية بين 1 و10,000.'],
+  request_conflict: ['This record changed in another tab. It has been reloaded.', 'تغيّر هذا السجل في نافذة أخرى، وتمت إعادة تحميله.'],
+  request_not_found: ['That product request is no longer available.', 'طلب المنتج هذا لم يعد متاحاً.'],
+  order_not_reversed: ['Cancel or return the order first, then reopen the request.', 'ألغِ الطلب أو سجّل إرجاعه أولاً، ثم أعد فتح الطلب.'],
+  followup_conflict: ['This follow-up changed in another tab. It has been reloaded.', 'تغيّرت هذه المتابعة في نافذة أخرى، وتمت إعادة تحميلها.'],
+  followup_not_found: ['That follow-up is no longer available.', 'هذه المتابعة لم تعد متاحة.'],
+  invalid_followup: ['A follow-up needs a date and a short reason (160 characters at most).', 'المتابعة تحتاج تاريخاً وسبباً قصيراً (160 حرفاً كحد أقصى).'],
+  linked_record_not_found: ['Choose an order that belongs to this customer.', 'اختر طلباً يخص هذا العميل.'],
+  expense_not_found: ['That expense is no longer available.', 'هذا المصروف لم يعد متاحاً.'],
+  invalid_settings: ['Check the setting: enter a whole number of days between 1 and 3650.', 'راجع الإعداد: أدخل عدد أيام صحيحاً بين 1 و3650.'],
+  team_limit: ['Your plan includes up to five employees. Revoke one to invite someone new.', 'باقتك تشمل حتى خمسة موظفين. ألغِ وصول أحدهم لدعوة شخص جديد.'],
+  member_not_found: ['That employee is no longer on your team.', 'هذا الموظف لم يعد ضمن فريقك.'],
+  member_not_pending: ['This person has already accepted, so there is nothing to resend.', 'قبل هذا الشخص الدعوة بالفعل، فلا حاجة لإعادة إرسالها.'],
+  employee_already_member: ['That email is already invited to a team.', 'هذا البريد مدعو بالفعل إلى فريق.'],
+  employee_owns_workspace: ['That email already runs its own BznsFlow business, so it can’t join as an employee.', 'هذا البريد يدير نشاطاً خاصاً على BznsFlow، فلا يمكن إضافته كموظف.'],
+  invalid_email: ['Enter a valid email address.', 'أدخل بريداً إلكترونياً صحيحاً.'],
+  industry_profile_required: ['Choose your industry in Business details first.', 'اختر نوع نشاطك من تفاصيل النشاط أولاً.'],
+  invite_send_failed: ['The invitation is saved, but the email didn’t send. Use Resend in a minute.', 'حُفظت الدعوة لكن البريد لم يُرسل. استخدم إعادة الإرسال بعد دقيقة.'],
+  invalid_cursor: ['The list changed. It has been reloaded from the top.', 'تغيّرت القائمة، وتمت إعادة تحميلها من البداية.'],
+  item_archived: ['A product in this order has been archived. Remove it or restore the product before confirming.', 'منتج في هذا الطلب مؤرشف. احذفه أو أعد المنتج قبل التأكيد.'],
+  payment_exceeds_balance: ['That’s more than the customer still owes on this order.', 'المبلغ أكبر مما تبقّى على العميل في هذا الطلب.'],
+  item_has_stock: ['This product still has pieces in stock. Adjust the stock to zero before changing how it’s tracked.', 'لا تزال لهذا المنتج قطع في المخزون. عدّل المخزون إلى صفر قبل تغيير طريقة تتبّعه.'],
+  record_not_found: ['That record is no longer available. Reload the page.', 'هذا السجل لم يعد متاحاً. أعد تحميل الصفحة.'],
+  too_many_variants: ['A product can have up to 50 sizes and colours. Add the rest as a new product.', 'يمكن أن يكون للمنتج حتى 50 مقاساً ولوناً. أضف الباقي كمنتج جديد.'],
+  preview_forbidden: ['Industry previews are for the BznsFlow team only.', 'معاينة القطاعات متاحة لفريق BznsFlow فقط.'],
+  preview_read_only: ['This is a read-only preview. Nothing is saved.', 'هذه معاينة للقراءة فقط، ولا يُحفظ شيء.'],
+};
+for (const [key, [english, arabic]] of Object.entries(shopReasons)) { reasons.en[key] = english; reasons.ar[key] = arabic; }
 
 const GROUPED = new Intl.NumberFormat('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 

@@ -388,3 +388,17 @@ test('Meta throttling is reported as a rate limit, not as Instagram not respondi
     await assert.rejects(instagramGraph(c,'me',"t",async()=>new Response(JSON.stringify({error:{code}}),{status:400})),e=>e.code==='instagram_rate_limited' && e.status===429,String(code));
   }
 });
+
+test('an employee reads the manager Instagram state but cannot connect or disconnect it',async()=>{
+  const managerHash='d'.repeat(64),seen=[];
+  const store=async(op,args)=>{seen.push([op,args.sessionHash]);return op==='state'?{connection:null}:assert.fail(`employees never reach ${op}`);};
+  const api=createInstagramApi({env,store,accounts:async()=>({id:'staff',draftHash:null,workspaceDraftHash:managerHash,workspaceRole:'employee'})});
+  const csrf='e'.repeat(64),headers={host:'bznsflow-blue.vercel.app',origin:'https://bznsflow-blue.vercel.app',cookie:`__Host-blue_account=${'f'.repeat(64)}; bf_csrf=${csrf}`,'x-csrf-token':csrf};
+  const read=response();
+  await api({method:'GET',url:'/api/layla-meta?surface=instagram',headers},read);
+  assert.equal(read.statusCode,200);assert.deepEqual(seen,[['state',managerHash]]);
+  for (const body of [{action:'connect'},{action:'disconnect',confirm:true}]) {
+    const r=response();await api({method:'POST',url:'/api/layla-meta?surface=instagram',headers,body},r);
+    assert.equal(r.statusCode,403);assert.equal(r.body.reason,'manager_required');
+  }
+});

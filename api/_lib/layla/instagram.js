@@ -224,8 +224,10 @@ export function createInstagramApi({env=process.env,fetcher=fetch,store=instagra
         return send(res,200,surface==='instagram-delete'?{url:`${INSTAGRAM_ORIGIN}/api/layla-meta?surface=instagram-deletion-status&code=${deletionCode}`,confirmation_code:deletionCode}:{success:true});
       }
       const account=await blueAccount(req,accounts);
-      if(!account?.draftHash) throw new PilotError('sign_in_required',401);
-      const sessionHash=account.draftHash;
+      // An employee reads the manager's Instagram state; connecting and disconnecting stay with the manager.
+      const sessionHash=account?.workspaceDraftHash || account?.draftHash;
+      if(!sessionHash) throw new PilotError('sign_in_required',401);
+      if(req.method==='POST' && account.workspaceRole==='employee') throw new PilotError('manager_required',403);
       if(req.method==='GET') {
         // pendingSignIn: a login began and Instagram has not sent the person back,
         // so the card can offer to finish it (Instagram sometimes strands people on its feed).

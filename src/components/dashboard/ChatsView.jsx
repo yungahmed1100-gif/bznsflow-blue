@@ -28,9 +28,15 @@ export function ChatsView({ s, overview, selected, onSelect }) {
   }, [query,channel]);
   const items = [...(list.data?.items || []), ...extra.items.filter(i => !(list.data?.items || []).some(x => x.id === i.id))];
   const cursor = extra.cursor ?? list.data?.cursor;
+  const [loadingMore, setLoadingMore] = useState(false), [moreError, setMoreError] = useState('');
   const loadMore = async () => {
-    const result = await dashboard('conversations', { cursor,...(channel?{channel}:{}) });
-    setExtra(e => ({ items: [...e.items, ...result.items], cursor: result.cursor }));
+    if (loadingMore) return;
+    setLoadingMore(true); setMoreError('');
+    try {
+      const result = await dashboard('conversations', { cursor,...(channel?{channel}:{}) });
+      setExtra(e => ({ items: [...e.items, ...result.items], cursor: result.cursor }));
+    } catch (e) { setMoreError(s.reason(e.reason)); }
+    finally { setLoadingMore(false); }
   };
   return (
     <div className={`ld-chats ${selected ? 'has-thread' : ''}`}>
@@ -73,7 +79,8 @@ export function ChatsView({ s, overview, selected, onSelect }) {
               </li>
             ))}
           </ul>}
-        {!query && cursor && <button type="button" className="ld-button ld-quiet ld-more" onClick={loadMore}>{s.t('loadMore')}</button>}
+        {moreError && <p className="ld-inline-error" role="alert">{moreError}</p>}
+        {!query && cursor && <button type="button" className="ld-button ld-quiet ld-more" disabled={loadingMore} onClick={loadMore}>{loadingMore ? s.t('loading') : s.t('loadMore')}</button>}
       </section>
       <section className="ld-thread-pane" aria-label={s.t('selectChat')}>
         {selected ? <ThreadView key={selected} s={s} overview={overview} conversationId={selected} onBack={() => onSelect(null)} onChanged={() => list.refresh({ quiet: true })} />

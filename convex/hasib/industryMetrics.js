@@ -3,14 +3,15 @@ import { settingsFor } from './shared.js';
 import { orderProfit } from './profit.js';
 import { publicJob } from './jobsState.js';
 import { businessDate, addDays } from './period.js';
-const DAY = 86400000;
+const DAY = 86400000, SCAN = 3000;
 const sum = (rows, fn) => rows.reduce((n, r) => n + fn(r), 0);
 const active = r => !['cancelled', 'returned'].includes(r.status);
 const completed = r => ['completed', 'delivered'].includes(r.status);
 export async function industryMetrics(ctx, tenant, now, range, food) {
   const { accountId, pack } = tenant, settings = await settingsFor(ctx, accountId);
   const values = {}, actions = [];
-  const scan = (table, index = 'by_account_created') => ctx.db.query(table).withIndex(index, q => q.eq('accountId', accountId)).take(3000);
+  // Newest first: a busy shop's oldest rows must never crowd out this period's.
+  const scan = (table, index = 'by_account_created') => ctx.db.query(table).withIndex(index, q => q.eq('accountId', accountId)).order('desc').take(SCAN);
   const put = (id, value, format = 'number', detail) => { values[id] = { id, value, format, ...(detail ? { detail } : {}) }; };
   const orders = await scan('hasibOrders');
   const sold = orders.filter(o => completed(o) && o.createdAt >= range.from && o.createdAt < range.to);
@@ -18,8 +19,11 @@ export async function industryMetrics(ctx, tenant, now, range, food) {
     const lots = await scan('hasibStockLots'), aging = lots.filter(l => l.remainingQty > 0 && l.createdAt <= now - (settings.unsoldDays ?? 60) * DAY);
     put('unsold_stock', sum(aging, l => l.remainingQty));
     if (pack.id === 'retail') {
+      // A sale counts once stock has left, as in Insights: confirmed onwards, never pending or reversed.
+      const inPeriod = await ctx.db.query('hasibOrders').withIndex('by_account_created', q => q.eq('accountId', accountId).gte('createdAt', range.from).lt('createdAt', range.to)).take(SCAN);
+      const sales = inPeriod.filter(o => active(o) && o.status !== 'pending');
       const variants = new Map();
-      for (const o of sold) for (const l of o.lines) if (l.variantId) {
+      for (const o of sales) for (const l of o.lines) if (l.variantId) {
         const old = variants.get(l.variantId) || { qty: 0, name: l.name };
         variants.set(l.variantId, { ...old, qty: old.qty + l.qty });
       }

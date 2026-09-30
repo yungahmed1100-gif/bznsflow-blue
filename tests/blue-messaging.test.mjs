@@ -162,3 +162,19 @@ test('activation immediately after signup reuses fresh verified routing without 
   await api({method:'POST',headers:{host:'bznsflow-blue.vercel.app',origin:'https://bznsflow-blue.vercel.app',cookie:`__Host-blue_account=${'f'.repeat(64)}; bf_csrf=${csrf}`,'x-csrf-token':csrf},body:{action:'activate'}},r);
   assert.equal(r.statusCode,200);assert.equal(r.body.active,true);
 });
+
+test('an invited employee replies inside the manager business, and cannot pause, activate, check or disconnect it',async()=>{
+  const m=await setup();
+  const managerHash=m.sessionHash, seen=[];
+  const api=createMessagingApi({env,accounts:async()=>({id:'staffB',draftHash:null,workspaceDraftHash:managerHash,workspaceRole:'employee'}),reviews:()=>assert.fail('employees never reach the connection check'),
+    store:async(op,args)=>{seen.push([op,args.sessionHash]);return op==='context'?{channel:'whatsapp'}:{ok:true};}});
+  const csrf='e'.repeat(64),headers={host:'bznsflow-blue.vercel.app',origin:'https://bznsflow-blue.vercel.app',cookie:`__Host-blue_account=${'f'.repeat(64)}; bf_csrf=${csrf}`,'x-csrf-token':csrf};
+  const reply=response();
+  await api({method:'POST',headers,body:{action:'takeover',conversationId:'c1'}},reply);
+  assert.equal(reply.statusCode,200);
+  assert.ok(seen.length && seen.every(([,hash])=>hash===managerHash),'every call targets the manager business');
+  for (const action of ['pause','activate','check_connection','disconnect']) {
+    const r=response();await api({method:'POST',headers,body:{action}},r);
+    assert.equal(r.statusCode,403,action);assert.equal(r.body.reason,'manager_required',action);
+  }
+});

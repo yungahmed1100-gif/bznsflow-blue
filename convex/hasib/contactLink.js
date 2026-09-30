@@ -1,8 +1,17 @@
 import { removeDemandFor } from './demandState.js';
 // Called from contact deletion. Orders are tax and business records, so their
 // amounts stay; anything that identifies the person is removed.
+const CLEANUP_SCAN = 2000;
 export async function anonymizeContactOrders(ctx, contact, now) {
   await removeDemandFor(ctx, contact._id);
+  // Neither table has a contact index; scan the shop's own rows, newest first, within one mutation's budget.
+  const ownRows = table => ctx.db.query(table).withIndex(table === 'hasibFollowups' ? 'by_account_due' : 'by_account_created', q => q.eq('accountId', contact.accountId)).order('desc').take(CLEANUP_SCAN);
+  // A waiting request for a person who is gone can never be filled.
+  for (const r of await ownRows('hasibProductRequests')) {
+    if (r.contactId === contact._id && r.status === 'waiting') await ctx.db.patch(r._id, { status: 'cancelled', version: r.version + 1, updatedAt: now });
+  }
+  // A follow-up's reason is free text about the person, so the whole follow-up goes.
+  for (const f of await ownRows('hasibFollowups')) if (f.contactId === contact._id) await ctx.db.delete(f._id);
   // Repairs and trade-ins keep the device and amounts; the person's typed name goes.
   for (const table of ['hasibRepairs', 'hasibTradeIns']) {
     for (const r of await ctx.db.query(table).withIndex('by_contact', q => q.eq('contactId', contact._id)).take(500)) {

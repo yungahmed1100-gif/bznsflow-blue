@@ -132,6 +132,7 @@ export async function ingestBlueEnvelope(envelope,{store=messagingStore(),now=Da
   }
 }
 
+const MANAGER_ACTIONS=['disconnect','activate','pause','check_connection'];
 export function createMessagingApi({env=process.env,fetcher=fetch,store=messagingStore({env,fetcher}),accounts=blueAuthStore({env,fetcher}),reviews=reviewStore({env,fetcher}),inspect=inspectReviewConnection,instagram=instagramStore({env,fetcher})}={}) {
   return async(req,res)=>{
     try {
@@ -139,14 +140,17 @@ export function createMessagingApi({env=process.env,fetcher=fetch,store=messagin
       if(req.headers?.host!=='bznsflow-blue.vercel.app' || (req.method!=='GET' && req.headers?.origin!=='https://bznsflow-blue.vercel.app')) throw new PilotError('origin',403);
       if(!['GET','POST'].includes(req.method)) throw new PilotError('method',405);
       const account=await blueAccount(req,accounts);
-      if(!account?.draftHash) throw new PilotError('sign_in_required',401);
-      const sessionHash=account.draftHash;
+      // An invited employee works in the manager's business; the whole-business switches stay with the manager.
+      const sessionHash=account?.workspaceDraftHash || account?.draftHash;
+      if(!sessionHash) throw new PilotError('sign_in_required',401);
+      const employee=account.workspaceRole==='employee';
       let channel=new URL(req.url || '/', 'https://local.invalid').searchParams.get('channel')==='instagram'?'instagram':'whatsapp';
       let operation='state',args={sessionHash,...(channel==='instagram'?{channel}:{})};
       if(req.method==='POST') {
         if(!verifyCsrf(req)) throw new PilotError('csrf',403);
         const body=readBody(req);
         if(!body || JSON.stringify(body).length>2500 || !['disconnect','activate','pause','manual_reply','takeover','resume_conversation','check_connection'].includes(body.action)) throw new PilotError('invalid_action');
+        if(employee && MANAGER_ACTIONS.includes(body.action)) throw new PilotError('manager_required',403);
         operation=body.action==='check_connection'?'state':body.action;
         channel=body.channel==='instagram'?'instagram':'whatsapp';
         if(body.conversationId) channel=(await store('context',{sessionHash,conversationId:body.conversationId})).channel || 'whatsapp';

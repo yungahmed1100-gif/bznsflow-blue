@@ -112,7 +112,7 @@ function bookingField(k, value) {
   if (k.endsWith('Id')) return id(value);
   if (k === 'resourceIds') return list(value, 20, x => id(x) || '');
   if (k === 'availability') return list(value, 100, x => compact({ startsAt:int(x?.startsAt), endsAt:int(x?.endsAt) }));
-  if (['name','kind','status','to','reason','linkedType'].includes(k)) return str(value, k === 'reason' ? 200 : 120);
+  if (['name','kind','status','to','reason','linkedType'].includes(k)) return str(value, k === 'reason' ? 160 : 120);
   return int(value);
 }
 for (const [operation, fields] of Object.entries(BOOKING_OPERATIONS)) {

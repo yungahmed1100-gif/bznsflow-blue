@@ -94,6 +94,8 @@ function ItemPicker({ s, h, onPick }) {
  * The request id is fixed for the life of the dialog so a double submit makes one order.
  */
 export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSaved }) {
+  // Employees sell at the manager's prices: no price edits, custom lines or channel costs.
+  const staff = overview.workspaceRole === 'employee';
   const [rows, setRows] = useState(() => prefill ? fromPrefill(prefill) : []);
   const [type, setType] = useState(prefill?.fulfilment.type || 'pickup'), [area, setArea] = useState(prefill?.fulfilment.area || '');
   const [channelCost, setChannelCost] = useState('');
@@ -151,13 +153,13 @@ export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSa
                   : <input aria-label={h.t('lineName')} value={r.name} maxLength={120} dir="auto" onChange={e => set(r.key, { name: e.target.value })} />}</td>
                 <td>{r.serialized ? <span className="ld-num" aria-label={h.t('qty')}>{r.serials.length}</span>
                   : <input aria-label={h.t('qty')} className="hb-qty" inputMode="numeric" value={r.qty} onChange={e => set(r.key, { qty: e.target.value.replace(/\D/g, '').slice(0, 5) })} />}</td>
-                <td><input aria-label={h.t('unitPrice')} className="hb-money" inputMode="decimal" dir="ltr" value={r.price} aria-invalid={parseAmount(r.price) === null} onChange={e => set(r.key, { price: e.target.value })} /></td>
+                <td><input aria-label={h.t('unitPrice')} className="hb-money" inputMode="decimal" dir="ltr" value={r.price} readOnly={staff} aria-invalid={parseAmount(r.price) === null} onChange={e => set(r.key, { price: e.target.value })} /></td>
                 <td><button type="button" className="ld-icon-button" aria-label={h.t('remove')} onClick={() => setRows(rs => rs.filter(x => x.key !== r.key))}><span aria-hidden="true">×</span></button></td>
               </tr>
             ))}
           </tbody>
         </table>
-        <button type="button" className="ld-button ld-quiet" onClick={() => setRows(rs => [...rs, { key: newId(), name: '', qty: '1', price: '' }])}>{h.t('customLine')}</button>
+        {!staff && <button type="button" className="ld-button ld-quiet" onClick={() => setRows(rs => [...rs, { key: newId(), name: '', qty: '1', price: '' }])}>{h.t('customLine')}</button>}
         <fieldset className="ld-fieldset hb-row">
           <legend>{h.t('fulfilment')}</legend>
           <div className="ld-segmented" role="radiogroup" aria-label={h.t('fulfilment')}>

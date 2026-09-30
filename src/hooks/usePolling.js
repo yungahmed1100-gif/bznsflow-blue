@@ -9,21 +9,25 @@ export const POLL_INTERVAL_MS = 5000;
  */
 export function usePolling(load, deps = [], { interval = POLL_INTERVAL_MS, enabled = true } = {}) {
   const [state, setState] = useState({ data: null, error: null, loading: enabled });
-  const inFlight = useRef(false), active = useRef(true), loader = useRef(load);
+  // Each change of `deps` starts a new generation. A response from an older generation
+  // (a filter the owner has already changed) is dropped instead of shown under the new one.
+  const inFlight = useRef(null), generation = useRef(0), active = useRef(true), loader = useRef(load);
   loader.current = load;
   const refresh = useCallback(async ({ quiet = false } = {}) => {
-    if (inFlight.current) return;
-    inFlight.current = true;
+    const gen = generation.current;
+    if (inFlight.current === gen) return;
+    inFlight.current = gen;
     if (!quiet) setState(s => ({ ...s, loading: true }));
     try {
       const data = await loader.current();
-      if (active.current) setState({ data, error: null, loading: false });
+      if (active.current && gen === generation.current) setState({ data, error: null, loading: false });
     } catch (error) {
-      if (active.current) setState(s => ({ ...s, error, loading: false }));
-    } finally { inFlight.current = false; }
+      if (active.current && gen === generation.current) setState(s => ({ ...s, error, loading: false }));
+    } finally { if (inFlight.current === gen) inFlight.current = null; }
   }, []);
   useEffect(() => {
     active.current = true;
+    generation.current += 1;
     if (!enabled) return () => { active.current = false; };
     setState(s => ({ ...s, data: null, loading: true }));
     refresh();

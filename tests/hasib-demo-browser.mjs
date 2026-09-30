@@ -32,9 +32,10 @@ try {
   for (const lang of ['en', 'ar']) {
     for (const width of [1440, 1024, 768, 375, 320]) {
       const { page, context, errors } = await open(width, lang, '/layla/dashboard?tab=insights');
-      await page.locator('.hb-hero-value').waitFor();
-      assert.match(await page.locator('.hb-hero-value').textContent(), new RegExp(grouped(month.netProfitMinor).replace('.', '\\.'))); count++;
-      assert.match(await page.locator('.hb-tiles').first().textContent(), new RegExp(grouped(month.sales.totalMinor).replace(/[.,]/g, m => `\\${m}`))); count++;
+      // The money summary leads with recorded profit; sales sit under "Details".
+      await page.locator('.hb-money-summary').waitFor();
+      assert.match(await page.locator('.hb-money-summary').textContent(), new RegExp(grouped(month.recordedProfitMinor).replace(/[.,]/g, m => `\\${m}`))); count++;
+      assert.match(await page.locator('.hb-report-details').textContent(), new RegExp(grouped(month.sales.totalMinor).replace(/[.,]/g, m => `\\${m}`))); count++;
       assert.match(await page.locator('.hb-demand').textContent(), lang === 'ar' ? /قفطان كتان|Linen kaftan/ : /Linen kaftan/, 'unlisted demand surfaced'); count++;
       assert.equal(await noOverflow(page), true, `insights overflow ${lang} ${width}`); count++;
       assert.deepEqual(await axe(page), [], `insights axe ${lang} ${width}`); count++;
@@ -120,13 +121,14 @@ try {
     await page.screenshot({ path: `${OUT}/stock-ar-375.png`, fullPage: true });
     await context.close();
   }
-  // Today, from the real logic: the same numbers the API returns, and one tap into each section.
+  // Today, from the real logic: the three retail measures the API returns.
   const day = await api('today');
   assert.ok(day.ok, 'today op answers through the real API route');
+  const best = day.industryMetrics.find(m => m.id === 'best_variant');
   for (const lang of ['en', 'ar']) {
     const { page, context, errors } = await open(375, lang, '/layla/dashboard');
-    await page.locator('.hb-figures').first().waitFor();
-    assert.match(await page.locator('.hb-today').textContent(), new RegExp(grouped(day.money.owedMinor).replace(/[.,]/g, m => `\\${m}`)), `owed matches (${lang})`); count++;
+    await page.locator('.hb-today .hb-needs').waitFor();
+    if (best.value != null) { assert.match(await page.locator('.hb-today').textContent(), new RegExp(String(best.value)), `best seller matches (${lang})`); count++; }
     assert.equal(await noOverflow(page), true); count++;
     assert.deepEqual(await axe(page), [], `today axe ${lang}`); count++;
     assert.deepEqual(errors, []); count++;

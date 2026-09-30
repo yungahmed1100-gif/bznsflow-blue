@@ -32,6 +32,7 @@ import { executeRestaurant } from './restaurantState.js';
 import { executeRealEstate } from './realEstateState.js';
 import { actorWorkspace, executeTeam } from './workspaceState.js';
 import { capabilitiesFor, roleAllows } from './capabilities.js';
+import { staffArgs, staffResult, auditChange } from './staffPolicy.js';
 
 export const HASIB_OPERATIONS = [...Object.keys(BOOKING_OPERATIONS), ...JOB_OPERATIONS, ...REAL_ESTATE_OPERATIONS, ...TEAM_OPERATIONS, ...CLINIC_OPERATIONS, ...CONSTRUCTION_OPERATIONS, ...AUTOMOTIVE_OPERATIONS, 'overview', 'settings_update', 'items', 'item_save', 'item_archive', 'stock_move', 'stock_moves', 'low_stock',
   'order_create', 'order_status', 'orders', 'order', 'payment_record', 'contact_summary', 'conversation_orders', 'expense_create', 'expenses', 'expense_void', 'insights',
@@ -103,6 +104,14 @@ export async function executeHasib(ctx, a, now = Date.now()) {
     return ok({ plan, setupRequired: true, selectedIndustryId: pack.id, legacyIndustryId: settings.packId || null, industry, livePacks: livePackSummaries(), industries: industryCatalog(), modules: [], settings: publicSettings(settings) });
   }
 
+  const staff = await staffArgs(ctx, tenant, a);
+  if (staff.refusal) return fail(staff.refusal);
+  const result = await dispatchHasib(ctx, tenant, actor, plan, pack, staff.args, now);
+  await auditChange(ctx, tenant, staff.args, result, now);
+  return staffResult(tenant, staff.args, result);
+}
+
+async function dispatchHasib(ctx, tenant, actor, plan, pack, a, now) {
   if (a.operation === 'overview') {
     const settings = await settingsFor(ctx, tenant.accountId);
     const pending = await ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => q.eq('accountId', tenant.accountId).eq('status', 'pending')).take(200);

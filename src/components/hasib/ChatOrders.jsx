@@ -35,7 +35,7 @@ export function ChatOrders({ s, conversationId }) {
           </li>
         ))}
       </ul>
-      {openId && <OrderDetail s={s} h={h} pack={hb.overview.pack} business={hb.business} orderId={openId} timezone={hb.timezone}
+      {openId && <OrderDetail s={s} h={h} pack={hb.overview.pack} role={hb.overview.workspaceRole} business={hb.business} orderId={openId} timezone={hb.timezone}
         onClose={() => setOpenId(null)} onChanged={() => { load(); hb.onChanged?.(); }} />}
     </section>
   );

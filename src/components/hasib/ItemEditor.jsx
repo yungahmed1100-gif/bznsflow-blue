@@ -6,7 +6,7 @@ import { photoProblem, uploadProductPhoto, PHOTO_TYPES } from '../../lib/hasib/p
 
 const blankVariant = keys => ({ key: crypto.randomUUID(), sku: '', options: Object.fromEntries(keys.map(k => [k, ''])), price: '', cost: '', reorderPoint: '2', openingStock: '0' });
 const fromVariant = (v, keys) => ({ key: v.id, variantId: v.id, sku: v.sku, options: Object.fromEntries(keys.map(k => [k, v.options.find(o => o.key === k)?.value || ''])),
-  price: formatMinor(v.priceMinor), cost: v.costKnown === false ? '' : formatMinor(v.costMinor), reorderPoint: String(v.reorderPoint), onHand: v.onHand });
+  price: formatMinor(v.priceMinor), cost: v.costKnown === false || v.costMinor === undefined ? '' : formatMinor(v.costMinor), reorderPoint: String(v.reorderPoint), onHand: v.onHand });
 
 /** Variant rows as the server reads them, or null while any is invalid. */
 function toVariants(rows) {
@@ -22,7 +22,7 @@ function toVariants(rows) {
 }
 
 /** Create or edit a product; variant option names come from the industry pack. */
-export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
+export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive, staff = false }) {
   const keys = pack.variantOptions.map(o => o.key);
   const serialsModule = pack.modules?.serials === 'available';
   const [form, setForm] = useState(() => ({ kind: item?.kind || 'product', nameAr: item?.nameAr || '', nameEn: item?.nameEn || '', category: item?.category || '', unit: item?.unit || 'piece', trackStock: item ? item.trackStock : true,
@@ -55,6 +55,14 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
     }
   };
   const removePhoto = () => setPhoto(p => { if (p.url?.startsWith('blob:')) URL.revokeObjectURL(p.url); return { url: null, id: '', uploading: false }; });
+
+  // Archive errors are shown here, in the open dialog, not on the page behind it.
+  const archive = async () => {
+    if (busy) return;
+    setBusy(true); setError('');
+    try { await onArchive(item); }
+    catch (err) { setError(h.reason(err.reason) || s.reason(err.reason)); setBusy(false); setConfirmArchive(false); }
+  };
 
   const save = async e => {
     e.preventDefault();
@@ -110,16 +118,16 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
               {pack.variantOptions.map(o => <th key={o.key} scope="col">{s.ar ? o.ar : o.en}</th>)}
               <th scope="col">{h.t('price')}</th>
               {form.trackStock && <th scope="col">{item ? h.t('stock') : h.t('openingStock')}</th>}
-              {more && <><th scope="col">{h.t('cost')}</th>{form.trackStock && <th scope="col">{h.t('reorderPoint')}</th>}<th scope="col">{h.t('sku')}</th></>}
+              {more && <>{!staff && <th scope="col">{h.t('cost')}</th>}{form.trackStock && <th scope="col">{h.t('reorderPoint')}</th>}<th scope="col">{h.t('sku')}</th></>}
               <th scope="col"><span className="ld-visually-hidden">{h.t('remove')}</span></th>
             </tr></thead>
             <tbody>{rows.map(r => (
               <tr key={r.key}>
                 {keys.map(k => <td key={k}><input aria-label={pack.variantOptions.find(o => o.key === k)[s.ar ? 'ar' : 'en']} value={r.options[k]} maxLength={40} dir="auto" onChange={e => setRow(r.key, { options: { ...r.options, [k]: e.target.value } })} /></td>)}
-                <td><input aria-label={h.t('price')} className="hb-money" inputMode="decimal" dir="ltr" value={r.price} aria-invalid={parseAmount(r.price) === null} onChange={e => setRow(r.key, { price: e.target.value })} /></td>
+                <td><input aria-label={h.t('price')} className="hb-money" inputMode="decimal" dir="ltr" value={r.price} readOnly={staff && !!r.variantId} aria-invalid={parseAmount(r.price) === null} onChange={e => setRow(r.key, { price: e.target.value })} /></td>
                 {form.trackStock && <td>{r.variantId ? <span className="ld-num">{r.onHand}</span> : form.serialized && serialsModule ? <span className="ld-help">—</span> : <input aria-label={h.t('openingStock')} className="hb-qty" inputMode="numeric" value={r.openingStock} onChange={e => setRow(r.key, { openingStock: e.target.value.replace(/\D/g, '').slice(0, 6) })} />}</td>}
                 {more && <>
-                  <td><input aria-label={h.t('cost')} className="hb-money" inputMode="decimal" dir="ltr" value={r.cost} onChange={e => setRow(r.key, { cost: e.target.value })} /></td>
+                  {!staff && <td><input aria-label={h.t('cost')} className="hb-money" inputMode="decimal" dir="ltr" value={r.cost} onChange={e => setRow(r.key, { cost: e.target.value })} /></td>}
                   {form.trackStock && <td><input aria-label={h.t('reorderPoint')} className="hb-qty" inputMode="numeric" value={r.reorderPoint} onChange={e => setRow(r.key, { reorderPoint: e.target.value.replace(/\D/g, '').slice(0, 6) })} /></td>}
                   <td><input aria-label={h.t('sku')} value={r.sku} maxLength={40} dir="ltr" onChange={e => setRow(r.key, { sku: e.target.value })} /></td>
                 </>}
@@ -128,7 +136,7 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
             ))}</tbody>
           </table></div>
           <div className="ld-actions hb-variant-actions">
-            <button type="button" className="ld-button ld-quiet" onClick={() => setRows(rs => [...rs, blankVariant(keys)])}>{h.t('addVariant')}</button>
+            {!staff && <button type="button" className="ld-button ld-quiet" onClick={() => setRows(rs => [...rs, blankVariant(keys)])}>{h.t('addVariant')}</button>}
             <button type="button" className="ld-button ld-quiet" aria-expanded={more} onClick={() => setMore(m => !m)}>{more ? h.t('fewerDetails') : h.t('moreDetails')}</button>
           </div>
           {!more && <p className="ld-help">{h.t('moreDetailsHelp')}</p>}
@@ -137,7 +145,7 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
         {confirmArchive && <p className="ld-help" role="alert">{h.t('archiveConfirm', { name: h.name(item) })}</p>}
         <div className="ld-actions">
           {item && onArchive && (confirmArchive
-            ? <button type="button" className="ld-button ld-danger" disabled={busy} onClick={() => onArchive(item)}>{h.t('archive')}</button>
+            ? <button type="button" className="ld-button ld-danger" disabled={busy} onClick={archive}>{h.t('archive')}</button>
             : <button type="button" className="ld-button ld-quiet ld-danger" onClick={() => setConfirmArchive(true)}>{h.t('archive')}</button>)}
           <button type="button" className="ld-button ld-quiet" onClick={confirmArchive ? () => setConfirmArchive(false) : onClose}>{h.t('cancel')}</button>
           <button type="submit" className="ld-button ld-primary" disabled={busy || photo.uploading}>{busy ? h.t('saving') : h.t('save')}</button>

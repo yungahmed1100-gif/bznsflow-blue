@@ -10,7 +10,7 @@ import { checkPhoto, releaseRegistration, withPhoto, sweepOrphanPhotos } from '.
 
 export { withPhoto, sweepOrphanPhotos };
 
-const MAX_VARIANTS = 50, MAX_OPTIONS = 3, MAX_DELTA = 100_000;
+const MAX_VARIANTS = 50, VARIANT_READ = 250, MAX_OPTIONS = 3, MAX_DELTA = 100_000;
 const CLIENT_REASONS = { stock_in: 1, return: 1, adjustment: 0, damage: -1 };
 const KINDS = ['product', 'service'];
 
@@ -19,7 +19,8 @@ export const publicItem = (item, variants) => ({ id: item._id, kind: item.kind, 
   trackStock: item.trackStock, serialized: !!item.serialized, warrantyMonths: item.warrantyMonths || 0, warrantyBy: item.warrantyBy || 'none',
   catalogEntryKey: item.catalogEntryKey || null, variants: variants.filter(v => !v.archived).map(publicVariant), updatedAt: item.updatedAt });
 
-export const variantsOf = (ctx, itemId) => ctx.db.query('hasibVariants').withIndex('by_item', q => q.eq('itemId', itemId)).take(MAX_VARIANTS + 10);
+// Archived variants stay on the item for history, so reads leave room for them beyond the live limit.
+export const variantsOf = (ctx, itemId) => ctx.db.query('hasibVariants').withIndex('by_item', q => q.eq('itemId', itemId)).take(VARIANT_READ);
 
 function itemInput(raw, pack) {
   if (!raw || !KINDS.includes(raw.kind)) return null;
@@ -80,6 +81,10 @@ export async function saveItem(ctx, accountId, pack, a, now) {
   if (typeof photoIn === 'string' && photoIn) { photoId = await checkPhoto(ctx, accountId, photoIn, existing); if (!photoId) return fail('invalid_photo'); }
   // Validate every variant before the first write.
   const current = existing ? await variantsOf(ctx, existing._id) : [];
+  const live = current.filter(c => !c.archived);
+  if (live.length + variants.filter(v => !v.variantId).length > MAX_VARIANTS) return fail('too_many_variants');
+  // Switching tracking or kind would strand the pieces already counted on the shelf.
+  if (existing && (existing.trackStock !== item.trackStock || existing.kind !== item.kind) && live.some(c => c.onHand !== 0)) return fail('item_has_stock');
   for (const v of variants) {
     if (v.variantId && !current.some(c => c._id === v.variantId)) return fail('variant_not_found');
     if (await skuTaken(ctx, accountId, v.sku, v.variantId)) return fail('duplicate_sku');

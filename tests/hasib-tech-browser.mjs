@@ -32,7 +32,7 @@ try {
     for (const width of [1280, 375]) {
       for (const tab of ['insights', 'stock', 'service']) {
         const { page, context, errors } = await open(width, lang, `/layla/dashboard?tab=${tab}`);
-        await page.locator(tab === 'insights' ? '.hb-hero-value' : tab === 'stock' ? '.hb-stock-table' : '.hb-service .ld-table').first().waitFor();
+        await page.locator(tab === 'insights' ? '.hb-money-summary' : tab === 'stock' ? '.hb-stock-table' : '.hb-service .ld-table').first().waitFor();
         if (tab === 'service') assert.ok(await page.getByRole('link', { name: T[lang].service }).isVisible() || width < 768, 'Service tab in nav');
         if (tab === 'stock') assert.ok(await page.getByText('IMEI', { exact: true }).first().isVisible(), 'IMEI chip on serialized products');
         assert.equal(await noOverflow(page), true, `${tab} overflow ${lang} ${width}`); count++;

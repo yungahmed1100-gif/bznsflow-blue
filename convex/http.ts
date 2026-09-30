@@ -72,7 +72,12 @@ http.route({path:'/blue-hasib',method:'POST',handler:httpAction(async(ctx,reques
     if(args.operation==='photo_register') args.photoCheck=await checkPhotoBytes(ctx,args.storageId);
     const result=await ctx.runMutation((internal as any).blueHasib.execute,args);
     return new Response(JSON.stringify(result),{headers});
-  } catch {return new Response(JSON.stringify({ok:false,reason:'hasib_unavailable'}),{status:503,headers});}
+  } catch (error) {
+    // The mutation rolled back; the owner sees a retry message and the Convex log records that it failed.
+    // Only the error class: a validator's message can quote the arguments, which include the session hash.
+    console.error('hasib_failed',JSON.stringify({kind:String((error as any)?.name || 'Error').slice(0,60)}));
+    return new Response(JSON.stringify({ok:false,reason:'hasib_unavailable'}),{status:503,headers});
+  }
 })});
 http.route({path:'/blue-campaign',method:'POST',handler:httpAction(async(ctx,request)=>{
   if(!serviceAuthorized(request)) return new Response(null,{status:401});

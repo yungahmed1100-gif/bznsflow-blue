@@ -24,6 +24,7 @@ import { FounderIndustryPreview } from '../components/hasib/FounderIndustryPrevi
 import { IndustrySetup } from '../components/hasib/IndustrySetup';
 import { ExpensesView } from '../components/hasib/ExpensesView';
 import { TodayView } from '../components/hasib/TodayView';
+import { TeamView } from '../components/hasib/TeamView';
 import { SectionTabs } from '../components/dashboard/SectionTabs';
 import { dashboardMap, resolveTab } from '../lib/dashboard/navigation';
 import { ServiceView } from '../components/hasib/ServiceView';
@@ -48,7 +49,7 @@ export default function LaylaDashboard({ lang = 'ar' }) {
   const hasibState = usePolling(loadHasib, [], { interval: 60000, enabled: ready && !!overview.data?.connected && hasibAllowed });
   const hasibOverview = hasibState.data?.modules ? hasibState.data : null;
   // Eight plain sections; Hasib's appear only when Business Setup selects a live pack.
-  const map = useMemo(() => dashboardMap(hasibOverview, overview.data?.capabilities || hasibOverview?.capabilities), [hasibOverview, overview.data?.capabilities]);
+  const map = useMemo(() => dashboardMap(hasibOverview, overview.data?.capabilities || hasibOverview?.capabilities, overview.data?.workspaceRole), [hasibOverview, overview.data?.capabilities, overview.data?.workspaceRole]);
   const h = useMemo(() => createHasibStrings(lang), [lang]);
   // The prerendered shell has no URL, so resolving the tab before mount bakes "chats" into
   // the markup and hydration keeps that stale aria-current/data-tab. Resolve after mount.
@@ -65,8 +66,8 @@ export default function LaylaDashboard({ lang = 'ar' }) {
   useEffect(() => {
     if (overview.data && !overview.data.connected) window.location.replace(setupPath(lang));
     // The business timezone starts as the owner's browser zone and stays editable.
-    if (overview.data?.connected && !overview.data.timezone) dashboard('set_timezone', { timezone: browserTimezone() }).then(() => overview.refresh({ quiet: true })).catch(() => {});
-  }, [overview.data?.connected, overview.data?.timezone]);
+    if (overview.data?.connected && !overview.data.timezone && overview.data.workspaceRole !== 'employee') dashboard('set_timezone', { timezone: browserTimezone() }).then(() => overview.refresh({ quiet: true })).catch(() => {});
+  }, [overview.data?.connected, overview.data?.timezone, overview.data?.workspaceRole]);
 
   const go = (next, extra = {}) => {
     const search = new URLSearchParams({ tab: next, ...extra });
@@ -133,9 +134,10 @@ export default function LaylaDashboard({ lang = 'ar' }) {
                 : tab === 'money' && view === 'expenses' ? <ExpensesView s={s} h={h} overview={hasibOverview} timezone={data.timezone} initialCreate={params.get('action') === 'expense'} />
                 : tab === 'money' ? <InsightsView s={s} h={h} overview={hasibOverview} onGo={go} />
                 : tab === 'customers' && view === 'broadcast' ? (data.integration ? <BroadcastView s={s} overview={data} onTimezone={() => overview.refresh({ quiet: true })} /> : <p className="ld-state">{s.ar ? 'الرسائل الجماعية متاحة لقناة واتساب فقط.' : 'Messaging many customers is available on WhatsApp only.'}</p>)
-                : tab === 'customers' ? <>{hasibOverview?.pack && <FollowupView s={s} h={h} timezone={data.timezone} />}<ContactsView s={s} overview={data} onOpenChat={id => go('chats', { chat: id })} /></>
+                : tab === 'customers' ? <>{hasibOverview?.pack && <FollowupView s={s} h={h} packId={hasibOverview.pack.id} timezone={data.timezone} />}<ContactsView s={s} overview={data} onOpenChat={id => go('chats', { chat: id })} /></>
                 : tab === 'settings' && view === 'business' ? <><BusinessDetails s={s} section={map.sections.includes('stock') ? 'details' : 'all'} initialIndustryId={hasibOverview?.readOnly ? undefined : hasibOverview?.legacyIndustryId || undefined} onSaved={refreshHasib} />
                     {!hasibOverview?.readOnly && hasibOverview?.pack && <IndustrySetup selection={false} heading={false} s={s} h={h} livePacks={hasibOverview.livePacks} industries={hasibOverview.industries} current={hasibOverview.pack.id} settings={hasibOverview.settings} onChosen={refreshHasib} />}</>
+                : tab === 'team' ? <TeamView s={s} h={h} />
                 : tab === 'settings' ? <ChannelConnections s={s} data={data} onChange={() => overview.refresh({ quiet: true })} />
                 : <ChatsView s={s} overview={data} selected={params.get('chat')} onSelect={id => go('chats', id ? { chat: id } : {})} />}
             </>
