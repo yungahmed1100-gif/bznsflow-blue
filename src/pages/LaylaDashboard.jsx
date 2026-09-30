@@ -130,7 +130,7 @@ export default function LaylaDashboard({ lang = 'ar' }) {
                 : tab === 'stock' && workflow === 'property' ? <JobsWorkView s={s} h={h} overview={hasibOverview} timezone={data.timezone} propertiesOnly onChanged={refreshHasib} />
                 : tab === 'stock' && view === 'products' ? <StockView timezone={data.timezone} s={s} h={h} overview={hasibOverview} initialLow={params.get('low') === '1'} initialAction={params.get('action') || ''} onChanged={refreshHasib} />
                 : tab === 'stock' ? <BusinessDetails s={s} section="services" onSaved={refreshHasib} />
-                : tab === 'service' ? <ServiceView initialRepairId={params.get('repair')} initialAction={params.get('action') || ''} s={s} h={h} timezone={data.timezone} onChanged={refreshHasib} />
+                : tab === 'service' ? <ServiceView initialRepairId={params.get('repair')} initialAction={params.get('action') || ''} s={s} h={h} timezone={data.timezone} staff={hasibOverview?.workspaceRole === 'employee'} onClearLink={() => setParams(new URLSearchParams({ tab: 'service' }), { replace: true })} onChanged={refreshHasib} />
                 : tab === 'money' && view === 'expenses' ? <ExpensesView s={s} h={h} overview={hasibOverview} timezone={data.timezone} initialCreate={params.get('action') === 'expense'} />
                 : tab === 'money' ? <InsightsView s={s} h={h} overview={hasibOverview} onGo={go} />
                 : tab === 'customers' && view === 'broadcast' ? (data.integration ? <BroadcastView s={s} overview={data} onTimezone={() => overview.refresh({ quiet: true })} /> : <p className="ld-state">{s.ar ? 'الرسائل الجماعية متاحة لقناة واتساب فقط.' : 'Messaging many customers is available on WhatsApp only.'}</p>)

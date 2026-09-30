@@ -94,8 +94,8 @@ const PRESENTATION = {
     ['followup', 'Customer follow-up', 'متابعة عميل', 'message-circle', ['customers']],
   ] },
   'retail-tech': { icon: 'smartphone', actions: [
-    ['repair', 'New repair', 'إصلاح جديد', 'wrench', ['service', { action: 'repair' }]],
-    ['trade-in', 'Record trade-in', 'تسجيل استبدال', 'repeat', ['service', { action: 'trade-in' }]],
+    ['repair', 'New repair', 'تذكرة صيانة جديدة', 'wrench', ['service', { action: 'repair' }]],
+    ['trade-in', 'Record trade-in', 'تسجيل جهاز استبدال', 'repeat', ['service', { action: 'trade-in' }]],
     ['warranty', 'Check warranty', 'فحص الضمان', 'shield-check', ['service', { action: 'warranty' }]],
     ['order', 'New sale', 'بيع جديد', 'receipt', ['orders', { create: '1' }]],
   ] },

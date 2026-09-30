@@ -90,6 +90,14 @@ const en = {
   fuTitle: 'Follow-ups', fuAdd: 'Add follow-up', fuEmpty: 'No follow-ups due. Add one to remember to get back to a customer.', fuDone: 'Mark done', fuDueNow: 'Due', fuMore: 'Showing the next 50 follow-ups.',
   fuLinked: 'Linked record (optional)', fuChooseRecord: 'Choose record', fuReason: 'Reason', fuDue: 'Due date', fuInvalidDate: 'Enter a valid date and time.',
   fuLink_order: 'Order', fuLink_booking: 'Booking', fuLink_membership: 'Membership', fuLink_job: 'Job', fuLink_property: 'Property',
+  importSerialNotes: 'IMEI notes on {count} products:', importSerialsSkipped: '{count} IMEIs skipped: already on record, or for an option not in Stock.',
+  checkWarranty: 'Check warranty', serviceHelp: 'Repairs, warranty and trade-ins in one service desk.', serviceActions: 'Service actions', noRepairsHelp: 'Create a repair ticket, check a warranty, or record a trade-in.',
+  approvedChip: 'Customer approved', awaitingApprovalChip: 'Awaiting customer approval', searchParts: 'Search parts in stock', quoteResetsApproval: 'Saving a changed quote asks the customer to approve again.',
+  approvedQuote: 'Customer approved this quote', noApproval: 'No approval recorded', approvalHelp: 'Record the customer’s approval of this quote. Changing the quote or parts needs a new approval.',
+  approvedByLabel: 'Name of the customer who approved', recordApproval: 'Record customer approval', approvalFirst: 'Record the customer’s approval of the quote before starting the repair.',
+  repairCancelConfirm: 'Cancel this repair? Its parts go back into stock. {paid} already paid stays recorded; a manager can refund it.', repairCollectConfirm: 'The customer still owes {balance}. Hand the device over anyway? You can take the payment later.',
+  daysHeldBeforeSale: 'Days held before sale', daysInStockLabel: 'Days in stock', daysInStockShort: '{count} days in stock', writeOffConfirm: 'Write off {count} unit(s)? They leave stock for good and the loss is recorded.', serialsLoadFailed: 'The units couldn’t load.',
+  imeiReceiveHint: 'IMEI products start at zero: receive units with their IMEIs through Adjust stock.', repairOrderHelp: 'This order belongs to a repair. Change its status from the repair ticket in Service.',
   teamTitle: 'Team', teamLimit: 'You and up to {limit} employees. Employees sell, take payments and manage stock; money, settings and the team stay with you.', teamInvite: 'Invite employee', teamInviteHelp: 'They sign in with this email and a code we send them. They never see your costs, profit or cash totals.', teamEmail: 'Employee email', teamSendInvite: 'Send invitation', teamInviteSent: 'Invitation sent to {email}.', teamInviteNotSent: 'Invitation saved, but the email didn’t send. Use Resend in a minute.', teamResend: 'Resend', teamRevoke: 'Remove access', teamRevokeConfirm: 'Remove {email} from your team? They are signed out at once and can no longer open your dashboard.', teamEmpty: 'No employees yet', teamEmptyHelp: 'Invite up to five people to take orders and manage stock with you.', teamStatus_pending: 'Invitation sent', teamStatus_active: 'Active', teamStatus_revoked: 'Access removed',
   setupDone: 'Done', setupTodo: 'To do', setupStart: 'Start', onHandShort: '{count} left',
 };
@@ -182,6 +190,14 @@ const ar = {
   fuTitle: 'المتابعات', fuAdd: 'إضافة متابعة', fuEmpty: 'لا توجد متابعات مستحقة. أضف متابعة لتتذكر العودة إلى عميل.', fuDone: 'تمت المتابعة', fuDueNow: 'مستحقة', fuMore: 'تظهر أقرب 50 متابعة.',
   fuLinked: 'سجل مرتبط (اختياري)', fuChooseRecord: 'اختر السجل', fuReason: 'السبب', fuDue: 'موعد المتابعة', fuInvalidDate: 'أدخل تاريخاً ووقتاً صالحين.',
   fuLink_order: 'طلب', fuLink_booking: 'حجز', fuLink_membership: 'اشتراك', fuLink_job: 'عمل', fuLink_property: 'عقار',
+  importSerialNotes: 'ملاحظات IMEI على {count} منتجات:', importSerialsSkipped: 'تُخطّي {count} من أرقام IMEI: مسجلة سابقاً أو لخيار غير موجود في المخزون.',
+  checkWarranty: 'فحص الضمان', serviceHelp: 'الإصلاحات والضمان والاستبدال في مكان واحد.', serviceActions: 'إجراءات الصيانة', noRepairsHelp: 'أنشئ تذكرة صيانة، أو افحص الضمان، أو سجّل جهاز استبدال.',
+  approvedChip: 'وافق العميل', awaitingApprovalChip: 'بانتظار موافقة العميل', searchParts: 'ابحث عن قطع في المخزون', quoteResetsApproval: 'حفظ تسعيرة معدّلة يتطلب موافقة العميل من جديد.',
+  approvedQuote: 'وافق العميل على هذه التسعيرة', noApproval: 'لا توجد موافقة مسجلة', approvalHelp: 'سجّل موافقة العميل على هذه التسعيرة. تعديل السعر أو القطع يتطلب موافقة جديدة.',
+  approvedByLabel: 'اسم العميل الذي وافق', recordApproval: 'تسجيل موافقة العميل', approvalFirst: 'سجّل موافقة العميل على التسعيرة قبل بدء الإصلاح.',
+  repairCancelConfirm: 'إلغاء هذا الإصلاح؟ تعود قطعه إلى المخزون. يبقى المدفوع ({paid}) مسجلاً، ويمكن للمدير استرداده.', repairCollectConfirm: 'ما زال على العميل {balance}. تسليم الجهاز رغم ذلك؟ يمكنك تسجيل الدفعة لاحقاً.',
+  daysHeldBeforeSale: 'أيام بقاء الجهاز قبل البيع', daysInStockLabel: 'أيام البقاء في المخزون', daysInStockShort: 'منذ {count} يوم في المخزون', writeOffConfirm: 'شطب {count} وحدة؟ تخرج من المخزون نهائياً وتُسجّل الخسارة.', serialsLoadFailed: 'تعذّر تحميل الوحدات.',
+  imeiReceiveHint: 'منتجات IMEI تبدأ من صفر: استلم الوحدات بأرقامها من «تعديل المخزون».', repairOrderHelp: 'هذا الطلب تابع لتذكرة صيانة. غيّر حالته من التذكرة في قسم الصيانة.',
   teamTitle: 'الفريق', teamLimit: 'أنت وحتى {limit} موظفين. الموظفون يبيعون ويسجلون الدفعات ويديرون المخزون، وتبقى الأموال والإعدادات والفريق لك.', teamInvite: 'دعوة موظف', teamInviteHelp: 'يسجّل الدخول بهذا البريد ورمز نرسله إليه، ولا يرى تكاليفك أو أرباحك أو مجاميع النقد.', teamEmail: 'بريد الموظف', teamSendInvite: 'إرسال الدعوة', teamInviteSent: 'أُرسلت الدعوة إلى {email}.', teamInviteNotSent: 'حُفظت الدعوة لكن البريد لم يُرسل. استخدم إعادة الإرسال بعد دقيقة.', teamResend: 'إعادة الإرسال', teamRevoke: 'إلغاء الوصول', teamRevokeConfirm: 'إزالة {email} من فريقك؟ سيُسجَّل خروجه فوراً ولن يتمكن من فتح لوحتك.', teamEmpty: 'لا يوجد موظفون بعد', teamEmptyHelp: 'ادعُ حتى خمسة أشخاص لتسجيل الطلبات وإدارة المخزون معك.', teamStatus_pending: 'أُرسلت الدعوة', teamStatus_active: 'نشط', teamStatus_revoked: 'أُلغي الوصول',
   setupDone: 'تم', setupTodo: 'مطلوب', setupStart: 'ابدأ', onHandShort: 'المتبقي {count}',
 };
@@ -219,6 +235,12 @@ for (const [key, [english, arabic]] of Object.entries(workflowReasons)) { reason
 
 // Refusals every catalog shop can meet, with the next step in both languages.
 const shopReasons = {
+  repair_not_found: ['That repair ticket is no longer available.', 'تذكرة الصيانة هذه لم تعد متاحة.'],
+  use_repair_status: ['This order belongs to a repair. Change its status from the repair ticket in Service. Payments can still be recorded here.', 'هذا الطلب تابع لتذكرة صيانة. غيّر حالته من التذكرة في قسم الصيانة، ويمكنك تسجيل الدفعات هنا.'],
+  approval_required: ['Record the customer’s approval of the quote before starting the repair.', 'سجّل موافقة العميل على التسعيرة قبل بدء الإصلاح.'],
+  serial_sold: ['That IMEI belongs to a unit you sold. If the customer returned it, mark that order returned instead.', 'رقم IMEI هذا لجهاز بعته. إذا أرجعه العميل، سجّل الطلب كمرتجع بدلاً من ذلك.'],
+  duplicate_line: ['Put all units of the same product on one line and pick their IMEIs there.', 'ضع كل وحدات المنتج نفسه في بند واحد واختر أرقام IMEI فيه.'],
+  serialized_not_editable: ['IMEI units are already picked for this order, so its lines can’t be changed. Cancel it and create a new one.', 'اختيرت أرقام IMEI لهذا الطلب، فلا يمكن تعديل بنوده. ألغِه وأنشئ طلباً جديداً.'],
   module_unavailable: ['That isn’t part of your industry setup.', 'هذه الميزة ليست ضمن إعداد نشاطك.'],
   invalid_request: ['That didn’t go through. Reload the page and try again.', 'لم يتم ذلك. أعد تحميل الصفحة وحاول مرة أخرى.'],
   order_not_found: ['That order is no longer available. It may have been removed or belongs to another customer.', 'هذا الطلب لم يعد متاحاً، ربما حُذف أو يخص عميلاً آخر.'],

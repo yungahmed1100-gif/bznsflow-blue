@@ -53,18 +53,22 @@ function mergeVariants(current, incoming, serialized) {
   return { merged, counts };
 }
 
+/** Receive the file's IMEIs. IMEIs already on record, or for an option not in Stock, are skipped and counted. */
 async function receiveFileSerials(ctx, accountId, itemId, incoming, now) {
   const saved = await variantsOf(ctx, itemId);
+  let skipped = 0;
   for (const v of incoming) {
     if (!v.serials?.length) continue;
     const variant = matchVariant(saved, v);
+    const unique = [...new Set(v.serials.map(normSerial))];
+    if (!variant) { skipped += unique.length; continue; }
     const fresh = [];
-    for (const s of new Set(v.serials.map(normSerial))) if (!(await serialRow(ctx, accountId, s))) fresh.push(s);
-    if (!variant || !fresh.length) continue;
+    for (const s of unique) if (!(await serialRow(ctx, accountId, s))) fresh.push(s); else skipped++;
+    if (!fresh.length) continue;
     const moved = await moveSerializedStock(ctx, { accountId, variant, a: { reason: 'stock_in', delta: fresh.length, serials: fresh }, note: 'import', now });
-    if (moved) return moved.reason;
+    if (moved) return { problem: moved.reason, skipped };
   }
-  return null;
+  return { problem: null, skipped };
 }
 
 async function importOne(ctx, tenant, p, byName, now) {
@@ -93,10 +97,11 @@ async function importOne(ctx, tenant, p, byName, now) {
     if (!saved.ok) return { status: 'failed', reason: saved.reason };
   }
   const itemId = saved.value.item.id;
-  const serialProblem = await receiveFileSerials(ctx, accountId, itemId, p.variants, now);
+  const serials = await receiveFileSerials(ctx, accountId, itemId, p.variants, now);
   const stored = await ctx.db.get(itemId);
   for (const n of [stored.nameEn, stored.nameAr]) if (n) byName.set(nameKey(n), stored);
-  return serialProblem ? { status: 'failed', reason: serialProblem, itemId } : { status: existing ? 'updated' : 'created', itemId };
+  // The product is saved either way; a problem with its IMEIs is a warning on that line, not a failure.
+  return { status: existing ? 'updated' : 'created', itemId, ...(serials.problem ? { warning: serials.problem } : {}), ...(serials.skipped ? { skippedSerials: serials.skipped } : {}) };
 }
 
 export async function importItems(ctx, tenant, a, now) {

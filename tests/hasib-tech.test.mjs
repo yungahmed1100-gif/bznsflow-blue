@@ -164,6 +164,8 @@ test('a repair ticket: warranty detected from our IMEI, parts from stock on read
   assert.equal(onHand(h, protector), 20, 'parts leave stock only when the repair is ready');
   assert.equal((await hasib('repair_update', { repairId: repair.id, version: repair.version, parts: [{ variantId, qty: 1 }] })).reason, 'serialized_part');
   assert.equal((await hasib('repair_status', { repairId: repair.id, to: 'collected', version: repair.version })).reason, 'invalid_transition');
+  assert.equal((await hasib('repair_status', { repairId: repair.id, to: 'ready', version: repair.version })).reason, 'approval_required', 'work waits for the customer to approve the quote');
+  repair = (await hasib('repair_approval', { repairId: repair.id, version: repair.version, approvedBy: 'Aisha in store' })).value;
   repair = (await hasib('repair_status', { repairId: repair.id, to: 'ready', version: repair.version })).value;
   assert.equal(onHand(h, protector), 19);
   assert.equal(repair.order.status, 'confirmed');
@@ -181,6 +183,7 @@ test('cancelling a ready repair returns its parts to stock', async () => {
   let repair = (await hasib('repair_create', { requestId: randomUUID(), device: 'iPad', fault: 'Glass', customerName: 'Mona', quoteMinor: 20000 })).value;
   repair = (await hasib('repair_update', { repairId: repair.id, version: repair.version, parts: [{ variantId: protector, qty: 2 }] })).value;
   repair = (await hasib('repair_status', { repairId: repair.id, to: 'diagnosing', version: repair.version })).value;
+  repair = (await hasib('repair_approval', { repairId: repair.id, version: repair.version, approvedBy: 'Mona' })).value;
   repair = (await hasib('repair_status', { repairId: repair.id, to: 'ready', version: repair.version })).value;
   assert.equal(onHand(h, protector), 18);
   repair = (await hasib('repair_status', { repairId: repair.id, to: 'cancelled', version: repair.version })).value;

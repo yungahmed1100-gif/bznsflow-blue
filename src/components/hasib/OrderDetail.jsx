@@ -109,7 +109,8 @@ export function OrderDetail({ s, h, pack, business, orderId, timezone, onClose, 
           </section>}
           {order.notes && <p className="ld-help"><bdi>{order.notes}</bdi></p>}
           {order.flags?.map(f => <p key={f} className="hb-flag" role="note">{h.t(`flag_${f}`)}</p>)}
-          {!order.linkedJobId && nextStatuses(order.status).length > 0 && (
+          {order.kind === 'repair' && <p className="ld-help"><a className="ld-link" href="?tab=service">{h.t('repairOrderHelp')}</a></p>}
+          {!order.linkedJobId && order.kind !== 'repair' && nextStatuses(order.status).length > 0 && (
             <div className="ld-actions" role="group" aria-label={h.t('moveTo')}>
               {['delivered', 'completed'].includes(order.status) && onExchange && (
                 <button type="button" className="ld-button ld-quiet" disabled={!!busy} onClick={exchange} title={h.t('exchangeHelp')} aria-describedby="hb-exchange-help">{h.t('exchange')}</button>
@@ -121,7 +122,7 @@ export function OrderDetail({ s, h, pack, business, orderId, timezone, onClose, 
               ))}
             </div>
           )}
-          {!order.linkedJobId && ['delivered', 'completed'].includes(order.status) && onExchange && <p id="hb-exchange-help" className="ld-help">{h.t('exchangeHelp')}</p>}
+          {!order.linkedJobId && order.kind !== 'repair' && ['delivered', 'completed'].includes(order.status) && onExchange && <p id="hb-exchange-help" className="ld-help">{h.t('exchangeHelp')}</p>}
           {order.linkedJobId && <a className="ld-button" href={`?tab=orders&job=${order.linkedJobId}`}>{h.ar ? 'حدّث الحالة في الأعمال' : 'Update status in Jobs'}</a>}
           {confirming && <div className="hb-confirm" role="alertdialog" aria-labelledby="hb-confirm-text">
             <p id="hb-confirm-text">{h.t(confirming === 'cancelled' ? 'cancelConfirm' : 'returnConfirm', { number: order.number })}</p>

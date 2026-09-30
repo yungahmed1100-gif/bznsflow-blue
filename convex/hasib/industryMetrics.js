@@ -7,6 +7,26 @@ const DAY = 86400000, SCAN = 3000;
 const sum = (rows, fn) => rows.reduce((n, r) => n + fn(r), 0);
 const active = r => !['cancelled', 'returned'].includes(r.status);
 const completed = r => ['completed', 'delivered'].includes(r.status);
+/** Phones age per IMEI (lots are consumed oldest-first whichever unit sold); other stock ages by lot. */
+async function agedTechUnits(ctx, accountId, agingLots, cutoff) {
+  const items = await ctx.db.query('hasibItems').withIndex('by_account_archived_updated', q => q.eq('accountId', accountId).eq('archived', false)).take(SCAN);
+  const liveItems = new Set(items.map(i => String(i._id))), serializedItems = new Set(items.filter(i => i.serialized).map(i => String(i._id)));
+  let aged = 0;
+  const variantItem = new Map();
+  for (const lot of agingLots) {
+    if (!variantItem.has(lot.variantId)) variantItem.set(lot.variantId, String((await ctx.db.get(lot.variantId))?.itemId));
+    const itemId = variantItem.get(lot.variantId);
+    if (liveItems.has(itemId) && !serializedItems.has(itemId)) aged += lot.remainingQty;
+  }
+  for (const item of items.filter(i => i.serialized)) {
+    for (const variant of await ctx.db.query('hasibVariants').withIndex('by_item', q => q.eq('itemId', item._id)).take(250)) {
+      if (variant.archived) continue;
+      const units = await ctx.db.query('hasibSerials').withIndex('by_variant_status', q => q.eq('variantId', variant._id).eq('status', 'in_stock')).take(500);
+      aged += units.filter(u => u.accountId === accountId && u.receivedAt <= cutoff).length;
+    }
+  }
+  return aged;
+}
 export async function industryMetrics(ctx, tenant, now, range, food) {
   const { accountId, pack } = tenant, settings = await settingsFor(ctx, accountId);
   const values = {}, actions = [];
@@ -16,12 +36,14 @@ export async function industryMetrics(ctx, tenant, now, range, food) {
   const orders = await scan('hasibOrders');
   const sold = orders.filter(o => completed(o) && o.createdAt >= range.from && o.createdAt < range.to);
   if (['retail','retail-tech'].includes(pack.id)) {
-    const lots = await scan('hasibStockLots'), aging = lots.filter(l => l.remainingQty > 0 && l.createdAt <= now - (settings.unsoldDays ?? 60) * DAY);
-    put('unsold_stock', sum(aging, l => l.remainingQty));
+    const cutoff = now - (settings.unsoldDays ?? 60) * DAY;
+    const lots = await scan('hasibStockLots'), aging = lots.filter(l => l.remainingQty > 0 && l.createdAt <= cutoff);
+    // A sale counts once stock has left, as in Insights: confirmed onwards, never pending or reversed.
+    const inPeriod = await ctx.db.query('hasibOrders').withIndex('by_account_created', q => q.eq('accountId', accountId).gte('createdAt', range.from).lt('createdAt', range.to)).take(SCAN);
+    const sales = inPeriod.filter(o => active(o) && o.status !== 'pending');
+    if (pack.id === 'retail') put('unsold_stock', sum(aging, l => l.remainingQty));
+    else put('unsold_stock', await agedTechUnits(ctx, accountId, aging, cutoff));
     if (pack.id === 'retail') {
-      // A sale counts once stock has left, as in Insights: confirmed onwards, never pending or reversed.
-      const inPeriod = await ctx.db.query('hasibOrders').withIndex('by_account_created', q => q.eq('accountId', accountId).gte('createdAt', range.from).lt('createdAt', range.to)).take(SCAN);
-      const sales = inPeriod.filter(o => active(o) && o.status !== 'pending');
       const variants = new Map();
       for (const o of sales) for (const l of o.lines) if (l.variantId) {
         const old = variants.get(l.variantId) || { qty: 0, name: l.name };
@@ -34,12 +56,11 @@ export async function industryMetrics(ctx, tenant, now, range, food) {
       const late = orders.filter(o => active(o) && !completed(o) && o.fulfilment?.dueAt < now);
       if (late.length) actions.push({ id:'late_alterations',textEn:`${late.length} orders are past their promised time`,textAr:`${late.length} طلبات تجاوزت الموعد المحدد`,actionEn:'Open late order',actionAr:'افتح الطلب المتأخر',go:['orders',{order:late[0]._id}] });
     } else {
-      const deviceLines = sold.flatMap(o => orderProfit(o).lines).filter(x => x.l.serialized);
+      const deviceLines = sales.flatMap(o => orderProfit(o).lines).filter(x => x.l.serialized);
       put('device_profit', deviceLines.length && deviceLines.every(x => x.costKnown) ? Math.round(sum(deviceLines,x=>x.revenue-x.cost)/sum(deviceLines,x=>x.l.qty)) : null, 'money');
       const repairs = await scan('hasibRepairs');
-      put('overdue_repairs', repairs.filter(r => !['collected','cancelled'].includes(r.status) && r.dueAt < now).length);
-      const ready = repairs.filter(r => r.status === 'ready');
-      if (ready.length) actions.push({id:'ready_devices',textEn:`${ready.length} devices are ready for collection`,textAr:`${ready.length} أجهزة جاهزة للاستلام`,actionEn:'Open repair',actionAr:'افتح الإصلاح',go:['service',{repair:ready[0]._id}]});
+      // Ready repairs are finished work, listed once under Needs you; overdue means still being worked on.
+      put('overdue_repairs', repairs.filter(r => !['ready','collected','cancelled'].includes(r.status) && r.dueAt < now).length);
     }
   }
   if (['restaurant','cafe','cakes'].includes(pack.id)) {

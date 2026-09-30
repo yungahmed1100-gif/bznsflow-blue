@@ -70,6 +70,7 @@ import type * as hasib_requestsState from "../hasib/requestsState.js";
 import type * as hasib_restaurantState from "../hasib/restaurantState.js";
 import type * as hasib_serialsState from "../hasib/serialsState.js";
 import type * as hasib_shared from "../hasib/shared.js";
+import type * as hasib_staffPolicy from "../hasib/staffPolicy.js";
 import type * as hasib_stock from "../hasib/stock.js";
 import type * as hasib_stockSync from "../hasib/stockSync.js";
 import type * as hasib_todayState from "../hasib/todayState.js";
@@ -152,6 +153,7 @@ declare const fullApi: ApiFromModules<{
   "hasib/restaurantState": typeof hasib_restaurantState;
   "hasib/serialsState": typeof hasib_serialsState;
   "hasib/shared": typeof hasib_shared;
+  "hasib/staffPolicy": typeof hasib_staffPolicy;
   "hasib/stock": typeof hasib_stock;
   "hasib/stockSync": typeof hasib_stockSync;
   "hasib/todayState": typeof hasib_todayState;

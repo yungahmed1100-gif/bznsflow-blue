@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { hasib } from '../../lib/dashboard/api';
 import { useDebounced, usePolling } from '../../hooks/usePolling';
+import { normSerial } from '../../../convex/hasib/serialFormat.js';
 import { parseAmount, formatMinor } from '../../../convex/hasib/money.js';
 import { zonedLocalToUtc } from '../../lib/timezone';
 import { orderTotals } from '../../../convex/hasib/totals.js';
@@ -32,23 +33,26 @@ function previewTotals(lines, feeMinor, settings) {
 /** Pick the exact units (IMEIs) sold on a line: tap one in stock, or scan/type it. */
 export function SerialPicker({ h, variantId, picked, onChange }) {
   const [unitAges, setUnitAges] = useState({});
-  const [units, setUnits] = useState([]), [typed, setTyped] = useState(''), [miss, setMiss] = useState(false);
+  const [units, setUnits] = useState([]), [typed, setTyped] = useState(''), [miss, setMiss] = useState(false), [loadError, setLoadError] = useState(''), [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let live = true;
-    hasib('serials', { variantId }).then(r => { if (live) { setUnits(r.items.map(u => u.serial)); setUnitAges(Object.fromEntries(r.items.map(u => [u.serial, u.daysInStock]))); } }).catch(() => {});
+    setLoadError('');
+    hasib('serials', { variantId }).then(r => { if (live) { setUnits(r.items.map(u => u.serial)); setUnitAges(Object.fromEntries(r.items.map(u => [u.serial, u.daysInStock]))); } })
+      .catch(err => { if (live) setLoadError(h.reason(err.reason) || h.t('serialsLoadFailed')); });
     return () => { live = false; };
-  }, [variantId]);
+  }, [variantId, attempt, h]);
   const toggle = serial => onChange(picked.includes(serial) ? picked.filter(x => x !== serial) : [...picked, serial]);
   const addTyped = e => {
     e.preventDefault();
-    const serial = typed.toUpperCase().replace(/[\s-]/g, '');
+    const serial = normSerial(typed);
     if (units.includes(serial)) { if (!picked.includes(serial)) onChange([...picked, serial]); setTyped(''); setMiss(false); } else setMiss(true);
   };
   return (
     <div className="hb-serial-picker">
-      {!units.length ? <p className="ld-help">{h.t('noImeis')}</p> : (
+      {loadError ? <div className="ld-inline-error" role="alert">{loadError} <button type="button" className="ld-link" onClick={() => setAttempt(n => n + 1)}>{h.t('retry')}</button></div>
+        : !units.length ? <p className="ld-help">{h.t('noImeis')}</p> : (
         <ul className="hb-serial-chips" role="list" aria-label={h.t('pickImeis')}>
-          {units.map(u => <li key={u}><button type="button" aria-pressed={picked.includes(u)} onClick={() => toggle(u)}><bdi dir="ltr">{u}</bdi>{Number.isInteger(unitAges[u]) && <small> · {h.ar ? `${unitAges[u]} يوم في المخزون` : `${unitAges[u]} days in stock`}</small>}</button></li>)}
+          {units.map(u => <li key={u}><button type="button" aria-pressed={picked.includes(u)} onClick={() => toggle(u)}><bdi dir="ltr">{u}</bdi>{Number.isInteger(unitAges[u]) && <small> · {h.t('daysInStockShort', { count: unitAges[u] })}</small>}</button></li>)}
         </ul>
       )}
       <div className="hb-serial-scan">

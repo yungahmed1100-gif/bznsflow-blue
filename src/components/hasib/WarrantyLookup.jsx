@@ -8,7 +8,7 @@ export function WarrantyLookup({ s, h, timezone, onOpenRepair }) {
   const date = ms => formatDateTime(ms, s.lang, timezone).split(',')[0];
   const lookup = async e => {
     e.preventDefault();
-    if (!serial.trim()) return;
+    if (!serial.trim() || busy) return;
     setBusy(true); setError(''); setResult(null);
     try { setResult(await hasib('serial_lookup', { serial: serial.trim() })); }
     catch (err) { setError(err.reason === 'serial_not_found' ? h.t('notFound') : h.reason(err.reason) || s.reason(err.reason)); } finally { setBusy(false); }
@@ -21,12 +21,12 @@ export function WarrantyLookup({ s, h, timezone, onOpenRepair }) {
         <input aria-label={h.t('lookupPlaceholder')} placeholder={h.t('lookupPlaceholder')} dir="ltr" value={serial} onChange={e => setSerial(e.target.value)} autoComplete="off" spellCheck={false} />
         <button type="submit" className="ld-button ld-primary ld-compact" disabled={busy}>{h.t('lookup')}</button>
       </form>
-      {error && <p className="ld-help" role="status">{error}</p>}
+      {error && <p className="ld-inline-error" role="alert">{error}</p>}
       {result && (
         <div className="hb-lookup-result" role="status">
           {result.item && <p><strong><bdi>{h.name(result.item)}</bdi></strong>{result.options.length ? ` — ${result.options.map(o => o.value).join(' / ')}` : ''}</p>}
           <p><bdi dir="ltr" className="ld-num">{result.serial}</bdi>{result.status && <span className="ld-chip">{h.t(`st_serial_${result.status}`)}</span>}{result.source && <span className="ld-help"> · {h.t(`src_${result.source}`)}</span>}</p>
-          {Number.isSafeInteger(result.daysInStock) && <p>{result.status === 'sold' ? (s.ar ? 'أيام بقاء الجهاز قبل البيع' : 'Days held before sale') : (s.ar ? 'أيام بقاء الجهاز في المخزون' : 'Days in stock')}: <bdi>{new Intl.NumberFormat(s.ar ? 'ar-OM' : 'en-OM').format(result.daysInStock)}</bdi></p>}
+          {Number.isSafeInteger(result.daysInStock) && <p>{h.t(result.status === 'sold' ? 'daysHeldBeforeSale' : 'daysInStockLabel')}: <bdi className="ld-num">{result.daysInStock}</bdi></p>}
           {result.soldAt && <p>{h.t('soldOn', { date: date(result.soldAt) })}{result.order ? ` · ${h.t('orderNumber', { number: result.order.number })}` : ''}{result.customer ? <> · <bdi>{result.customer}</bdi></> : null}</p>}
           {result.status === 'sold' && (w.until
             ? <p className={`hb-warranty ${w.active ? 'is-active' : 'is-ended'}`}>{w.active ? h.t('warrantyActive', { date: date(w.until), days: w.daysLeft }) : h.t('warrantyExpired', { date: date(w.until) })}{w.by ? ` · ${h.t(`wb_${w.by}`)}` : ''}</p>

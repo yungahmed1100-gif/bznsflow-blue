@@ -110,12 +110,14 @@ export async function seedTech({ m, tenant, call, hasib, executeMessaging, DAY, 
     if (deposit) await hasib('payment_record', { requestId: randomUUID(), orderId: r.order.id, amountMinor: deposit, method: 'cash' }, t + HOUR);
     for (const [i, to] of steps.entries()) {
       if (to === 'quote') { r = await hasib('repair_update', { repairId: r.id, version: r.version, ...(labour !== undefined ? { labourMinor: labour } : {}), parts: parts.map(([v, qty]) => ({ variantId: v.id, qty })) }, t + (i + 2) * HOUR); continue; }
+      // Work starts only once the customer approves the quote.
+      if (to === 'approve') { r = await hasib('repair_approval', { repairId: r.id, version: r.version, approvedBy: `${fields.customerName} (in store)` }, t + (i + 2) * HOUR); continue; }
       r = await hasib('repair_status', { repairId: r.id, to, version: r.version }, t + (i + 2) * HOUR);
-      if (to === 'collected') await hasib('payment_record', { requestId: randomUUID(), orderId: r.order.id, amountMinor: r.order.balanceMinor, method: 'card' }, t + (i + 3) * HOUR);
+      if (to === 'collected' && r.order.balanceMinor > 0) await hasib('payment_record', { requestId: randomUUID(), orderId: r.order.id, amountMinor: r.order.balanceMinor, method: 'card' }, t + (i + 3) * HOUR);
     }
   });
-  repair(17, { device: 'iPhone 14 Pro', serial: '353251600000011', fault: 'Cracked screen', customerName: 'Saif', quoteMinor: 20000 }, ['diagnosing', 'quote', 'ready', 'collected'], { labour: 20000, parts: [[screen[0], 1]], deposit: 20000 });
-  repair(4, { device: 'Galaxy A54', serial: '353251600000029', fault: 'Charging port loose', customerName: 'Mona', quoteMinor: 12000 }, ['diagnosing', 'repairing', 'ready'], { deposit: 5000 });
+  repair(17, { device: 'iPhone 14 Pro', serial: '353251600000011', fault: 'Cracked screen', customerName: 'Saif', quoteMinor: 20000 }, ['diagnosing', 'quote', 'approve', 'ready', 'collected'], { labour: 20000, parts: [[screen[0], 1]], deposit: 20000 });
+  repair(4, { device: 'Galaxy A54', serial: '353251600000029', fault: 'Charging port loose', customerName: 'Mona', quoteMinor: 12000 }, ['diagnosing', 'approve', 'repairing', 'ready'], { deposit: 5000 });
   repair(2, { device: 'iPhone 12', fault: 'Battery drains fast', accessories: 'Case, charger', customerName: 'Rashid', quoteMinor: 15000 }, ['diagnosing', 'waiting_parts']);
   repair(0.5, { device: 'iPad Air', fault: 'Does not power on', customerName: 'Laila', quoteMinor: 0 }, ['diagnosing']);
   events.push({ t: at(0.3), run: async () => {

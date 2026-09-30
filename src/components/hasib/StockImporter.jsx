@@ -117,7 +117,7 @@ export function StockImporter({ s, h, pack, onClose, onImported }) {
   const save = async () => {
     setStep('saving'); setError('');
     const batches = importBatches(preview.products);
-    const total = preview.products.length, outcome = { created: 0, updated: 0, failed: [], items: [], notSaved: 0 };
+    const total = preview.products.length, outcome = { created: 0, updated: 0, failed: [], items: [], notSaved: 0, serialNotes: [] };
     let offset = 0;
     try {
       for (const batch of batches) {
@@ -128,6 +128,7 @@ export function StockImporter({ s, h, pack, onClose, onImported }) {
           const product = preview.products[offset + x.index];
           if (x.status === 'failed') outcome.failed.push({ name: h.name(product), reason: x.reason });
           else outcome.items.push({ itemId: x.itemId, product });
+          if (x.warning || x.skippedSerials) outcome.serialNotes.push({ name: h.name(product), reason: x.warning, skipped: x.skippedSerials || 0 });
         }
         offset += batch.length;
       }
@@ -193,6 +194,10 @@ export function StockImporter({ s, h, pack, onClose, onImported }) {
             {!!result.failed.length && (
               <div className="hb-import-issues"><p>{h.t('importFailedList', { count: result.failed.length })}</p>
                 <ul>{result.failed.slice(0, ISSUE_ROWS).map((f, i) => <li key={i}><bdi>{f.name}</bdi> — {h.reason(f.reason) || h.t('actionFailed')}</li>)}</ul></div>
+            )}
+            {!!result.serialNotes?.length && (
+              <div className="hb-import-issues"><p>{h.t('importSerialNotes', { count: result.serialNotes.length })}</p>
+                <ul>{result.serialNotes.slice(0, ISSUE_ROWS).map((n, i) => <li key={i}><bdi>{n.name}</bdi> — {n.reason ? h.reason(n.reason) || h.t('actionFailed') : h.t('importSerialsSkipped', { count: n.skipped })}</li>)}</ul></div>
             )}
             {!!result.items.length && (
               <div className="hb-photo-actions">

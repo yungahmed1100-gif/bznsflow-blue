@@ -162,12 +162,14 @@ try {
           // Keyboard activation verifies the primary action and modal focus.
           await page.locator('.hb-today .hb-action-card.is-primary').focus(); await page.keyboard.press('Enter');
           const dialog = page.getByRole('dialog'); await dialog.waitFor();
-          assert.ok(new URL(page.url()).searchParams.get('tab') === 'orders');
+          // The primary quick action opens its own section (Orders for most packs, Service for a phone shop's New repair).
+          const primaryTab = pack.dashboard.actions[0][4][0];
+          assert.equal(new URL(page.url()).searchParams.get('tab'), primaryTab);
           assert.ok(await dialog.evaluate(el => el.contains(document.activeElement)), 'modal owns keyboard focus');
           await owner.noOverflow('Work form');
           if (width === 320) { await owner.screenshot(`${name}-work-form`); await owner.accessible('.ld-dialog'); }
           await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'detached' });
-          assert.ok((await page.locator('h1').textContent()).includes(pack.ownerUi.work[lang]));
+          assert.ok((await page.locator('h1').textContent()).includes(primaryTab === 'service' ? owner.h.t('service') : pack.ownerUi.work[lang]));
           await owner.noOverflow('Work');
           await owner.open('insights'); await page.locator('.hb-money-summary').waitFor();
           assert.equal(await page.locator('.hb-money-summary .hb-tile').count(), 3);
@@ -232,9 +234,9 @@ try {
         await owner.open('service');
         await page.getByRole('button', { name: owner.h.t('repairNumber', { number: repair.number }), exact: true }).click();
         const dialog = page.getByRole('dialog');
-        const name = lang === 'en' ? 'Name of customer who approved' : 'اسم العميل الذي وافق';
+        const name = owner.h.t('approvedByLabel');
         await dialog.getByLabel(name).fill('Browser customer');
-        await save(page, 'repair_approval', () => dialog.getByRole('button', { name: lang === 'en' ? 'Record customer approval' : 'تسجيل موافقة العميل', exact: true }).click());
+        await save(page, 'repair_approval', () => dialog.getByRole('button', { name: owner.h.t('recordApproval'), exact: true }).click());
         await dialog.getByText('Browser customer', { exact: true }).waitFor();
         const approved = await api('repair', { repairId: repair.id }); assert.equal(approved.approvalStatus, 'approved');
         await dialog.getByLabel(owner.h.t('labour')).fill(String(approved.labourMinor / 1000 + 1));
@@ -247,7 +249,7 @@ try {
         const serial = (await api('serials', { variantId: stock.variants[0].id, status: 'in_stock' })).items[0].serial;
         await page.getByLabel(owner.h.t('lookupPlaceholder')).fill(serial);
         await save(page, 'serial_lookup', () => page.getByRole('button', { name: owner.h.t('lookup'), exact: true }).click());
-        await page.getByText(lang === 'en' ? /Days in stock/ : /أيام بقاء الجهاز في المخزون/).waitFor();
+        await page.getByText(owner.h.t('daysInStockLabel')).first().waitFor();
       }, lang);
       if (packId === 'beauty') await journey('beauty-book-complete-pay', async (page, owner) => {
         const summary = (await api('orders')).items.find(order => order.balanceMinor > 0);

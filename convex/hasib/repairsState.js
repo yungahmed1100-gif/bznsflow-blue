@@ -27,7 +27,7 @@ async function publicRepair(ctx, r, { detail = false } = {}) {
 async function warrantyFor(ctx, accountId, serial, now) {
   if (!serial) return { underWarranty: false };
   const row = await ctx.db.query('hasibSerials').withIndex('by_account_serial', q => q.eq('accountId', accountId).eq('serial', serial)).unique();
-  const active = row?.status === 'sold' && row.warrantyUntil > now;
+  const active = row?.status === 'sold' && row.warrantyUntil > now && row.warrantyBy !== 'none';
   return { underWarranty: !!active, ...(active ? { warrantyBy: row.warrantyBy } : {}) };
 }
 
@@ -82,6 +82,9 @@ async function moveRepair(ctx, tenant, a, now) {
   if (error) return fail(error);
   if (a.version === undefined) return fail('repair_conflict');
   if (!isRepairStatus(a.to) || !canRepairTransition(repair.status, a.to)) return fail('invalid_transition');
+  // Work starts only once the customer has approved the quote; a free warranty repair needs no approval.
+  const free = repair.underWarranty && order.totalMinor === 0;
+  if (['repairing', 'ready'].includes(a.to) && repair.approvalStatus !== 'approved' && !free) return fail('approval_required');
   const target = ORDER_FOR_REPAIR[a.to];
   if (target && order.status !== target) {
     const moved = await changeStatus(ctx, tenant.accountId, { orderId: order._id, to: target, version: order.version }, now);

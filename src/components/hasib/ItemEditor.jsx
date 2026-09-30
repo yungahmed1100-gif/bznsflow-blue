@@ -106,9 +106,10 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive, staf
         {serialsModule && form.kind === 'product' && form.trackStock && (
           <div className="hb-grid-2">
             <label className="ld-check"><input type="checkbox" checked={form.serialized} disabled={!!item} onChange={e => setForm({ ...form, serialized: e.target.checked })} /> {h.t('serialized')}</label>
-            <label className="ld-field">{h.t('warrantyBy')}<select value={form.warrantyBy} onChange={e => setForm({ ...form, warrantyBy: e.target.value })}>
+            {form.serialized && <p className="ld-help">{h.t('imeiReceiveHint')}</p>}
+            <label className="ld-field">{h.t('warrantyBy')}<select value={form.warrantyBy} disabled={staff} onChange={e => setForm({ ...form, warrantyBy: e.target.value })}>
               {['store', 'agent', 'none'].map(w => <option key={w} value={w}>{h.t(`wb_${w}`)}</option>)}</select></label>
-            {form.warrantyBy !== 'none' && <label className="ld-field">{h.t('warrantyMonths')}<input className="hb-qty" inputMode="numeric" value={form.warrantyMonths} onChange={e => setForm({ ...form, warrantyMonths: e.target.value.replace(/\D/g, '').slice(0, 2) })} /></label>}
+            {form.warrantyBy !== 'none' && <label className="ld-field">{h.t('warrantyMonths')}<input className="hb-qty" inputMode="numeric" value={form.warrantyMonths} readOnly={staff} onChange={e => setForm({ ...form, warrantyMonths: e.target.value.replace(/\D/g, '').slice(0, 2) })} /></label>}
           </div>
         )}
         <fieldset className="ld-fieldset">

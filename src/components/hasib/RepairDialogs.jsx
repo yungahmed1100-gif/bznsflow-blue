@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { hasib } from '../../lib/dashboard/api';
+import { useDebounced } from '../../hooks/usePolling';
 import { formatDateTime } from '../../lib/dashboard/format';
 import { parseAmount, formatMinor } from '../../../convex/hasib/money.js';
 import { dayNoon, validDate } from '../../../convex/hasib/period.js';
@@ -50,36 +51,62 @@ export function RepairForm({ s, h, timezone, onClose, onSaved }) {
   );
 }
 
-/** Quote and parts, editable until the device is ready. Parts come from non-IMEI stock. */
-function QuoteEditor({ s, h, repair, onSaved }) {
-  const [labour, setLabour] = useState(formatMinor(repair.labourMinor));
-  const [parts, setParts] = useState(repair.parts.map(p => ({ ...p, key: p.variantId })));
-  const [options, setOptions] = useState([]), [busy, setBusy] = useState(false), [error, setError] = useState('');
+/** Search non-IMEI stock for a part; IMEI units are sold on their own order. */
+function PartSearch({ h, onPick }) {
+  const [text, setText] = useState(''), [results, setResults] = useState([]), [error, setError] = useState('');
+  const query = useDebounced(text.trim(), 250);
   useEffect(() => {
-    hasib('items', { limit: 50 }).then(r => setOptions(r.items.filter(i => i.kind === 'product' && !i.serialized).flatMap(i => i.variants.map(v => ({ id: v.id, label: `${h.name(i)}${v.options.length ? ` — ${v.options.map(o => o.value).join(' / ')}` : ''}`, onHand: v.onHand })))))
-      .catch(err => setError(h.reason(err.reason) || s.reason(err.reason)));
-  }, [h, s]);
+    let live = true;
+    if (!query) { setResults([]); return undefined; }
+    setError('');
+    hasib('items', { search: query, limit: 8 })
+      .then(r => { if (live) setResults(r.items.filter(i => i.kind === 'product' && !i.serialized).flatMap(i => i.variants.map(v => ({ id: v.id, label: `${h.name(i)}${v.options.length ? ` — ${v.options.map(o => o.value).join(' / ')}` : ''}`, onHand: v.onHand })))); })
+      .catch(err => { if (live) { setResults([]); setError(h.reason(err.reason) || h.t('actionFailed')); } });
+    return () => { live = false; };
+  }, [query, h]);
+  return (
+    <div className="hb-picker">
+      <label className="ld-search"><span className="ld-visually-hidden">{h.t('searchParts')}</span>
+        <input type="search" value={text} placeholder={h.t('searchParts')} onChange={e => setText(e.target.value)} /></label>
+      {error && <p className="ld-inline-error" role="alert">{error}</p>}
+      {query && text.trim() && !error && (
+        <ul className="hb-picker-list" role="list">
+          {!results.length && <li className="ld-help">{h.t('noItemsFound')}</li>}
+          {results.map(o => <li key={o.id}><button type="button" onClick={() => { onPick(o); setText(''); setResults([]); }}><span><bdi>{o.label}</bdi></span><span className="ld-help">{h.t('onHand', { count: o.onHand })}</span></button></li>)}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Quote and parts, editable until the device is ready. Saving a changed quote asks the customer to approve again. */
+function QuoteEditor({ s, h, repair, onSaved }) {
+  const nameOf = variantId => repair.order?.lines.find(l => l.variantId === variantId)?.name || '';
+  const [labour, setLabour] = useState(formatMinor(repair.labourMinor));
+  const [parts, setParts] = useState(repair.parts.map(p => ({ ...p, key: p.variantId, label: nameOf(p.variantId) })));
+  const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const labourMinor = parseAmount(labour);
   const save = async () => {
-    if (labourMinor === null) return;
+    if (labourMinor === null || busy) return;
     setBusy(true); setError('');
     try { onSaved(await hasib('repair_update', { repairId: repair.id, version: repair.version, labourMinor, parts: parts.filter(p => p.variantId && p.qty > 0).map(({ variantId, qty }) => ({ variantId, qty })) })); }
     catch (err) { setError(h.reason(err.reason) || s.reason(err.reason)); } finally { setBusy(false); }
   };
+  const add = option => setParts(ps => ps.some(p => p.variantId === option.id) ? ps.map(p => p.variantId === option.id ? { ...p, qty: p.qty + 1 } : p) : [...ps, { key: option.id, variantId: option.id, qty: 1, label: option.label }]);
   return (
     <fieldset className="ld-fieldset">
       <legend>{h.t('parts')}</legend>
       <label className="ld-field">{h.t('labour')}<input className="hb-money" inputMode="decimal" dir="ltr" value={labour} aria-invalid={labourMinor === null} onChange={e => setLabour(e.target.value)} /></label>
       {parts.map((p, i) => (
         <div key={p.key} className="hb-row">
-          <label className="ld-field">{h.t('items')}<select value={p.variantId} onChange={e => setParts(ps => ps.map((x, j) => j === i ? { ...x, variantId: e.target.value } : x))}>
-            <option value="">—</option>{options.map(o => <option key={o.id} value={o.id}>{o.label} ({h.t('onHand', { count: o.onHand })})</option>)}</select></label>
+          <span className="hb-part-name"><bdi>{p.label || '—'}</bdi></span>
           <label className="ld-field">{h.t('qty')}<input className="hb-qty" inputMode="numeric" value={p.qty} onChange={e => setParts(ps => ps.map((x, j) => j === i ? { ...x, qty: Number(e.target.value.replace(/\D/g, '').slice(0, 3)) || 0 } : x))} /></label>
           <button type="button" className="ld-icon-button" aria-label={h.t('remove')} onClick={() => setParts(ps => ps.filter((_, j) => j !== i))}><span aria-hidden="true">×</span></button>
         </div>
       ))}
+      <PartSearch h={h} onPick={add} />
+      {repair.approvalStatus === 'approved' && <p className="ld-help">{h.t('quoteResetsApproval')}</p>}
       <div className="ld-actions">
-        <button type="button" className="ld-button ld-quiet" onClick={() => setParts(ps => [...ps, { key: crypto.randomUUID(), variantId: '', qty: 1 }])}>{h.t('addPart')}</button>
         <button type="button" className="ld-button ld-primary" disabled={busy || labourMinor === null} onClick={save}>{busy ? h.t('saving') : h.t('saveQuote')}</button>
       </div>
       {error && <p className="ld-inline-error" role="alert">{error}</p>}
@@ -97,26 +124,31 @@ function RepairApproval({ s, h, repair, timezone, onSaved, onConflict }) {
     catch (e) { setError(h.reason(e.reason) || s.reason(e.reason)); if (e.reason === 'repair_conflict') onConflict(); }
     finally { setBusy(false); }
   };
-  if (repair.approvalStatus === 'approved') return <p role="status"><span className="ld-chip is-green">{s.ar ? 'وافق العميل على عرض السعر' : 'Customer approved this quote'}</span> <bdi>{repair.approvedBy}</bdi>{repair.approvedAt && <> · {formatDateTime(repair.approvedAt, s.lang, timezone)}</>}</p>;
-  if (['collected', 'cancelled'].includes(repair.status)) return <p className="ld-help">{s.ar ? 'لا توجد موافقة مسجلة' : 'No approval recorded'}</p>;
+  if (repair.approvalStatus === 'approved') return <p role="status"><span className="ld-chip is-green">{h.t('approvedQuote')}</span> <bdi>{repair.approvedBy}</bdi>{repair.approvedAt && <> · {formatDateTime(repair.approvedAt, s.lang, timezone)}</>}</p>;
+  if (['collected', 'cancelled'].includes(repair.status)) return <p className="ld-help">{h.t('noApproval')}</p>;
   return <form className="hb-move" onSubmit={approve}>
-    <p className="ld-help">{s.ar ? 'سجّل موافقة العميل على عرض السعر الحالي. تعديل السعر أو القطع يتطلب موافقة جديدة.' : 'Record the customer’s approval of this quote. Changing the quote or parts requires a new approval.'}</p>
-    <label className="ld-field">{s.ar ? 'اسم العميل الذي وافق' : 'Name of customer who approved'}<input value={approvedBy} onChange={e => setApprovedBy(e.target.value)} dir="auto" maxLength={100} required disabled={busy} /></label>
-    <button type="submit" className="ld-button ld-primary" disabled={busy || !approvedBy.trim()}>{busy ? h.t('saving') : (s.ar ? 'تسجيل موافقة العميل' : 'Record customer approval')}</button>
+    <p className="ld-help">{h.t('approvalHelp')}</p>
+    <label className="ld-field">{h.t('approvedByLabel')}<input value={approvedBy} onChange={e => setApprovedBy(e.target.value)} dir="auto" maxLength={100} required disabled={busy} /></label>
+    <button type="submit" className="ld-button ld-primary" disabled={busy || !approvedBy.trim()}>{busy ? h.t('saving') : h.t('recordApproval')}</button>
     {error && <p className="ld-inline-error" role="alert">{error}</p>}
   </form>;
 }
 
-export function RepairDetail({ s, h, repairId, timezone, onClose, onChanged }) {
-  const [repair, setRepair] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState('');
+export function RepairDetail({ s, h, repairId, timezone, onClose, onChanged, staff = false }) {
+  const [repair, setRepair] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(''), [confirming, setConfirming] = useState('');
   const load = useCallback(() => hasib('repair', { repairId }).then(setRepair).catch(e => setError(h.reason(e.reason) || s.reason(e.reason))), [repairId, h, s]);
   useEffect(() => { load(); }, [load]);
-  const move = async to => {
+  const o = repair?.order;
+  // Work starts once the customer approves; a free warranty repair needs no approval.
+  const needsApproval = repair && repair.approvalStatus !== 'approved' && !(repair.underWarranty && o?.totalMinor === 0);
+  const move = async (to, confirmed = false) => {
+    if (busy) return;
+    // Cancelling returns parts and keeps any deposit; collecting with money owed hands the device over unpaid. Both ask first.
+    if (!confirmed && (to === 'cancelled' || (to === 'collected' && o?.balanceMinor > 0))) { setConfirming(to); return; }
     setBusy(to); setError('');
-    try { await hasib('repair_status', { repairId, to, version: repair.version }); await load(); onChanged(); }
+    try { await hasib('repair_status', { repairId, to, version: repair.version }); setConfirming(''); await load(); onChanged(); }
     catch (e) { setError(h.reason(e.reason) || s.reason(e.reason)); if (e.reason === 'repair_conflict') load(); } finally { setBusy(''); }
   };
-  const o = repair?.order;
   return (
     <Dialog s={s} title={repair ? h.t('repairNumber', { number: repair.number }) : h.t('loading')} onClose={onClose} wide>
       {!repair ? <p className="ld-state" role={error ? 'alert' : 'status'}>{error || h.t('loading')}</p> : (
@@ -136,12 +168,24 @@ export function RepairDetail({ s, h, repairId, timezone, onClose, onChanged }) {
           </dl>}
           <RepairApproval key={`approval-${repair.version}`} s={s} h={h} repair={repair} timezone={timezone} onSaved={() => { load(); onChanged(); }} onConflict={load} />
           {repair.next.length > 0 && <div className="ld-actions" role="group" aria-label={h.t('moveTo')}>
-            {repair.next.map(to => <button key={to} type="button" className={`ld-button ${to === 'cancelled' ? 'ld-quiet ld-danger' : 'ld-quiet'}`} disabled={!!busy} onClick={() => move(to)}>{h.t('moveTo')}: {h.t(`rs_${to}`)}</button>)}
+            {repair.next.map(to => {
+              const blocked = needsApproval && ['repairing', 'ready'].includes(to);
+              return <button key={to} type="button" className={`ld-button ${to === 'cancelled' ? 'ld-quiet ld-danger' : 'ld-quiet'}`} disabled={!!busy || blocked} aria-describedby={blocked ? 'hb-approval-hint' : undefined} onClick={() => move(to)}>{h.t('moveTo')}: {h.t(`rs_${to}`)}</button>;
+            })}
+          </div>}
+          {needsApproval && repair.next.some(to => ['repairing', 'ready'].includes(to)) && <p id="hb-approval-hint" className="ld-help">{h.t('approvalFirst')}</p>}
+          {confirming && <div className="hb-confirm" role="alertdialog" aria-labelledby="hb-repair-confirm">
+            <p id="hb-repair-confirm">{confirming === 'cancelled' ? h.t('repairCancelConfirm', { paid: h.money(o?.paidMinor || 0) }) : h.t('repairCollectConfirm', { balance: h.money(o?.balanceMinor || 0) })}</p>
+            <div className="ld-actions">
+              <button type="button" className="ld-button ld-quiet" disabled={!!busy} onClick={() => setConfirming('')}>{h.t('keepOrder')}</button>
+              <button type="button" className={`ld-button ${confirming === 'cancelled' ? 'ld-danger' : 'ld-primary'}`} disabled={!!busy} onClick={() => move(confirming, true)}>{h.t('moveTo')}: {h.t(`rs_${confirming}`)}</button>
+            </div>
           </div>}
           {error && <p className="ld-inline-error" role="alert">{error}</p>}
-          {o && !['collected', 'cancelled'].includes(repair.status) && <section className="hb-payments" aria-label={h.t('payments')}>
+          {o && <section className="hb-payments" aria-label={h.t('payments')}>
             {o.payments?.length > 0 && <ul className="ld-list">{o.payments.map(p => <li key={p.id}><Money h={h} minor={p.amountMinor} /> · {h.t(`pm_${p.method}`)}</li>)}</ul>}
-            <PaymentForm h={h} order={o} onRecorded={() => { load(); onChanged(); }} />
+            {/* Money owed can still be taken after collection; a cancelled ticket only takes a manager's refund. */}
+            {(repair.status !== 'cancelled' ? (o.balanceMinor > 0 || !['collected'].includes(repair.status)) : !staff && o.paidMinor > 0) && <PaymentForm h={h} order={o} canRefund={!staff} onRecorded={() => { load(); onChanged(); }} />}
           </section>}
         </div>
       )}

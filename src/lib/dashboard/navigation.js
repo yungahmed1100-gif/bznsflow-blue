@@ -13,7 +13,7 @@ const ALIASES = {
   contacts: ['customers', 'contacts'], broadcast: ['customers', 'broadcast'],
   channels: ['settings', 'channels'], business: ['settings', 'business'],
 };
-const TEAM_PACKS = ['retail', 'real-estate', 'clinic', 'construction', 'automotive'];
+const TEAM_PACKS = ['retail', 'retail-tech', 'real-estate', 'clinic', 'construction', 'automotive'];
 export const SECTION_ORDER = ['today', 'chats', 'orders', 'stock', 'service', 'money', 'customers', 'team', 'settings'];
 
 /**

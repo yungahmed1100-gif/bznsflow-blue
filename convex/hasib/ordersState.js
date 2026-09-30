@@ -121,6 +121,9 @@ export async function createOrder(ctx, tenant, a, now, { internal = false } = {}
   let lines, totals, serialPlan;
   try {
     lines = await resolveLines(ctx, accountId, a.lines);
+    // IMEI units are picked per line; one product on two lines would share them, so it goes on one line.
+    const serializedVariants = lines.filter(l => l.serialized).map(l => String(l.variantId));
+    if (new Set(serializedVariants).size !== serializedVariants.length) return fail('duplicate_line');
     if (recipeDriven) lines = await costLinesForRecipes(ctx, accountId, lines);
     else if (lines.some(l => l.modifierKeys?.length)) return fail('invalid_modifier');
     totals = orderTotals({ lines, deliveryFeeMinor: a.deliveryFeeMinor || 0, vat: vatOf(settings) });
@@ -148,7 +151,7 @@ export async function createOrder(ctx, tenant, a, now, { internal = false } = {}
     subtotalMinor: totals.subtotalMinor, discountMinor: totals.discountMinor, deliveryMinor: totals.deliveryMinor, vatMinor: totals.vatMinor, totalMinor: totals.totalMinor,
     pricesIncludeVat: settings.vatRegistered && settings.pricesIncludeVat, paidMinor: 0, paymentStatus: paymentStatus(totals.totalMinor, 0),
     fulfilment: input.fulfilment, customFields: input.customFields, ...(input.notes ? { notes: input.notes } : {}), stockShort: short,
-    history: [{ status, at: now }], ...(a.kind ? { kind: a.kind } : {}), ...(internal && a.source ? { source: a.source } : {}), ...(internal && a.flags?.length ? { flags: a.flags } : {}), version: 1, createdAt: now, updatedAt: now });
+    history: [{ status, at: now }], ...(a.kind && (internal || a.kind !== 'repair') ? { kind: a.kind } : {}), ...(internal && a.source ? { source: a.source } : {}), ...(internal && a.flags?.length ? { flags: a.flags } : {}), version: 1, createdAt: now, updatedAt: now });
   await commitOrderSerials(ctx, serialPlan, { orderId: id, sold, contactId: who.contact?._id, lines: snapshot, now });
   if (sold) await applyOrderStock(ctx, accountId, id, snapshot, -1, now, recipeDriven, lotAware);
   return ok(await publicOrder(ctx, await ctx.db.get(id)));
@@ -163,9 +166,6 @@ export async function changeStatus(ctx, accountId, a, now, recipeDriven = false,
   if (recipeDriven && stockDelta > 0 && !['restock', 'discard'].includes(a.disposition)) return fail('food_disposition_required');
   if (a.disposition !== undefined && stockDelta <= 0) return fail('invalid_disposition');
   const effect = recipeDriven && stockDelta > 0 && a.disposition === 'discard' ? 0 : stockDelta;
-  if (effect < 0 && order.lines.some(l => l.serialized)) {
-    try { await reserveMissingSerials(ctx, order, a.lineSerials, now); } catch (e) { return fail(e.reason || 'serials_required'); }
-  }
   const settings = await settingsFor(ctx, accountId);
   let lines = order.lines, short = order.stockShort;
   if (effect) {
@@ -178,6 +178,10 @@ export async function changeStatus(ctx, accountId, a, now, recipeDriven = false,
       const check = precheckStock([...stockChanges(current, -1), ...(recipeDriven ? await recipeStockChanges(ctx, accountId, current, -1) : [])], settings.stockPolicy);
       if (!check.ok) return fail(check.reason);
       short = check.short;
+      // Every refusal has run; only now are the picked IMEI units reserved, so a refused confirmation writes nothing.
+      if (order.lines.some(l => l.serialized)) {
+        try { await reserveMissingSerials(ctx, order, a.lineSerials, now); } catch (e) { return fail(e.reason || 'serials_required'); }
+      }
       // Cost of goods is fixed when stock actually leaves; a serialized unit carries its own cost.
       const units = (await orderSerialRows(ctx, order._id)).filter(r => r.accountId === accountId && r.status === 'reserved');
       lines = current.map(l => {
@@ -311,6 +315,10 @@ export async function executeOrders(ctx, tenant, a, now) {
   if (a.operation === 'order_status') {
     const job = await ctx.db.query('hasibJobs').withIndex('by_order',q=>q.eq('orderId',a.orderId)).first();
     if (job?.accountId === accountId) return fail('use_job_status');
+    // A repair's money lives on its order, but the order moves only with the repair ticket.
+    // Only createRepair (server code) can make a repair order, always together with its ticket.
+    const linked = await owned(ctx, a.orderId, accountId, 'hasibOrders');
+    if (linked?.kind === 'repair') return fail('use_repair_status');
     return changeStatus(ctx, accountId, a, now, tenant.pack.modules.recipes === 'available', tenant.pack.modules.shelfLife === 'available');
   }
   if (a.operation === 'orders') return listOrders(ctx, accountId, a);

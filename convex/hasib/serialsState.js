@@ -9,13 +9,9 @@ import { ok, fail, bounded, REQUEST_ID, byRequest, nextNumber, writeMove } from 
 const DAY = 86400000;
 export const TRADE_IN_METHODS = ['cash', 'card', 'bank_transfer', 'other'];
 export const WARRANTY_BY = ['store', 'agent', 'none'];
-const ACTIVE = new Set(['in_stock', 'reserved']);
 
-/** IMEIs are written with spaces and dashes; stored as uppercase letters and digits only. */
-export function normSerial(value) {
-  const s = String(value ?? '').toUpperCase().replace(/[\s-]/g, '');
-  return /^[A-Z0-9]{4,30}$/.test(s) ? s : null;
-}
+import { normSerial } from './serialFormat.js';
+export { normSerial };
 /** 12 months = 365 days from the sale; shorter or longer terms scale the same way. */
 export const warrantyEnd = (soldAt, months) => soldAt + Math.round((months * 365 * DAY) / 12);
 
@@ -31,11 +27,16 @@ function serialList(raw, expected) {
   return list;
 }
 
-/** Receive new units (purchase or trade-in). A unit sold or written off earlier may come back. */
+/**
+ * Receive new units (purchase or trade-in). A unit written off earlier may come back; a unit
+ * sold or reserved may not, because its sale (and warranty) must stay on record. A customer's
+ * return goes through the order's Return, which puts the unit back in stock.
+ */
 export async function receiveSerials(ctx, { accountId, variant, serials, costMinor, source, note, now }) {
   for (const serial of serials) {
     const existing = await serialRow(ctx, accountId, serial);
-    if (existing && ACTIVE.has(existing.status)) throw { reason: 'duplicate_serial' };
+    if (existing?.status === 'in_stock') throw { reason: 'duplicate_serial' };
+    if (existing && ['sold', 'reserved'].includes(existing.status)) throw { reason: 'serial_sold' };
   }
   for (const serial of serials) {
     const existing = await serialRow(ctx, accountId, serial);

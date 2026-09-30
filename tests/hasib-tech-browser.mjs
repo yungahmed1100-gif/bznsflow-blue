@@ -52,7 +52,8 @@ try {
     await dialog.getByPlaceholder(T.en.search).fill('Galaxy');
     await dialog.locator('.hb-picker-list button').first().click();
     const chip = dialog.locator('.hb-serial-chips button').first();
-    const serial = (await chip.textContent()).trim();
+    // The chip shows the IMEI and its age in stock; the IMEI itself is the <bdi>.
+    const serial = (await chip.locator('bdi').textContent()).trim();
     assert.equal(await dialog.getByRole('button', { name: T.en.save }).isDisabled(), true, 'cannot save a phone line without an IMEI'); count++;
     await chip.click();
     assert.equal(await chip.getAttribute('aria-pressed'), 'true'); count++;
@@ -79,7 +80,7 @@ try {
   {
     const partBefore = (await api('items', { search: 'screen' })).items.find(i => i.nameEn.includes('screen')).variants[0].onHand;
     const { page, context } = await open(1280, 'en', '/layla/dashboard?tab=service');
-    await page.getByRole('button', { name: T.en.newRepair }).click();
+    await page.getByRole('button', { name: T.en.newRepair }).first().click();
     let dialog = page.getByRole('dialog');
     await dialog.getByLabel('Device', { exact: true }).fill('iPhone 15 Pro');
     await dialog.getByLabel('Fault', { exact: true }).fill('Screen lines after a drop');
@@ -87,16 +88,18 @@ try {
     await dialog.getByRole('button', { name: 'Save', exact: true }).click();
     dialog = page.getByRole('dialog');
     await dialog.locator('.hb-detail').waitFor();
-    await dialog.getByRole('button', { name: 'Add part' }).click();
-    await dialog.locator('.hb-row select').first().selectOption({ label: new RegExp('screen', 'i') }).catch(async () => {
-      const value = await dialog.locator('.hb-row select option').filter({ hasText: /screen/i }).first().getAttribute('value');
-      await dialog.locator('.hb-row select').first().selectOption(value);
-    });
+    await dialog.getByPlaceholder('Search parts in stock').fill('screen');
+    await dialog.locator('.hb-picker-list button').filter({ hasText: /screen \(part\)/i }).first().click();
     await dialog.getByRole('button', { name: 'Save quote and parts' }).click();
     await page.waitForFunction(() => /87\.000/.test(document.querySelector('.ld-dialog .hb-totals')?.textContent || ''));
     count++;
     await dialog.getByRole('button', { name: 'Move to: Diagnosing' }).click();
+    // Work waits for the customer's approval of the quote.
     await dialog.getByRole('button', { name: 'Move to: Ready' }).waitFor();
+    assert.equal(await dialog.getByRole('button', { name: 'Move to: Ready' }).isDisabled(), true, 'Ready waits for approval'); count++;
+    await dialog.getByLabel('Name of the customer who approved').fill('Saif by phone');
+    await dialog.getByRole('button', { name: 'Record customer approval' }).click();
+    await dialog.getByText('Customer approved this quote').waitFor();
     await dialog.getByRole('button', { name: 'Move to: Ready' }).click();
     await dialog.getByText('Quote and parts are fixed once the device is ready.').waitFor(); count++;
     assert.deepEqual(await axe(page, '.ld-dialog'), [], 'repair axe'); count++;
@@ -106,11 +109,13 @@ try {
     await context.close();
   }
 
-  // Trade-in and change industry.
+  // Trade-in, then Money opens on its summary.
   {
     const { page, context } = await open(1280, 'en', '/layla/dashboard?tab=service');
     await page.getByRole('button', { name: T.en.tradeIn }).click();
     const dialog = page.getByRole('dialog');
+    const used = await dialog.locator('select option', { hasText: /iPhone 13/ }).first().getAttribute('value');
+    await dialog.getByLabel('Traded-in product').selectOption(used).catch(() => dialog.locator('select').first().selectOption(used));
     await dialog.getByLabel('IMEI / serial').fill('353251509999999');
     await dialog.getByLabel('Price paid (OMR)').fill('95');
     await dialog.getByRole('button', { name: 'Save', exact: true }).click();
@@ -118,11 +123,6 @@ try {
     assert.equal((await api('serial_lookup', { serial: '353251509999999' })).source, 'trade_in'); count++;
     await page.getByRole('navigation', { name: 'Dashboard sections' }).getByRole('link', { name: 'Money' }).click();
     assert.equal(await page.getByRole('navigation', { name: 'Views in this section' }).getByRole('link', { name: 'Summary' }).getAttribute('aria-current'), 'page', 'Money opens on its summary'); count++;
-    await page.getByRole('button', { name: 'Change industry' }).click();
-    const change = page.getByRole('dialog');
-    assert.ok(await change.getByRole('button', { name: /Electronics and phone store · Current/ }).isDisabled(), 'current industry shown'); count++;
-    assert.deepEqual(await axe(page, '.ld-dialog'), [], 'change industry axe'); count++;
-    await page.screenshot({ path: `${OUT}/change-industry-en.png` });
     await context.close();
   }
   console.log(`hasib tech browser: ${count} assertions passed`);

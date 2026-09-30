@@ -29,12 +29,14 @@ function itemInput(raw, pack) {
   if (serialized && (pack.modules.serials !== 'available' || raw.kind !== 'product' || raw.trackStock !== true)) return null;
   const warrantyMonths = raw.warrantyMonths ?? 0, warrantyBy = raw.warrantyBy ?? 'none';
   if (!Number.isSafeInteger(warrantyMonths) || warrantyMonths < 0 || warrantyMonths > 60 || !WARRANTY_BY.includes(warrantyBy)) return null;
+  // "No warranty" cannot carry months; zero months means no warranty whoever was named.
+  if (warrantyBy === 'none' && warrantyMonths > 0) return null;
   const nameAr = bounded(raw.nameAr ?? '', 120), nameEn = bounded(raw.nameEn ?? '', 120), category = bounded(raw.category ?? '', 60), unit = bounded(raw.unit ?? 'piece', 20);
   if ([nameAr, nameEn, category, unit].includes(null) || !(nameAr || nameEn) || typeof raw.trackStock !== 'boolean') return null;
   const catalogEntryKey = raw.catalogEntryKey ? (/^[a-f0-9-]{36}$/.test(raw.catalogEntryKey) ? raw.catalogEntryKey : null) : undefined;
   if (catalogEntryKey === null) return null;
   return { kind: raw.kind, nameAr, nameEn, category, unit: unit || 'piece', trackStock: raw.kind === 'product' && raw.trackStock, ...(catalogEntryKey ? { catalogEntryKey } : {}),
-    ...(serialized ? { serialized: true } : {}), ...(warrantyMonths ? { warrantyMonths, warrantyBy } : {}) };
+    ...(serialized ? { serialized: true } : {}), warrantyMonths, warrantyBy: warrantyMonths ? warrantyBy : 'none' };
 }
 function variantInput(raw) {
   const sku = bounded(raw?.sku ?? '', 40);
