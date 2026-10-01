@@ -141,6 +141,14 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
     setPreselect(next);
     if (prepared) discardPrepared();
   }
+  // Signed in with a setup still only in this browser: attach it to the account once, automatically,
+  // so connecting a channel is never blocked behind a button the owner has to find.
+  const claimTried = useRef(false);
+  useEffect(() => {
+    if (reviewMode || claimTried.current || busy || checking || !data?.account || data.savedToAccount || !data.profile || !data.accountSaveAvailable) return;
+    claimTried.current = true;
+    run({ action: 'claim_draft' });
+  }, [data?.account, data?.savedToAccount, data?.profile, busy, checking]);
   const ready = whatsappRequirements({ data, available, reviewMode }).every(([, ok]) => ok);
   const hasPreselect = path !== 'coexistence' && (preselect.business || preselect.waba);
   const canAutoPrepare = whatsappOpen && step === 1 && !checking && ready && !prepared && !preparing && !busy && !hasPreselect &&

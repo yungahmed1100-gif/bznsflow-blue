@@ -61,5 +61,31 @@ try {
     assert.deepEqual(errors, []); checks++;
     await context.close();
   }
+  // A signed-in owner whose setup is still only in this browser gets it attached to the account automatically.
+  {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } }), page = await context.newPage();
+    const calls = [];
+    const state = { ok: true, available: true, account: { email: 'owner@example.test' }, accountSaveAvailable: true, savedToAccount: false, journeyStep: 1, profileVersion: 1, csrfToken: 'c',
+      profile: { businessName: 'Qurum Coast Properties', sector: 'Real estate', services: 'Sales', humanContact: '96892183502', reviewed: true, faqs: [] }, integration: null };
+    await page.route('**/*', async route => {
+      const u = new URL(route.request().url());
+      if (u.hostname === 'connect.facebook.net') return route.fulfill({ contentType: 'text/javascript', body: FAKE_SDK });
+      if (u.origin !== BASE) return route.abort();
+      if (u.pathname === '/api/layla-meta') {
+        const body = route.request().postDataJSON() || {};
+        if (u.searchParams.get('surface') !== 'customer') return route.fulfill({ json: { ok: true, connected: false, available: false } });
+        calls.push(body.action || 'get');
+        if (body.action === 'claim_draft') state.savedToAccount = true;
+        return route.fulfill({ json: state });
+      }
+      if (u.pathname.startsWith('/api/')) return route.fulfill({ status: 404, json: { ok: false } });
+      return route.continue();
+    });
+    await page.goto(`${BASE}/layla/setup`);
+    await page.getByRole('button', { name: 'ربط واتساب', exact: true }).waitFor();
+    assert.equal(calls.filter(c => c === 'claim_draft').length, 1, 'the setup is claimed once, without a click'); checks++;
+    assert.equal(await page.getByRole('heading', { name: 'احفظ إعدادك لربط القنوات' }).count(), 0, 'no save prompt once claimed'); checks++;
+    await context.close();
+  }
   console.log(`${checks} WhatsApp connect checks passed. Synthetic rehearsal; no Meta consent or delivery evidence.`);
 } finally { await browser.close(); }
