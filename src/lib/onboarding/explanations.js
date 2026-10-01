@@ -128,12 +128,12 @@ export const EXPLANATIONS = {
     ar: "بلغ هذا الإعداد الحد الأقصى لمحاولات الربط. تواصل مع ahmed@bznsflowai.com برقم المرجع أدناه.",
   },
   attempt_expired: {
-    en: "The Meta connection expired. Please prepare a new connection.",
-    ar: "انتهت مهلة ربط Meta. جهّز محاولة جديدة.",
+    en: "The Meta connection window expired. Press Connect with Facebook to start again.",
+    ar: "انتهت مهلة نافذة Meta. اضغط «الربط عبر فيسبوك» للبدء من جديد.",
   },
   attempt_used: {
-    en: "This Meta connection attempt was already used. Please prepare a new connection.",
-    ar: "استُخدمت محاولة ربط Meta هذه من قبل. جهّز محاولة جديدة.",
+    en: "This Meta connection attempt was already used. Press Connect with Facebook to start again.",
+    ar: "استُخدمت محاولة ربط Meta هذه من قبل. اضغط «الربط عبر فيسبوك» للبدء من جديد.",
   },
   operation_conflict: {
     en: "Another connection step is still running. Reload to check your setup before retrying.",
@@ -170,6 +170,22 @@ export const EXPLANATIONS = {
   meta_cancelled: {
     en: "The Meta connection was cancelled. You can try again.",
     ar: "أُلغيت محاولة ربط Meta. يمكنك المحاولة مجدداً.",
+  },
+  meta_feature_invalid: {
+    en: "Meta refused BznsFlow’s WhatsApp signup settings. Nothing changed on your number. Please try again later or contact ahmed@bznsflowai.com with the reference below.",
+    ar: "رفضت Meta إعدادات تسجيل واتساب لدى BznsFlow. لم يتغيّر شيء في رقمك. حاول لاحقاً أو تواصل مع ahmed@bznsflowai.com برقم المرجع أدناه.",
+  },
+  meta_error: {
+    en: "Meta’s window reported an error. Nothing changed on your number. Try again, or contact ahmed@bznsflowai.com with the reference below.",
+    ar: "أبلغت نافذة Meta عن خطأ. لم يتغيّر شيء في رقمك. حاول مجدداً أو تواصل مع ahmed@bznsflowai.com برقم المرجع أدناه.",
+  },
+  signup_configuration_not_in_app: {
+    en: "WhatsApp connection is being reconfigured by BznsFlow. Your setup is saved; please try again shortly.",
+    ar: "تعيد BznsFlow ضبط ربط واتساب حالياً. إعدادك محفوظ؛ حاول مجدداً بعد قليل.",
+  },
+  signup_configuration_unverified: {
+    en: "Meta could not confirm BznsFlow’s WhatsApp signup settings right now. Your setup is saved; please try again in a few minutes.",
+    ar: "تعذّر على Meta تأكيد إعدادات تسجيل واتساب لدى BznsFlow حالياً. إعدادك محفوظ؛ حاول مجدداً بعد بضع دقائق.",
   },
   permission_rejected: {
     en: "Meta permissions were declined. Please review the requested permissions and retry.",

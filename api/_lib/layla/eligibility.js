@@ -15,6 +15,17 @@ export async function verifySignupConfiguration(c, env, fetcher = fetch) {
   return id;
 }
 
+// Embedded Signup reports completion on account_update; Coexistence also syncs
+// history and contacts. A missing app-level field is invisible until a customer fails.
+export const REQUIRED_WEBHOOK_FIELDS = ['messages', 'account_update', 'history', 'smb_app_state_sync', 'smb_message_echoes'];
+export async function verifyWebhookFields(c, fetcher = fetch) {
+  const value = await metaRequest(c, `${c.app}/subscriptions`, `${c.app}|${c.secret}`, fetcher);
+  const topic = Array.isArray(value.data) ? value.data.find(item => item.object === 'whatsapp_business_account' && item.active !== false) : null;
+  const fields = new Set((topic?.fields || []).map(field => typeof field === 'string' ? field : field?.name));
+  const missing = REQUIRED_WEBHOOK_FIELDS.filter(field => !fields.has(field));
+  return missing.length ? { status: 'needs_action', reason: 'webhook_fields_missing', missing } : { status: 'passed', reason: 'webhook_fields_subscribed' };
+}
+
 export function createHandler({ configuration = settings, env = process.env, store = createStore(), sessionLookup, fetcher = fetch, now = Date.now } = {}) {
   return async (req, res) => {
     try {
@@ -26,6 +37,7 @@ export function createHandler({ configuration = settings, env = process.env, sto
       try { await verifySignupConfiguration(c, env, fetcher); }
       catch (e) { config = { status: ['customer_configuration_missing', 'signup_configuration_not_in_app'].includes(e.code) ? 'needs_action' : 'not_verified', reason: e instanceof PilotError ? e.code : 'unavailable' }; }
       const unknown = reason => ({ status: 'not_verified', reason });
+      const webhookFields = await verifyWebhookFields(c, fetcher).catch(() => unknown('webhook_subscription_unavailable'));
       return send(res, 200, { ok: true, checkedAt: now(), customerAccessApproved: false, checks: {
         signupConfiguration: config,
         businessVerification: unknown('check_meta_business_verification'),
@@ -34,7 +46,8 @@ export function createHandler({ configuration = settings, env = process.env, sto
         appPermissions: unknown('check_meta_advanced_access'),
         publication: unknown('check_meta_app_publication'),
         oauthAndSdkDomains: unknown('check_meta_oauth_and_sdk_domains'),
-        signupProducts: unknown('check_meta_v4_whatsapp_configuration'),
+        signupProducts: unknown('check_meta_v4_cloud_api_only_configuration'),
+        webhookFields,
         ownerNumber: { status: state.activation?.readiness?.ready ? 'passed' : 'not_verified', reason: 'saved_owner_connection_check' },
         egyptianCoexistence: unknown('complete_authorized_meta_signup'),
         customerNewNumber: unknown('separate_customer_number_required'),

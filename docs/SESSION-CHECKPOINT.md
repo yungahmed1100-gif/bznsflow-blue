@@ -1,5 +1,35 @@
 # Resume checkpoint — 2026-09-12 (active repair)
 
+## WhatsApp Embedded Signup repair — 2026-10-01
+
+Symptom: on Blue, every number option failed in Meta's window with "WhatsApp
+feature is invalid for the app". Meta MCP (read-only): app 1388038082832745 live,
+compliant, WhatsApp messaging/management Advanced Access, Blue SDK/OAuth domains
+present; WABA webhook fields only `messages` + `smb_message_echoes`. The failing
+dialog opened Meta's v4 flow with the **Marketing Messages** product
+("Send messages with optimizations") in login configuration 2144711899802123.
+
+Cause: our launch sent `extras.version: 'v4'` (invalid; v4 comes from the login
+configuration and `extras` should stay empty apart from Coexistence's
+`featureType`) plus v2/v3-era keys, against a configuration that also bundles
+Marketing Messages.
+
+Implemented locally (not deployed): v4-correct extras and no `auth_type:
+rerequest`; `LAYLA_CUSTOMER_CONFIG_ID` read from env (no pinned ID) and checked
+against the app before Meta opens; Meta CANCEL/ERROR reasons shown with a
+reference; onboarding split into `src/components/onboarding/*` with inline
+email sign-in, a requirements checklist, and Meta prepared once the customer
+clicks "Connect WhatsApp" (Instagram-only setups never start a WhatsApp
+attempt); owner readiness now reports missing WABA webhook fields.
+Evidence: `npm run verify` passes (lint 0 errors / 12 existing warnings);
+browser: review onboarding 16, guided setup 28, Catalyst 197, new
+`test:whatsapp-browser` 30 checks (synthetic; no Meta consent evidence).
+
+Pending (owner): new Embedded Signup configuration with **Cloud API only**;
+subscribe `account_update`, `history`, `smb_app_state_sync`; set Blue
+`LAYLA_CUSTOMER_CONFIG_ID`; deploy Blue; one real signup per path.
+Coexistence history/contact sync ingestion is not built.
+
 ## Authorized Blue deployment and Desktop guide — 2026-09-23
 
 Ahmed explicitly authorized deployment and requested a detailed plain-English

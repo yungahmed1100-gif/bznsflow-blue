@@ -14,25 +14,32 @@ const c = { owner, app: '123', secret: 'SECRET_APP', version: 'v25.0' };
 test('v4 signup separates coexistence, validates origins and ignores incomplete or wrong-flow events', () => {
   const options = signupOptions({ configId: '456', path: 'coexistence' });
   const extras = options.extras;
-  assert.equal(extras.version, 'v4'); assert.equal(extras.featureType, 'whatsapp_business_app_onboarding');
-  assert.equal(signupOptions({ configId: '456', path: 'new_number' }).extras.featureType, undefined);
-  assert.deepEqual(options.extras.setup, {});
+  // v4 takes its version from the login configuration: extras carry only the Coexistence feature type.
+  assert.deepEqual(extras, { featureType: 'whatsapp_business_app_onboarding' });
+  assert.equal(options.auth_type, undefined);
+  assert.deepEqual(signupOptions({ configId: '456', path: 'new_number' }).extras, {});
   const preselect = { business: '4360221360973294', waba: '2213485365896306' };
   assert.deepEqual(signupOptions({ configId: '456', path: 'existing_cloud', preselect }).extras.setup, { business: { id: '4360221360973294' }, whatsAppBusinessAccount: { ids: ['2213485365896306'] } });
   assert.deepEqual(signupOptions({ configId: '456', path: 'new_number', preselect: { business: '4360221360973294' } }).extras.setup, { business: { id: '4360221360973294' } });
   const coexistence = signupOptions({ configId: '456', path: 'coexistence', preselect }).extras;
-  assert.deepEqual(coexistence.setup, {}); assert.equal(coexistence.featureType, 'whatsapp_business_app_onboarding');
+  assert.deepEqual(coexistence, { featureType: 'whatsapp_business_app_onboarding' });
   const event = { origin: 'https://www.facebook.com', data: { type: 'WA_EMBEDDED_SIGNUP', event: 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING', data: { waba_id: '456', phone_number_id: '789' } } };
   assert.deepEqual(signupEvent(event, 'coexistence'), { assets: { waba: '456', phone: '789' } });
   assert.equal(signupEvent(event, 'new_number'), null);
   assert.equal(signupEvent({ ...event, origin: 'https://evilfacebook.com' }, 'coexistence'), null);
   assert.equal(signupEvent({ ...event, data: '{' }, 'coexistence'), null);
-  assert.deepEqual(signupEvent({ ...event, data: { type: 'WA_EMBEDDED_SIGNUP', event: 'CANCEL' } }, 'coexistence'), { cancelled: true });
+  assert.deepEqual(signupEvent({ ...event, data: { type: 'WA_EMBEDDED_SIGNUP', event: 'CANCEL', data: { current_step: 'PERMISSIONS' } } }, 'coexistence'), { cancelled: true, reason: 'meta_cancelled' });
+  const failure = message => signupEvent({ ...event, data: { type: 'WA_EMBEDDED_SIGNUP', event: 'CANCEL', data: { error_message: message, error_id: '524126', session_id: 'x' } } }, 'coexistence');
+  assert.deepEqual(failure('The WhatsApp feature is invalid for this app'), { cancelled: true, reason: 'meta_feature_invalid', reference: '524126' });
+  assert.deepEqual(failure('Something else went wrong'), { cancelled: true, reason: 'meta_error', reference: '524126' });
+  assert.deepEqual(signupEvent({ ...event, data: { type: 'WA_EMBEDDED_SIGNUP', event: 'ERROR', data: { error_message: 'x', error_id: '<b>' } } }, 'new_number'), { cancelled: true, reason: 'meta_error' });
 });
 test('existing API numbers launch the business-first flow and may finish with only a WABA', () => {
-  assert.equal(signupOptions({ configId: '456', path: 'existing_cloud', esVersion: 'v3' }).extras.version, 'v3');
-  assert.equal(signupOptions({ configId: '456', path: 'existing_cloud', esVersion: 'v9' }).extras.version, 'v4');
-  assert.equal(signupOptions({ configId: '456', path: 'coexistence', esVersion: 'v3' }).extras.version, 'v4');
+  // Only an explicit server fallback reverts the existing-API path to a retiring version.
+  assert.deepEqual(signupOptions({ configId: '456', path: 'existing_cloud', esVersion: 'v3' }).extras, { version: 'v3', sessionInfoVersion: '3' });
+  assert.deepEqual(signupOptions({ configId: '456', path: 'existing_cloud', esVersion: 'v4' }).extras, {});
+  assert.deepEqual(signupOptions({ configId: '456', path: 'existing_cloud', esVersion: 'v9' }).extras, {});
+  assert.deepEqual(signupOptions({ configId: '456', path: 'coexistence', esVersion: 'v3' }).extras, { featureType: 'whatsapp_business_app_onboarding' });
   const finish = (event, data) => ({ origin: 'https://www.facebook.com', data: { type: 'WA_EMBEDDED_SIGNUP', event, data } });
   assert.deepEqual(signupEvent(finish('FINISH_ONLY_WABA', { waba_id: '2213485365896306' }), 'existing_cloud'), { assets: { waba: '2213485365896306' } });
   assert.deepEqual(signupEvent(finish('FINISH', { waba_id: '2213485365896306', phone_number_id: '1250149564857596' }), 'existing_cloud'), { assets: { waba: '2213485365896306', phone: '1250149564857596' } });
@@ -146,4 +153,10 @@ test('additive migration preserves auth and enforces sender uniqueness, callback
     await db.exec('reset role');
     assert.equal((await db.query('select count(*)::int as n from web_accounts')).rows[0].n, 2);
   } finally { await db.close(); }
+});
+test('readiness reports the WhatsApp webhook fields Embedded Signup and Coexistence depend on', async () => {
+  const { verifyWebhookFields } = await import('../api/_lib/layla/eligibility.js');
+  const reply = fields => async () => ({ ok: true, text: async () => JSON.stringify({ data: [{ object: 'whatsapp_business_account', active: true, fields: fields.map(name => ({ name, version: 'v25.0' })) }] }) });
+  assert.deepEqual(await verifyWebhookFields(c, reply(['messages', 'smb_message_echoes'])), { status: 'needs_action', reason: 'webhook_fields_missing', missing: ['account_update', 'history', 'smb_app_state_sync'] });
+  assert.equal((await verifyWebhookFields(c, reply(['messages', 'account_update', 'history', 'smb_app_state_sync', 'smb_message_echoes']))).status, 'passed');
 });

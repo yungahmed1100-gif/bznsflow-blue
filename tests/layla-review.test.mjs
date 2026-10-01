@@ -36,7 +36,7 @@ async function client(handler, extraCookie='') {
 function harness(overrides={}) {
   const db=memory();const effects=[];
   const fetcher=async(url,options)=>{effects.push({path:new URL(url).pathname,body:options.body});return {ok:true,text:async()=>JSON.stringify({success:true})};};
-  const handler=createReviewHandler({env,store:db.store,now:db.now,fetcher,exchange:async()=>({token:'synthetic-token-'.repeat(4),sender:'96890000000'}),inspect:async()=>({isolated:true,connected:true}),portfolio:async()=>null,...overrides});
+  const handler=createReviewHandler({env,store:db.store,now:db.now,fetcher,exchange:async()=>({token:'synthetic-token-'.repeat(4),sender:'96890000000'}),inspect:async()=>({isolated:true,connected:true}),portfolio:async()=>null,verifyConfig:async()=>{},...overrides});
   return {db,handler,effects};
 }
 async function begin(c,path='coexistence') {assert.equal((await c.call({action:'profile',businessName:profile.businessName,profile})).statusCode,200);const r=await c.call({action:'begin',path});assert.equal(r.statusCode,200);return {action:'finish',attempt:r.body.attempt,state:r.body.state,code:'secret-code',waba:'1712714900182074',phone:'1234'};}
@@ -155,11 +155,25 @@ test('the approved takeover still connects when the launch preselected its WABA'
   assert.equal((await c.call({action:'finish',attempt:r.body.attempt,state:r.body.state,code:'secret-code',waba:'1712714900182074',phone:'1234'})).body.status,'connected');
 });
 test('the server chooses the signup flow version per path',async()=>{
-  for(const [path,extra,version] of [['existing_cloud',{},'v3'],['existing_cloud',{BLUE_SIGNUP_VERSION_EXISTING:'v4'},'v4'],['existing_cloud',{BLUE_SIGNUP_VERSION_EXISTING:'v99'},'v3'],['new_number',{BLUE_SIGNUP_VERSION_EXISTING:'v3'},'v4'],['coexistence',{},'v4']]) {
+  for(const [path,extra,version] of [['existing_cloud',{},'v4'],['existing_cloud',{BLUE_SIGNUP_VERSION_EXISTING:'v3'},'v3'],['existing_cloud',{BLUE_SIGNUP_VERSION_EXISTING:'v99'},'v4'],['new_number',{BLUE_SIGNUP_VERSION_EXISTING:'v3'},'v4'],['coexistence',{},'v4']]) {
     const h=harness({env:{...env,...extra}}),c=await client(h.handler);
     assert.equal((await c.call({action:'profile',businessName:profile.businessName,profile})).statusCode,200);
     const r=await c.call({action:'begin',path});assert.equal(r.body.esVersion,version);assert.equal((await c.call()).body.prepared.esVersion,version);
   }
+});
+test('the signup configuration comes from the environment and is checked against the app before Meta opens',async()=>{
+  const checked=[];
+  const h=harness({env:{...env,LAYLA_CUSTOMER_CONFIG_ID:'998877665544'},verifyConfig:async a=>{checked.push(a.configId);}}),c=await client(h.handler);
+  assert.equal((await c.call({action:'profile',businessName:profile.businessName,profile})).statusCode,200);
+  const r=await c.call({action:'begin',path:'coexistence'});
+  assert.equal(r.statusCode,200);assert.equal(r.body.configId,'998877665544');assert.deepEqual(checked,['998877665544']);
+  const refused=harness({verifyConfig:async()=>{throw new PilotError('signup_configuration_not_in_app',409);}}),d=await client(refused.handler);
+  assert.equal((await d.call({action:'profile',businessName:profile.businessName,profile})).statusCode,200);
+  const denied=await d.call({action:'begin',path:'coexistence'});
+  assert.equal(denied.statusCode,409);assert.equal(denied.body.reason,'signup_configuration_not_in_app');
+  assert.equal((await d.call()).body.prepared,undefined);
+  const missing=harness({env:{...env,LAYLA_CUSTOMER_CONFIG_ID:'not-a-number'}}),m=await client(missing.handler);
+  assert.equal(m.initial.body.available,false);
 });
 test('operator attempt reset restores the connection budget only while nothing is in flight',async()=>{
   const h=harness(),c=await client(h.handler);

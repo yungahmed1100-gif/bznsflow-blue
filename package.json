@@ -33,6 +33,7 @@
     "test:onboarding-browser": "node tests/onboarding-browser.mjs",
     "test:review-browser": "node tests/review-onboarding-browser.mjs",
     "test:instagram-browser": "node tests/instagram-browser.mjs",
+    "test:whatsapp-browser": "node tests/whatsapp-connect-browser.mjs",
     "test:browser": "node scripts/run-browser-tests.mjs",
     "deploy:blue": "node scripts/deploy-blue.mjs",
     "test:blue": "node --test tests/convex-store.test.mjs tests/blue-environment.test.mjs tests/layla-review.test.mjs tests/blue-auth.test.mjs tests/blue-website-import.test.mjs tests/blue-messaging.test.mjs tests/blue-rag.test.mjs tests/blue-sector-packs.test.mjs tests/blue-qualification.test.mjs tests/blue-dashboard.test.mjs tests/blue-contacts-import.test.mjs tests/blue-campaigns.test.mjs tests/intent-routing.test.mjs tests/eval-harness.test.mjs tests/onboarding-ladder.test.mjs tests/onboarding-explanations.test.mjs tests/blue-reset.test.mjs tests/deploy-skew.test.mjs tests/blue-owner-replies.test.mjs tests/catalyst-journeys.test.mjs",

@@ -8,16 +8,20 @@ import { PilotError } from './config.js';
 import { importWebsite } from './website-import.js';
 import { validateReviewProfile, previewAnswer } from './review-profile.js';
 import { credentialContext, exchangeAndVerify, metaRequest, openToken, sealToken } from './customer-meta.js';
+import { verifySignupConfiguration } from './eligibility.js';
 
 const ORIGIN = 'https://bznsflow-blue.vercel.app';
 const CALLBACK = `${ORIGIN}/api/layla-meta-webhook`;
-const APP = '1388038082832745', CONFIG = '2144711899802123';
+const APP = '1388038082832745';
+// The Login for Business configuration is replaceable in Meta (for example to
+// change its products), so it is read from the environment rather than pinned.
+export const signupConfigId = env => /^\d{1,30}$/.test(env.LAYLA_CUSTOMER_CONFIG_ID || '') ? env.LAYLA_CUSTOMER_CONFIG_ID : null;
 const COOKIE = '__Host-blue_review';
 const digest = text => createHash('sha256').update(text).digest('hex');
 const assetId = value => typeof value === 'string' && /^\d{1,30}$/.test(value);
 export function reviewAvailable(env = process.env) {
   return convexConfigured(env) && env.BLUE_CUSTOMER_SETUP_ENABLED === 'true' && env.LAYLA_META_APP_ID === APP &&
-    env.LAYLA_CUSTOMER_CONFIG_ID === CONFIG && !!env.LAYLA_META_APP_SECRET && /^[a-f0-9]{64}$/i.test(env.LAYLA_CREDENTIAL_ENCRYPTION_KEY || '') &&
+    !!signupConfigId(env) && !!env.LAYLA_META_APP_SECRET && /^[a-f0-9]{64}$/i.test(env.LAYLA_CREDENTIAL_ENCRYPTION_KEY || '') &&
     !!env.BLUE_REVIEW_VERIFY_TOKEN && !env.LAYLA_META_ACCESS_TOKEN && env.LAYLA_META_KILL_SWITCH !== 'false' && env.LAYLA_META_MODE !== 'live' && env.LAYLA_OPEN_TEST_ENABLED !== 'true';
 }
 function configuration(env) {
@@ -62,11 +66,20 @@ export async function inspectReviewConnection({ c, integration: i, token, fetche
   return { nameStatus: ['APPROVED','AVAILABLE_WITHOUT_REVIEW','DECLINED','EXPIRED','PENDING_REVIEW','NONE'].includes(name?.name_status) ? name.name_status : 'UNKNOWN', pathVerified, registered: phone.status === 'CONNECTED', isolated: isolated && pathVerified, safeToSubscribe, connected: isolated && pathVerified && phone.status === 'CONNECTED', subscribed: !!app,
     phoneMatches: phone.id === i.phone, phoneRoutedElsewhere: !!routing?.phone_number && routing.phone_number !== CALLBACK };
 }
-// Existing API numbers use the business-first Embedded Signup flow so an owner with several
-// portfolios picks the right one. BLUE_SIGNUP_VERSION_EXISTING can switch it without code.
+// Every path follows Embedded Signup v4, whose version comes from the login
+// configuration. BLUE_SIGNUP_VERSION_EXISTING=v2|v3 is a temporary fallback for
+// numbers already on an API; Meta retires v2/v3 on 2026-10-15.
 export function signupVersion(env, path) {
-  if (path !== 'existing_cloud') return 'v4';
-  return ['v2','v3','v4'].includes(env.BLUE_SIGNUP_VERSION_EXISTING) ? env.BLUE_SIGNUP_VERSION_EXISTING : 'v3';
+  return path === 'existing_cloud' && ['v2','v3'].includes(env.BLUE_SIGNUP_VERSION_EXISTING) ? env.BLUE_SIGNUP_VERSION_EXISTING : 'v4';
+}
+// Refuse before the popup when Meta does not list the configuration on the app,
+// instead of letting Meta's window fail. A success is remembered for ten minutes.
+const CONFIG_CHECK_TTL = 600000;
+let configChecked = { id: null, at: 0 };
+export async function checkSignupConfiguration({ c, configId, fetcher, now }) {
+  if (configChecked.id === configId && now() - configChecked.at < CONFIG_CHECK_TTL) return;
+  await verifySignupConfiguration(c, { LAYLA_EMBEDDED_SIGNUP_CONFIG_ID: configId }, fetcher);
+  configChecked = { id: configId, at: now() };
 }
 // The owner approved moving exactly one existing Cloud API number from other routing
 // to Blue: BLUE_ROUTING_TAKEOVER="<waba>:<phone id>". Any other asset stays refused.
@@ -84,7 +97,7 @@ export function ownerConnection(env, account) {
   if (!account?.email || String(account.email).toLowerCase() !== parts[0].toLowerCase()) return null;
   return { waba: parts[1], phone: parts[2], business: parts[3] };
 }
-export function createReviewHandler({ env = process.env, fetcher = fetch, now = Date.now, store = reviewStore({ env, fetcher }), catalog = catalogStore({env,fetcher}), exchange = exchangeAndVerify, inspect = inspectReviewConnection, reviewMode = true, accountStore = blueAuthStore({env,fetcher}), websiteImport = importWebsite } = {}) {
+export function createReviewHandler({ env = process.env, fetcher = fetch, now = Date.now, store = reviewStore({ env, fetcher }), catalog = catalogStore({env,fetcher}), exchange = exchangeAndVerify, inspect = inspectReviewConnection, reviewMode = true, accountStore = blueAuthStore({env,fetcher}), websiteImport = importWebsite, verifyConfig = checkSignupConfiguration } = {}) {
   return async (req, res) => {
     let body;
     try {
@@ -119,7 +132,7 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
         account: account ? { email:account.email } : null,
         ownerConnectAvailable: !reviewMode && !!row.accountId && !row.integration && !row.pendingSelection && !!ownerConnection(env,account),
         ...(row.attempt && !row.attempt.claimed && ['prepared','awaiting_meta'].includes(row.status) && row.attempt.expiresAt > now() ? {
-          prepared: {attempt:row.attempt.id,state:attemptState(row.attempt.id),path:row.attempt.path,expiresAt:row.attempt.expiresAt,appId:APP,configId:CONFIG,version:'v25.0',esVersion:signupVersion(env,row.attempt.path),...(row.attempt.preselect ? {preselect:row.attempt.preselect} : {})},
+          prepared: {attempt:row.attempt.id,state:attemptState(row.attempt.id),path:row.attempt.path,expiresAt:row.attempt.expiresAt,appId:APP,configId:signupConfigId(env),version:'v25.0',esVersion:signupVersion(env,row.attempt.path),...(row.attempt.preselect ? {preselect:row.attempt.preselect} : {})},
         } : {}),
       });
       if (req.method === 'GET') return send(res,200,result(),{vary:'Cookie'});
@@ -224,16 +237,17 @@ export function createReviewHandler({ env = process.env, fetcher = fetch, now = 
         if(!row.accountId)throw new PilotError('sign_in_required',401);
         const value=await catalog('publish',{ownerKey});return send(res,200,{...result(),catalog:value},{vary:'Cookie'});
       } else if (body.action === 'begin') {
-        configuration(env);
+        const c = configuration(env);
         if (!reviewMode && (!account || !row.accountId)) throw new PilotError('sign_in_required',401);
         if (!['coexistence','new_number','existing_cloud'].includes(body.path)) throw new PilotError('invalid_path');
         const named = ['business','waba'].filter(k => body[k] !== undefined && body[k] !== '');
         if (named.length && body.path === 'coexistence') throw new PilotError('invalid_path');
         if (named.some(k => !assetId(body[k]))) throw new PilotError('invalid_signup_result');
         const preselect = named.length ? Object.fromEntries(named.map(k => [k, body[k]])) : undefined;
+        await verifyConfig({ c, configId: signupConfigId(env), fetcher, now });
         const attempt = randomUUID(), state = attemptState(attempt);
         await write('begin',{attempt,stateHash:digest(state),path:body.path,...(preselect ? {preselect} : {})});
-        return send(res,200,{...result(),attempt,state,path:row.attempt.path,expiresAt:row.attempt.expiresAt,appId:APP,configId:CONFIG,version:'v25.0',esVersion:signupVersion(env,body.path),...(preselect ? {preselect} : {})},{vary:'Cookie'});
+        return send(res,200,{...result(),attempt,state,path:row.attempt.path,expiresAt:row.attempt.expiresAt,appId:APP,configId:signupConfigId(env),version:'v25.0',esVersion:signupVersion(env,body.path),...(preselect ? {preselect} : {})},{vary:'Cookie'});
       } else if (['cancel','finish'].includes(body.action)) {
         if (typeof body.state !== 'string' || !/^[a-f0-9]{64}$/.test(body.state) || typeof body.attempt !== 'string') throw new PilotError('invalid_state',409);
         if (body.action === 'cancel') await write('cancel',{attempt:body.attempt,stateHash:digest(body.state)});
