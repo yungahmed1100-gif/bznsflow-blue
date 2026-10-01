@@ -1,11 +1,14 @@
 import { instagramConnection, instagramRow, rowForIntegration } from './blueInstagramState.js';
 // Atomic tenant messaging transitions. Network requests happen only after a
 // durable outbound intent has been claimed; uncertain sends are never retried.
-import { applyInbound, applyOptout, linkConversation, recordQuestions, sectorFor, TEXT_RETENTION_MS, MESSAGE_RETENTION_MS } from './blueContacts.js';
+import { applyInbound, applyOptout, linkConversation, recordQuestions, sectorFor, textRetention, MESSAGE_RETENTION_MS } from './blueContacts.js';
 import { recordDemand } from './hasib/demandState.js';
 import { commerceTurn } from './hasib/laylaOrders.js';
 // Router intents whose generic answer is replaced by a live stock line when a product is named.
 const GENERIC_INTENTS=new Set(['prices','services','unknown']);
+// What an inbound message asked about, kept on the message (never its text) so Today can count it.
+// `disabled` is Layla's answer to a booking request: the patient asked for an appointment.
+export const MESSAGE_TOPICS=new Set(['services','prices','hours','location','disabled','human']);
 const DAY = 86400000;
 const terminal = new Set(['sent','delivered','read','failed','ambiguous','blocked']);
 const receiptRank = {attempting:0,ambiguous:0,submitted:1,failed:2,sent:3,delivered:4,read:5};
@@ -58,7 +61,8 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
   const ready = row => messagingReady(row, now);
   async function queue(row, person, text, key, manual = false, handoff = false, media = undefined) {
     const pending = await ctx.db.query('blueMessages').withIndex('by_integration_status',q=>q.eq('integrationId',row.integration.id).eq('status','queued')).take(100);
-    const record = {key,integrationId:row.integration.id,accountId:row.accountId,conversationId:person._id,conversationVersion:person.version || 0,profileVersion:row.profileVersion || 1,direction:'out',text,at:now,expiresAt:now+MESSAGE_RETENTION_MS,textExpiresAt:now+TEXT_RETENTION_MS,status:pending.length>=100?'blocked':'queued',manual,handoff,...(media?{media}:{}),...(pending.length>=100?{reason:'queue_limit'}:{})};
+    const textKeep=await textRetention(ctx,row.accountId,row);
+    const record = {key,integrationId:row.integration.id,accountId:row.accountId,conversationId:person._id,conversationVersion:person.version || 0,profileVersion:row.profileVersion || 1,direction:'out',text,at:now,expiresAt:now+MESSAGE_RETENTION_MS,textExpiresAt:now+textKeep,status:pending.length>=100?'blocked':'queued',manual,handoff,...(media?{media}:{}),...(pending.length>=100?{reason:'queue_limit'}:{})};
     const id=await ctx.db.insert('blueMessages',record);
     if(record.status==='queued') await schedule(id);
     return id;
@@ -176,6 +180,7 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
     const deleted=new Set(incoming.filter(e=>e.kind==='deleted').map(e=>e.id));
     const events=[...incoming].sort((x,y)=>Number(['optout','takeover'].includes(y.kind))-Number(['optout','takeover'].includes(x.kind)));
     const sectorId=sectorFor(row);
+    const textKeep=await textRetention(ctx,row.accountId,row);
     let catalog=null;
     for(const e of events) {
       if(e.kind==='deleted') {
@@ -221,7 +226,7 @@ export async function executeMessaging(ctx, a, now = Date.now()) {
       if(e.kind!=='message' && e.kind!=='echo') continue;
       const msgKey=`incoming:${a.integrationId}:${e.id}`;
       if(await message(msgKey)) continue;
-      await ctx.db.insert('blueMessages',{key:msgKey,integrationId:a.integrationId,accountId:row.accountId,conversationId:person._id,direction:e.kind==='echo'?'human':'in',text:e.text,at:e.at,expiresAt:now+MESSAGE_RETENTION_MS,textExpiresAt:now+TEXT_RETENTION_MS,status:'received'});
+      await ctx.db.insert('blueMessages',{key:msgKey,integrationId:a.integrationId,accountId:row.accountId,conversationId:person._id,direction:e.kind==='echo'?'human':'in',text:e.text,...(e.kind==='message'&&MESSAGE_TOPICS.has(e.intent)?{topic:e.intent}:{}),at:e.at,expiresAt:now+MESSAGE_RETENTION_MS,textExpiresAt:now+textKeep,status:'received'});
       if(e.kind==='echo') {
         await ctx.db.patch(person._id,{takeover:true,updatedAt:now,version:(person.version || 0)+1});
         await stopQueued(a.integrationId,person._id,'human_takeover');

@@ -44,7 +44,7 @@ function variantInput(raw) {
   if (!Number.isSafeInteger(opening) || opening < 0 || opening > MAX_DELTA) return null;
   return { variantId: raw.variantId, sku, options, priceMinor: raw.priceMinor, costMinor: raw.costMinor ?? 0, reorderPoint: raw.reorderPoint ?? 0, openingStock: opening };
 }
-const searchText = (item, variants) => [item.nameEn, item.nameAr, item.category, ...variants.map(v => v.sku), ...variants.flatMap(v => v.options.map(o => o.value))]
+export const searchText = (item, variants) => [item.nameEn, item.nameAr, item.category, ...variants.map(v => v.sku), ...variants.flatMap(v => v.options.map(o => o.value))]
   .filter(Boolean).join(' ').toLowerCase().slice(0, 1000);
 
 async function skuTaken(ctx, accountId, sku, exceptId) {
@@ -103,8 +103,8 @@ export async function saveItem(ctx, accountId, pack, a, now) {
   }
   const saved = await variantsOf(ctx, itemId);
   await ctx.db.patch(itemId, { searchText: searchText(item, saved) });
-  // Layla learns the product at once: one catalog entry, kept in step with stock.
-  await syncCatalogEntry(ctx, await ctx.db.get(itemId), saved, now);
+  // Layla learns the product at once: one catalog entry, kept in step with stock. A clinic's supplies stay internal.
+  if (!pack.internalStock) await syncCatalogEntry(ctx, await ctx.db.get(itemId), saved, now);
   const stored = await ctx.db.get(itemId);
   return ok({ item: await withPhoto(ctx, publicItem(stored, saved), stored), variants: saved.filter(v => !v.archived).map(publicVariant) });
 }
@@ -118,8 +118,10 @@ async function listItems(ctx, accountId, a) {
     rows = await ctx.db.query('hasibItems').withSearchIndex('search_items', q => q.search('searchText', search).eq('accountId', accountId).eq('archived', false)).take(limit);
   } else {
     const cursor = decodeCursor(a.cursor);
+    // A kind filter (a clinic's supplies) reads past the other kind so a page still fills.
+    const kind = KINDS.includes(a.kind) ? a.kind : null;
     const query = ctx.db.query('hasibItems').withIndex('by_account_archived_updated', q => cursor ? q.eq('accountId', accountId).eq('archived', false).lte('updatedAt', cursor.at) : q.eq('accountId', accountId).eq('archived', false));
-    rows = afterCursor(await query.order('desc').take(limit + 25), cursor, 'updatedAt').slice(0, limit);
+    rows = afterCursor(await query.order('desc').take(limit + (kind ? 225 : 25)), cursor, 'updatedAt').filter(i => !kind || i.kind === kind).slice(0, limit);
     if (rows.length === limit) next = encodeCursor(rows.at(-1).updatedAt, rows.at(-1)._id);
   }
   const items = [];
@@ -157,7 +159,7 @@ export async function executeCatalog(ctx, tenant, a, now) {
     if (!item || item.archived) return fail('item_not_found');
     await ctx.db.patch(item._id, { archived: true, updatedAt: now });
     for (const v of await variantsOf(ctx, item._id)) await ctx.db.patch(v._id, { archived: true, low: false, updatedAt: now });
-    await syncCatalogEntry(ctx, await ctx.db.get(item._id), [], now);
+    if (!tenant.pack.internalStock || item.catalogEntryKey) await syncCatalogEntry(ctx, await ctx.db.get(item._id), [], now);
     return ok({ archived: true });
   }
   if (a.operation === 'item_photo') {

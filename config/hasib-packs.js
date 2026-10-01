@@ -44,7 +44,19 @@ const SECTOR = {
   },
   restaurant: { variantOptions: [t('size', 'Size', 'الحجم')], modules: { recipes: 'planned', batches: 'planned' }, expenseCategories: extra(t('aggregator_fees', 'Delivery app commission', 'عمولة تطبيقات التوصيل'), t('waste', 'Waste', 'الهدر')) },
   cafe: { variantOptions: [t('size', 'Size', 'الحجم')], modules: { recipes: 'planned', batches: 'planned' }, expenseCategories: extra(t('aggregator_fees', 'Delivery app commission', 'عمولة تطبيقات التوصيل'), t('waste', 'Waste', 'الهدر')) },
-  dental: { modules: { batches: 'planned' } },
+  // Dental: operational records only. Orders read as Visits, contacts as Patients and
+  // Stock as Services (treatments from Layla's catalog, supplies from stock). Nothing
+  // clinical is stored: visits carry no notes and every extra field is bounded.
+  dental: {
+    labels: { orders: 'visits', stock: 'services', customers: 'patients' },
+    sensitive: true, noOrderNotes: true, fulfilment: ['in_store'],
+    // Supplies are the clinic's own stock: never offered to patients. Treatments come from Layla's catalog.
+    internalStock: true, serviceItems: true,
+    orderFields: [{ key: 'visit_date', en: 'Visit date', ar: 'تاريخ الزيارة', type: 'date' }, { key: 'branch', en: 'Branch', ar: 'الفرع', type: 'text', max: 40 }],
+    expenseCategories: [EXPENSES[0], EXPENSES[1], t('supplies', 'Supplies', 'المستلزمات'), t('lab_fees', 'Dental lab fees', 'رسوم مختبر الأسنان'),
+      t('equipment', 'Equipment maintenance', 'صيانة المعدات'), EXPENSES[3], EXPENSES[4], EXPENSES[6], EXPENSES[7]],
+    modules: { batches: 'planned' },
+  },
   clinic: { modules: { batches: 'planned' } },
   automotive: { modules: { jobCards: 'planned' }, orderFields: [{ key: 'plate', en: 'Plate number', ar: 'رقم اللوحة', type: 'text', max: 20 }, { key: 'mileage', en: 'Mileage (km)', ar: 'العداد (كم)', type: 'number' }] },
   education: { modules: { enrolments: 'planned', appointments: 'off' } },
@@ -57,7 +69,8 @@ function build(id, archetype) {
     modules: { ...base.modules, ...(own.modules || {}) },
     variantOptions: own.variantOptions || base.variantOptions,
     orderFields: own.orderFields || base.orderFields,
-    expenseCategories: own.expenseCategories || base.expenseCategories });
+    expenseCategories: own.expenseCategories || base.expenseCategories,
+    ...(own.labels ? { labels: own.labels, sensitive: !!own.sensitive, noOrderNotes: !!own.noOrderNotes, fulfilment: own.fulfilment, internalStock: !!own.internalStock, serviceItems: !!own.serviceItems } : {}) });
 }
 
 // Hasib-only packs: industries finer than Layla's sectors, chosen in Hasib's industry setting.
@@ -80,8 +93,8 @@ export const visibleModules = pack => Object.entries(pack.modules).filter(([, v]
 
 // Sectors ship one at a time. A pack opens Hasib only once its setup, tests and
 // acceptance evidence exist; the others stay hidden even though they are configured.
-export const HASIB_LIVE_PACKS = Object.freeze(['retail', 'retail-tech']);
-const LIVE_LABELS = { retail: { en: 'Retail and fashion', ar: 'التجزئة والأزياء' }, 'retail-tech': { en: 'Electronics and phone store', ar: 'متجر الإلكترونيات والهواتف' } };
+export const HASIB_LIVE_PACKS = Object.freeze(['retail', 'retail-tech', 'dental']);
+const LIVE_LABELS = { retail: { en: 'Retail and fashion', ar: 'التجزئة والأزياء' }, 'retail-tech': { en: 'Electronics and phone store', ar: 'متجر الإلكترونيات والهواتف' }, dental: { en: 'Dental clinic', ar: 'عيادة أسنان' } };
 export const isLivePack = id => HASIB_LIVE_PACKS.includes(id);
 export const livePackSummaries = () => HASIB_LIVE_PACKS.map(id => ({ id, ...LIVE_LABELS[id] }));
 

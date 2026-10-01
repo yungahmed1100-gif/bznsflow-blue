@@ -2,11 +2,40 @@
 // Every helper takes an explicit accountId; nothing here trusts a client id.
 import { numberHash } from './hash.js';
 import { anonymizeContactOrders } from './hasib/contactLink.js';
-import { extractQualification, mergeFields, planQuestions, qualificationStatus, sectorIdFor, validateFieldValue } from '../config/layla-qualification.js';
+import { extractQualification, isSensitiveSector, mergeFields, planQuestions, qualificationStatus, sectorIdFor, validateFieldValue } from '../config/layla-qualification.js';
 
 export const DAY = 86400000;
 export const TEXT_RETENTION_MS = 30 * DAY;
 export const MESSAGE_RETENTION_MS = 30 * DAY;
+// Dental chats can carry what a patient says about their health. Their text is kept only
+// for WhatsApp's 24-hour reply window; the captured booking fields stay.
+export const CLINICAL_TEXT_RETENTION_MS = DAY;
+const CLINICAL_TEXT = new Set(['dental']);
+/** How long a message's text is kept, from Layla's sector or the Hasib industry the owner chose. */
+export const textRetentionFor = (sectorId, packId) => CLINICAL_TEXT.has(sectorId) || CLINICAL_TEXT.has(packId) ? CLINICAL_TEXT_RETENTION_MS : TEXT_RETENTION_MS;
+/**
+ * Bring an account's stored chat text down to the clinical window: text older than
+ * 24 hours is erased now, newer text expires 24 hours after its message. Newest first,
+ * because recent text is what an owner can still read. Bounded and idempotent; call
+ * again with `next` (an `at` to continue below) until it returns null.
+ */
+export async function shortenClinicalText(ctx, accountId, now, before = now + 1, limit = 500) {
+  const rows = await ctx.db.query('blueMessages').withIndex('by_account_at', q => q.eq('accountId', accountId).gte('at', now - MESSAGE_RETENTION_MS).lt('at', before)).order('desc').take(limit);
+  let shortened = 0;
+  for (const m of rows) {
+    const until = (m.at || now) + CLINICAL_TEXT_RETENTION_MS;
+    if (m.text === undefined || m.textExpiresAt <= until) continue;
+    // A message still being sent keeps its text until the send settles; the sweep clears it after.
+    const sending = ['queued', 'attempting'].includes(m.status);
+    await ctx.db.patch(m._id, until <= now && !sending ? { text: undefined, textExpiresAt: Number.MAX_SAFE_INTEGER } : { textExpiresAt: until });
+    shortened++;
+  }
+  return { shortened, next: rows.length === limit ? rows.at(-1).at : null };
+}
+export async function textRetention(ctx, accountId, row) {
+  const settings = await ctx.db.query('hasibSettings').withIndex('by_account', q => q.eq('accountId', accountId)).unique();
+  return textRetentionFor(sectorIdFor(row?.profile?.sector), settings?.packId);
+}
 export const contactKey = (accountId, waId) => `${accountId}:${waId}`;
 const clean = (value, n) => typeof value === 'string' ? value.replace(/[\x00-\x1f\x7f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '';
 
@@ -24,6 +53,13 @@ export function searchTextFor(contact) {
     .filter(Boolean).join(' ').slice(0, 1000);
 }
 export function sectorFor(row) { return sectorIdFor(row?.profile?.sector); }
+
+/** Approved catalog names, which sensitive packs need to accept an owner-typed service. Other packs skip the read. */
+export async function catalogForFields(ctx, accountId, sectorId) {
+  if (!isSensitiveSector(sectorId)) return [];
+  const rows = await ctx.db.query('blueCatalogEntries').withIndex('by_owner_status_order', q => q.eq('ownerKey', String(accountId)).eq('status', 'approved')).take(200);
+  return rows.map(r => ({ nameEn: r.nameEn, nameAr: r.nameAr }));
+}
 
 async function tombstoneFor(ctx, accountId, hash) {
   const rows = await ctx.db.query('blueContacts').withIndex('by_account_hash', q => q.eq('accountId', accountId).eq('numberHash', hash)).take(20);
@@ -113,7 +149,7 @@ export async function recordQuestions(ctx, contact, keys, now) {
 }
 
 /** Owner edits. Owner-entered field values outrank anything a message extracts. */
-export function ownerContactPatch(contact, input, now) {
+export function ownerContactPatch(contact, input, now, catalog = []) {
   const patch = { updatedAt: now };
   if (input.ownerName !== undefined) {
     const name = clean(input.ownerName, 80);
@@ -125,7 +161,7 @@ export function ownerContactPatch(contact, input, now) {
     for (const f of input.fields) {
       if (typeof f?.key !== 'string') return { error: 'invalid_contact' };
       if (f.value === '' || f.value === null) { map.delete(f.key); continue; }
-      const value = validateFieldValue(contact.sectorId, f.key, f.value);
+      const value = validateFieldValue(contact.sectorId, f.key, f.value, catalog);
       if (!value) return { error: 'invalid_contact_field' };
       map.set(f.key, { key: f.key, value, source: 'owner', confidence: 1, at: now });
     }

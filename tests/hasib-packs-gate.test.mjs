@@ -21,9 +21,9 @@ async function setup(sector) {
 const layllaSector = (h, t) => h.m.table('blueReviewSessions').find(r => r._id === t.rowId).profile.sector;
 
 test('only the finished packs are live', () => {
-  assert.deepEqual(HASIB_LIVE_PACKS, ['retail', 'retail-tech']);
+  assert.deepEqual(HASIB_LIVE_PACKS, ['retail', 'retail-tech', 'dental']);
   assert.equal(isLivePack('retail'), true);
-  assert.equal(isLivePack('dental'), false);
+  assert.equal(isLivePack('clinic'), false);
   assert.equal(isLivePack('nope'), false);
 });
 
@@ -32,7 +32,7 @@ test('a business whose Layla sector is not live sees setup, and nothing else wor
   const o = (await hasib('overview')).value;
   assert.equal(o.setupRequired, true);
   assert.deepEqual(o.modules, []);
-  assert.deepEqual(o.livePacks.map(p => p.id), ['retail', 'retail-tech']);
+  assert.deepEqual(o.livePacks.map(p => p.id), ['retail', 'retail-tech', 'dental']);
   assert.ok(o.livePacks[0].en && o.livePacks[0].ar);
   for (const [op, args] of [['items', {}], ['orders', {}], ['insights', { period: 'today' }], ['expenses', { period: 'month' }],
     ['order_create', { requestId: randomUUID(), channel: 'walk_in', fulfilment: { type: 'in_store' }, lines: [{ name: 'x', qty: 1, unitPriceMinor: 1 }] }]]) {
@@ -42,7 +42,7 @@ test('a business whose Layla sector is not live sees setup, and nothing else wor
 
 test('choosing Retail in Hasib unlocks the retail setup and leaves Layla’s sector alone', async () => {
   const { h, t, hasib } = await setup('Real estate');
-  assert.equal((await hasib('settings_update', { packId: 'dental' })).reason, 'pack_not_live');
+  assert.equal((await hasib('settings_update', { packId: 'clinic' })).reason, 'pack_not_live');
   assert.equal((await hasib('settings_update', { packId: 'made-up' })).reason, 'pack_not_live');
   assert.equal((await hasib('settings_update', { packId: 'retail' })).ok, true);
   const o = (await hasib('overview')).value;
@@ -78,14 +78,14 @@ test('a retail business needs no setup', async () => {
 
 test('the industry list shows finished packs first and the rest as coming soon', async () => {
   const list = industryCatalog();
-  assert.deepEqual(list.filter(i => i.live).map(i => i.id), ['retail', 'retail-tech']);
+  assert.deepEqual(list.filter(i => i.live).map(i => i.id), ['retail', 'retail-tech', 'dental']);
   assert.ok(list.length > 8, 'the roadmap is visible');
   for (const i of list) assert.ok(i.id && i.en && i.ar && typeof i.live === 'boolean', i.id);
   assert.equal(list.findIndex(i => !i.live), list.filter(i => i.live).length, 'live industries come first');
   const { hasib } = await setup('Retail');
   const o = (await hasib('overview')).value;
   assert.deepEqual(o.industries, list);
-  assert.equal((await hasib('settings_update', { packId: 'dental' })).reason, 'pack_not_live', 'coming-soon industries cannot be chosen yet');
+  assert.equal((await hasib('settings_update', { packId: 'clinic' })).reason, 'pack_not_live', 'coming-soon industries cannot be chosen yet');
   const pending = (await setup('Real estate')).hasib;
   assert.deepEqual((await pending('overview')).value.industries, list, 'the setup screen gets the same list');
 });

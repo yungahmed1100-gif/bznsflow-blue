@@ -11,21 +11,25 @@ export function StockView({ s, h, overview, initialLow = false, onChanged }) {
   const [search, setSearch] = useState(''), [lowOnly, setLowOnly] = useState(initialLow);
   const [editing, setEditing] = useState(null), [moving, setMoving] = useState(null), [notice, setNotice] = useState(''), [importing, setImporting] = useState(false);
   const query = useDebounced(search.trim(), 300);
-  const list = usePolling(() => lowOnly ? hasib('low_stock') : hasib('items', query ? { search: query } : {}), [query, lowOnly], { interval: 30000 });
+  // A clinic's Stock holds only its supplies; treatments live in Services → Treatments.
+  const supplies = !!overview.pack.internalStock;
+  const list = usePolling(() => lowOnly ? hasib('low_stock') : hasib('items', { ...(query ? { search: query } : {}), ...(supplies ? { kind: 'product' } : {}) }), [query, lowOnly, supplies], { interval: 30000 });
   const refresh = () => { list.refresh({ quiet: true }); onChanged(); };
   const archive = async item => {
     try { await hasib('item_archive', { itemId: item.id }); setEditing(null); refresh(); } catch (e) { setNotice(h.reason(e.reason) || s.reason(e.reason)); }
   };
   // The low-stock endpoint returns variants; group them back under their product.
-  const items = lowOnly ? Object.values((list.data?.items || []).reduce((acc, v) => {
+  const all = lowOnly ? Object.values((list.data?.items || []).reduce((acc, v) => {
     acc[v.itemId] ||= { id: v.itemId, nameAr: v.nameAr, nameEn: v.nameEn, trackStock: true, serialized: v.serialized, variants: [], partial: true };
     acc[v.itemId].variants.push(v); return acc;
   }, {})) : list.data?.items || [];
+  // Search uses the full-text index, which can't filter by kind.
+  const items = supplies ? all.filter(i => i.partial || i.kind !== 'service') : all;
 
   return (
     <div className="hb-stock">
       <div className="ld-page-head">
-        <h1>{h.t('stock')}</h1>
+        <h1>{supplies ? h.t('products') : h.t('stock')}</h1>
         <div className="ld-toolbar">
           {!lowOnly && <label className="ld-search"><span className="ld-visually-hidden">{h.t('searchItems')}</span>
             <input type="search" value={search} placeholder={h.t('searchItems')} onChange={e => setSearch(e.target.value)} /></label>}

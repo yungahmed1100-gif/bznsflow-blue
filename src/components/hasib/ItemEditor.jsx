@@ -24,6 +24,8 @@ function toVariants(rows) {
 /** Create or edit a product; variant option names come from the industry pack. */
 export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
   const keys = pack.variantOptions.map(o => o.key);
+  // Internal stock (a clinic's supplies) is never shown to customers, so it has no photo and is always a product.
+  const internal = !!pack.internalStock;
   const serialsModule = pack.modules?.serials === 'available';
   const [form, setForm] = useState(() => ({ kind: item?.kind || 'product', nameAr: item?.nameAr || '', nameEn: item?.nameEn || '', category: item?.category || '', unit: item?.unit || 'piece', trackStock: item ? item.trackStock : true,
     serialized: item ? !!item.serialized : serialsModule, warrantyMonths: String(item?.warrantyMonths ?? (serialsModule ? 12 : 0)), warrantyBy: item?.warrantyBy || (serialsModule ? 'store' : 'none') }));
@@ -78,10 +80,11 @@ export function ItemEditor({ s, h, pack, item, onClose, onSaved, onArchive }) {
           <label className="ld-field">{h.t('nameAr')}<input value={form.nameAr} maxLength={120} dir="rtl" lang="ar" onChange={e => setForm({ ...form, nameAr: e.target.value })} /></label>
           <label className="ld-field">{h.t('nameEn')}<input value={form.nameEn} maxLength={120} dir="ltr" lang="en" onChange={e => setForm({ ...form, nameEn: e.target.value })} /></label>
           <label className="ld-field">{h.t('category')}<input value={form.category} maxLength={60} dir="auto" onChange={e => setForm({ ...form, category: e.target.value })} /></label>
-          <label className="ld-field">{h.t('kind')}<select value={form.kind} onChange={e => setForm({ ...form, kind: e.target.value, trackStock: e.target.value === 'product' && form.trackStock })}>
-            {['product', 'service'].map(k => <option key={k} value={k}>{h.t(`kind_${k}`)}</option>)}</select></label>
+          {/* A clinic's stock is supplies only; its treatments are edited in Services → Treatments. */}
+          {!internal && <label className="ld-field">{h.t('kind')}<select value={form.kind} onChange={e => setForm({ ...form, kind: e.target.value, trackStock: e.target.value === 'product' && form.trackStock })}>
+            {['product', 'service'].map(k => <option key={k} value={k}>{h.t(`kind_${k}`)}</option>)}</select></label>}
         </div>
-        {form.kind === 'product' && (
+        {form.kind === 'product' && !internal && (
           <div className="hb-photo-field">
             <div className="hb-photo-frame">{photo.url ? <img src={photo.url} alt={h.t('photo')} width="96" height="96" /> : <span className="ld-help">{h.t('noPhoto')}</span>}</div>
             <div className="hb-photo-actions">

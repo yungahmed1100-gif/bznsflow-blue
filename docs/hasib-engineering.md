@@ -195,3 +195,69 @@ Commits: `4ae4506` (backend), `8e701ed` (UI).
 3. Set `BLUE_HASIB_ENABLED=true` in Blue Vercel, then run `npm run deploy:blue`.
 
 **Rollback:** turn the flag off and redeploy. Never delete order, payment or stock-move rows as a rollback.
+
+## Dental pack — 2026-09-28 (local only, not pushed or deployed)
+
+Built from Ahmed's "Dental Clinics Hasib Tabs" spec. Worktree `Desktop/bznsflow-blue-dental`, branch `feat/hasib-dental` from `a34b6d8`. It was built apart from `feat/instagram-channel` because another session was changing the same Hasib files there (a restaurant pack, uncommitted), so expect merge conflicts in `config/hasib-packs.js`, `convex/hasib/{hasibState,todayState,ordersState}.js`, `api/_lib/hasib/validate.js` and `src/lib/hasib/strings.js`.
+
+**Decisions (Ahmed, 2026-09-28).**
+- Dental is live in the industry picker, next to Retail and Electronics.
+- Dental chat text is kept for 24 hours, then erased. The captured fields stay.
+
+**What a dental owner sees.** The seven approved tabs, all built from records BznsFlow holds. Section ids don't change; only labels and views do, so retail and electronics are untouched.
+- **Today:**
+  - service requests: a service Layla captured in the last 14 days with no visit recorded since, each opening its chat;
+  - chats handed over, visits with money owed, low supplies;
+  - Layla at reception: replies, appointment requests, service questions, price questions and handoffs, counted from a new `blueMessages.topic` field that holds the router intent only, never text;
+  - recorded revenue, cash received, owed to you;
+  - a clinic setup checklist.
+- **Chats:** a "Captured by Layla" strip (service, preferred time, branch, consent). Record visit prefills the patient, the treatment line and the visit date (`src/lib/hasib/visitDate.js`: only clear dates) for the owner to check.
+  - Shops don't get this button; Layla files their orders herself (`d1f29e7`).
+- **Visits:** Hasib orders relabelled (Booked, Done, Refunded). A visit is always in the clinic, has no notes, and its `visit_date`/`branch` fields are type-checked on the server.
+- **Services:**
+  - Treatments: Layla's catalog, still the one place to edit a treatment and its price. `convex/hasib/serviceSync.js` mirrors approved services into Hasib service items one way, so visits can charge them and Money can rank revenue by service.
+  - Supplies: stock-tracked products. They are internal: never published to Layla's catalog, never quoted or ordered from chat. Switching to Dental archives any stock entries a shop had published.
+- **Money:** revenue, expenses, net profit, cash by method, owed to you, and revenue by service (no per-service profit, no stock tiles). Expense categories are dental ones (supplies, lab fees, equipment), with no stock purchases or delivery.
+- **Patients:** the contact list relabelled, with visits and balance per patient. No mass messaging.
+- **Settings:** a new Accounts and VAT view for every Hasib industry. It holds VAT, business time zone, expense categories and change industry. Before this, no UI edited VAT.
+
+**No clinical free text.**
+- **24-hour text:** `textRetentionFor` in `convex/blueContacts.js` keeps text 24 hours when Layla's sector or the Hasib industry is dental.
+  - Choosing Dental immediately shortens the account's text through `shortenClinicalText`, newest first, up to 2,000 messages in that change. It is bounded and idempotent.
+  - `blueHasib:shortenDentalText {email}` does the same for an account from the operator side.
+- **Refused inputs:**
+  - Owner edits and imports of a sensitive pack's fields must be something Layla could capture: a listed option, an approved catalog name, a known place, or a bounded date or time.
+  - Visit notes are refused rather than silently dropped.
+
+**Fixed along the way.**
+- A service item could count as "low stock" in the overview and on Today; both now use `trackedLow`.
+- `stockSync` no longer overwrites a Layla catalog entry it doesn't own.
+
+**Evidence (local, 2026-09-28).**
+- `npm test`: Layla 167/167, Blue 191/191, Hasib 144/144, including the new `tests/hasib-dental.test.mjs` (14 tests).
+- Both type-checks pass. Lint has 0 errors and 12 warnings, all pre-existing. `npm run build` passes.
+- `tests/hasib-dental-browser.mjs` against `node scripts/hasib-demo.mjs 5312 --pack=dental`, a fictional "Bayan Dental Clinic" with invented data and no clinical text: 267 assertions.
+  - Covers every screen at 1440/1024/768/375/320 in English and Arabic: only the seven tabs, no overflow, zero serious/critical axe issues, no page errors.
+  - Flow: Today → a request → chat → Record visit (prefilled, no notes, no delivery) → revenue moves by exactly the visit, cash by exactly the payment, and the request clears.
+  - Also checks the Accounts and VAT save.
+- Regression browsers:
+  - retail real-logic 87;
+  - electronics real-logic 51;
+  - synthetic Hasib dashboard 256 (this caught the chat-button regression above, since fixed);
+  - synthetic Layla dashboard 94.
+
+**Independent security review (read-only, 2026-09-28).** No critical or high findings. One medium finding, fixed with a test: switching to Dental shortened the oldest messages first, so on a busy account the newest (still visible) text could outlive 24 hours. It now goes newest first.
+
+**Known limits.**
+- The Treatments editor is Layla's existing catalog manager. The local demo doesn't serve its API, so the browser test only checks that the view renders cleanly.
+- The captured `location` is the patient's area or "branch visit", not a named branch; it prefills Branch only when it names a place.
+- A refund on a visit that isn't marked Refunded leaves the refunded part showing as owed. This is existing Hasib behaviour for every industry.
+- Custom visit lines ("Other charge", 120 characters) are the one remaining owner-typed text field. They're kept because the spec lists treatment charges.
+
+**Rollout (each step needs Ahmed's authorization).**
+1. Merge with the restaurant work.
+2. `npx convex dev --once` to `quaint-nightingale-675`: one optional field (`blueMessages.topic`) plus new functions; no new tables or indexes.
+3. `npm run deploy:blue`.
+4. For any account that already chats as a dental clinic, or has more than 2,000 messages in 30 days: `npx convex run blueHasib:shortenDentalText '{"email":"…"}'`, repeated with `before` set to the returned `next` until `next` is null.
+
+**Rollback:** remove `'dental'` from `HASIB_LIVE_PACKS` and redeploy. Visits, payments and supplies are kept.

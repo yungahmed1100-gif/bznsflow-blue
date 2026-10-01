@@ -1,4 +1,5 @@
 // The owner dashboard's map: eight plain sections, some with a few views inside.
+// Section ids never change by industry; only labels and views do (a clinic's Orders read as Visits).
 // Old `?tab=` links (insights, expenses, contacts, broadcast, channels, business)
 // keep working by landing on the section and view that now holds them.
 
@@ -6,7 +7,7 @@ const VIEWS = {
   stock: ['products', 'services'],
   money: ['insights', 'expenses'],
   customers: ['contacts', 'broadcast'],
-  settings: ['channels', 'business'],
+  settings: ['channels', 'business', 'accounts'],
 };
 const ALIASES = {
   insights: ['money', 'insights'], expenses: ['money', 'expenses'],
@@ -16,16 +17,19 @@ const ALIASES = {
 export const SECTION_ORDER = ['today', 'chats', 'orders', 'stock', 'service', 'money', 'customers', 'settings'];
 
 /**
- * @param {{ modules: string[], setupRequired: boolean } | null} hasib the Hasib overview, or null when Hasib is off
+ * @param {{ modules: string[], setupRequired: boolean, pack?: { id: string } } | null} hasib the Hasib overview, or null when Hasib is off
  * @returns {{ sections: string[], views: Record<string, string[]> }}
  */
 export function dashboardMap(hasib) {
   const on = m => !!hasib && !hasib.setupRequired && hasib.modules.includes(m);
+  // A clinic: Services leads with its treatments (products are its supplies); Patients is one list, no mass messaging.
+  const clinic = on('orders') && hasib.pack?.id === 'dental';
   const views = {
-    stock: on('stock') ? VIEWS.stock : ['services'],
+    stock: on('stock') ? (clinic ? ['services', 'products'] : VIEWS.stock) : ['services'],
     money: VIEWS.money.filter(on),
-    customers: VIEWS.customers,
-    settings: VIEWS.settings,
+    customers: clinic ? ['contacts'] : VIEWS.customers,
+    // Accounts and VAT belong to Hasib's money, so they appear once an industry is set.
+    settings: on('orders') ? VIEWS.settings : VIEWS.settings.filter(v => v !== 'accounts'),
   };
   const has = {
     today: !!hasib, chats: true, orders: on('orders'), stock: on('stock'), service: on('repairs'),

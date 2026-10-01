@@ -93,10 +93,14 @@ function ItemPicker({ s, h, onPick }) {
  * The request id is fixed for the life of the dialog so a double submit makes one order.
  */
 export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSaved }) {
+  // A clinic's visit: always in the clinic, no delivery, no "ready by", no free-text notes.
+  const pack = overview.pack, fixedFulfilment = pack.fulfilment?.[0], clinic = !!pack.serviceItems;
   const [rows, setRows] = useState(() => prefill ? fromPrefill(prefill) : []);
-  const [type, setType] = useState(prefill?.fulfilment.type || 'pickup'), [area, setArea] = useState(prefill?.fulfilment.area || '');
+  const [type, setType] = useState(fixedFulfilment || prefill?.fulfilment.type || 'pickup'), [area, setArea] = useState(prefill?.fulfilment.area || '');
   const [fee, setFee] = useState(''), [customerName, setCustomerName] = useState(prefill?.customerName || ''), [notes, setNotes] = useState(''), [confirm, setConfirm] = useState(true);
-  const [fields, setFields] = useState({}), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [fields, setFields] = useState(() => prefill?.fields || {}), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  // Treatments come from Layla's catalog; make sure the latest ones can be charged.
+  useEffect(() => { if (clinic) hasib('services_sync').catch(() => {}); }, [clinic]);
   const [readyBy, setReadyBy] = useState(''), [deposit, setDeposit] = useState(''), [depositMethod, setDepositMethod] = useState('cash');
   const [requestId] = useState(newId), [depositRequestId] = useState(newId);
   const depositMinor = deposit.trim() ? parseAmount(deposit) : 0;
@@ -153,7 +157,7 @@ export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSa
           </tbody>
         </table>
         <button type="button" className="ld-button ld-quiet" onClick={() => setRows(rs => [...rs, { key: newId(), name: '', qty: '1', price: '' }])}>{h.t('customLine')}</button>
-        <fieldset className="ld-fieldset hb-row">
+        {!fixedFulfilment && <fieldset className="ld-fieldset hb-row">
           <legend>{h.t('fulfilment')}</legend>
           <div className="ld-segmented" role="radiogroup" aria-label={h.t('fulfilment')}>
             {['pickup', 'delivery', 'in_store'].map(v => <label key={v}><input type="radio" name="hb-ful" checked={type === v} onChange={() => setType(v)} /><span>{h.t(`ful_${v}`)}</span></label>)}
@@ -162,7 +166,7 @@ export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSa
             <label className="ld-field">{h.t('area')}<input value={area} maxLength={80} dir="auto" onChange={e => setArea(e.target.value)} /></label>
             <label className="ld-field">{h.t('deliveryFee')}<input className="hb-money" inputMode="decimal" dir="ltr" value={fee} aria-invalid={feeMinor === null} onChange={e => setFee(e.target.value)} /></label>
           </>}
-        </fieldset>
+        </fieldset>}
         {overview.pack.orderFields.map(f => (
           <label key={f.key} className={f.type === 'boolean' ? 'ld-check' : 'ld-field'}>
             {f.type === 'boolean' ? <><input type="checkbox" checked={fields[f.key] === 'yes'} onChange={e => setFields({ ...fields, [f.key]: e.target.checked ? 'yes' : '' })} /> {s.ar ? f.ar : f.en}</>
@@ -170,12 +174,12 @@ export function OrderComposer({ s, h, overview, prefill, timezone, onClose, onSa
           </label>
         ))}
         <div className="hb-grid-2">
-          <label className="ld-field">{h.t('readyBy')}<input type="date" value={readyBy} onChange={e => setReadyBy(e.target.value)} /></label>
+          {!clinic && <label className="ld-field">{h.t('readyBy')}<input type="date" value={readyBy} onChange={e => setReadyBy(e.target.value)} /></label>}
           <label className="ld-field">{h.t('depositNow')}<input className="hb-money" inputMode="decimal" dir="ltr" value={deposit} aria-invalid={depositMinor === null} onChange={e => setDeposit(e.target.value)} /></label>
           {depositMinor > 0 && <label className="ld-field">{h.t('depositMethod')}<select value={depositMethod} onChange={e => setDepositMethod(e.target.value)}>
             {['cash', 'bank_transfer', 'card', 'payment_link'].map(m => <option key={m} value={m}>{h.t(`pm_${m}`)}</option>)}</select></label>}
         </div>
-        <label className="ld-field">{h.t('notes')}<textarea value={notes} maxLength={500} rows={2} dir="auto" onChange={e => setNotes(e.target.value)} /></label>
+        {!pack.noOrderNotes && <label className="ld-field">{h.t('notes')}<textarea value={notes} maxLength={500} rows={2} dir="auto" onChange={e => setNotes(e.target.value)} /></label>}
         <label className="ld-check"><input type="checkbox" checked={confirm} onChange={e => setConfirm(e.target.checked)} /> {h.t('confirmNow')}</label>
         {totals && <dl className="hb-totals">
           <div><dt>{h.t('subtotal')}</dt><dd><Money h={h} minor={totals.subtotalMinor} /></dd></div>

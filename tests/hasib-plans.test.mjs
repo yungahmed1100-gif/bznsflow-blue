@@ -47,7 +47,7 @@ test('grants refuse unknown accounts, plans and packs; revoking closes Hasib but
   const { h, hasib } = await setup();
   assert.equal((await grantPlan(h.m.ctx, { email: 'nobody@example.com', plan: 'ascend' }, h.m.now())).reason, 'account_not_found');
   assert.equal((await grantPlan(h.m.ctx, { email: 'a@example.com', plan: 'catalyst' }, h.m.now())).reason, 'invalid_plan');
-  assert.equal((await grantPlan(h.m.ctx, { email: 'a@example.com', plan: 'ascend', packId: 'dental' }, h.m.now())).reason, 'pack_not_live');
+  assert.equal((await grantPlan(h.m.ctx, { email: 'a@example.com', plan: 'ascend', packId: 'clinic' }, h.m.now())).reason, 'pack_not_live');
   await grantPlan(h.m.ctx, { email: 'a@example.com', plan: 'ascend', packId: 'retail' }, h.m.now());
   await hasib('expense_create', { requestId: '0b6f6c7e-8f4a-4d3b-9c2e-1a2b3c4d5e6f', category: 'rent', amountMinor: 1000, method: 'cash', paidOn: '2027-01-15' });
   assert.equal((await revokePlan(h.m.ctx, { email: 'a@example.com' }, h.m.now())).ok, true);

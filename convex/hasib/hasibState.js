@@ -8,7 +8,11 @@ import { resolveTenant } from '../blueTenant.js';
 import { visibleModules, isLivePack, livePackSummaries, industryCatalog } from '../../config/hasib-packs.js';
 import { STOCK_POLICIES } from './stock.js';
 import { hasibEnabled } from './gate.js';
-import { ok, fail, settingsFor, packFor } from './shared.js';
+import { ok, fail, settingsFor, packFor, trackedLow } from './shared.js';
+import { shortenClinicalText, textRetentionFor, CLINICAL_TEXT_RETENTION_MS } from '../blueContacts.js';
+import { syncServiceItems } from './serviceSync.js';
+import { STOCK_SOURCE } from './stockSync.js';
+import { hasibPack } from '../../config/hasib-packs.js';
 import { executeCatalog } from './catalogState.js';
 import { executeOrders } from './ordersState.js';
 import { executeExpenses } from './expensesState.js';
@@ -19,7 +23,7 @@ import { executeRepairs } from './repairsState.js';
 
 export const HASIB_OPERATIONS = ['overview', 'settings_update', 'items', 'item_save', 'item_archive', 'stock_move', 'stock_moves', 'low_stock',
   'order_create', 'order_status', 'orders', 'order', 'payment_record', 'contact_summary', 'conversation_orders', 'expense_create', 'expenses', 'expense_void', 'insights',
-  'today', 'photo_upload_url', 'photo_register', 'item_photo', 'items_import', 'serials', 'serial_lookup', 'trade_in', 'repairs', 'repair', 'repair_create', 'repair_update', 'repair_status'];
+  'today', 'photo_upload_url', 'photo_register', 'item_photo', 'items_import', 'serials', 'serial_lookup', 'trade_in', 'repairs', 'repair', 'repair_create', 'repair_update', 'repair_status', 'services_sync'];
 
 // Operations that belong to an optional module; a pack without that module refuses them.
 const MODULE_OPS = { serials: ['serials', 'serial_lookup'], tradeIns: ['trade_in'], repairs: ['repairs', 'repair', 'repair_create', 'repair_update', 'repair_status'] };
@@ -29,6 +33,22 @@ const moduleOf = op => Object.keys(MODULE_OPS).find(m => MODULE_OPS[m].includes(
 export { hasibEnabled };
 
 const publicSettings = s => ({ currency: s.currency, vatRegistered: s.vatRegistered, vatRateBps: s.vatRateBps, pricesIncludeVat: s.pricesIncludeVat, vatin: s.vatin || '', stockPolicy: s.stockPolicy });
+
+/** What choosing an industry changes beyond the setting itself. */
+async function applyPackChoice(ctx, accountId, pack, now) {
+  // A clinical industry's 24-hour chat-text rule applies to recent messages at once.
+  if (textRetentionFor(null, pack.id) === CLINICAL_TEXT_RETENTION_MS) {
+    // Newest first, up to 2,000 messages in this change; a busier account finishes with blueHasib:shortenDentalText.
+    let next = now + 1;
+    for (let page = 0; page < 4 && next !== null; page++) next = (await shortenClinicalText(ctx, accountId, now, next)).next;
+  }
+  // Internal stock (a clinic's supplies) leaves Layla's catalog; treatments become chargeable.
+  if (pack.internalStock) {
+    const published = await ctx.db.query('blueCatalogEntries').withIndex('by_owner_status_order', q => q.eq('ownerKey', String(accountId)).eq('status', 'approved')).take(500);
+    for (const entry of published.filter(e => e.source === STOCK_SOURCE)) await ctx.db.patch(entry._id, { status: 'archived', updatedAt: now });
+  }
+  if (pack.serviceItems) await syncServiceItems(ctx, accountId, now);
+}
 
 async function updateSettings(ctx, accountId, a, now) {
   const current = await ctx.db.query('hasibSettings').withIndex('by_account', q => q.eq('accountId', accountId)).unique();
@@ -51,6 +71,7 @@ async function updateSettings(ctx, accountId, a, now) {
   const row = { accountId, ...(next.packId ? { packId: next.packId } : {}), currency: next.currency, vatRegistered: next.vatRegistered, vatRateBps: next.vatRateBps, pricesIncludeVat: next.pricesIncludeVat,
     ...(next.vatin ? { vatin: next.vatin } : {}), stockPolicy: next.stockPolicy, updatedAt: now };
   if (current) await ctx.db.replace(current._id, row); else await ctx.db.insert('hasibSettings', row);
+  if (a.packId !== undefined) await applyPackChoice(ctx, accountId, hasibPack(a.packId), now);
   return ok({ settings: publicSettings(row) });
 }
 
@@ -76,8 +97,9 @@ export async function executeHasib(ctx, a, now = Date.now()) {
     for (const status of ['confirmed', 'ready']) confirmedAsks.push(...(await ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => q.eq('accountId', tenant.accountId).eq('status', status)).take(200)));
     // Waiting for the owner: Layla's orders she could not confirm, and confirmed ones the customer asked to change.
     const layla = [...pending, ...confirmedAsks.filter(o => o.flags?.includes('change_requested'))].filter(o => o.source === 'layla');
-    const low = (await ctx.db.query('hasibVariants').withIndex('by_account_low', q => q.eq('accountId', tenant.accountId).eq('low', true)).take(100)).filter(v => !v.archived);
-    return ok({ pack: { id: pack.id, archetype: pack.archetype, version: pack.version, variantOptions: pack.variantOptions, orderFields: pack.orderFields, expenseCategories: pack.expenseCategories, modules: pack.modules },
+    const low = await trackedLow(ctx, tenant.accountId);
+    return ok({ pack: { id: pack.id, archetype: pack.archetype, version: pack.version, variantOptions: pack.variantOptions, orderFields: pack.orderFields, expenseCategories: pack.expenseCategories, modules: pack.modules,
+        ...(pack.labels ? { labels: pack.labels, sensitive: pack.sensitive, noOrderNotes: pack.noOrderNotes, fulfilment: pack.fulfilment, internalStock: pack.internalStock, serviceItems: pack.serviceItems } : {}) },
       plan, setupRequired: false, livePacks: livePackSummaries(), industries: industryCatalog(), modules: visibleModules(pack), settings: publicSettings(settings), counts: { pendingOrders: pending.length, lowStock: low.length, laylaWaiting: layla.length, laylaOverdue: layla.filter(o => now - o.createdAt > 86400000).length } });
   }
   // Photos go straight from the owner's browser to Convex storage; the id is checked when the product is saved.
@@ -90,6 +112,7 @@ export async function executeHasib(ctx, a, now = Date.now()) {
   }
   if (a.operation === 'photo_register') return registerPhoto(ctx, tenant.accountId, a, now);
   if (a.operation === 'items_import') return importItems(ctx, tenant, a, now);
+  if (a.operation === 'services_sync') return pack.serviceItems ? ok(await syncServiceItems(ctx, tenant.accountId, now)) : fail('module_unavailable');
   const module = moduleOf(a.operation);
   if (module && pack.modules[module] !== 'available') return fail('module_unavailable');
   const result = (await executeCatalog(ctx, tenant, a, now)) || (await executeOrders(ctx, tenant, a, now))

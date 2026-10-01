@@ -46,6 +46,8 @@ const en = {
   invalid_phone: 'not a valid number', missing_phone: 'no number', missing_country: 'needs a country', importNow: 'Import {count} contacts', imported: '{created} added, {updated} updated.',
   truncated: 'Only the first 1,000 rows are imported.', consentOptional: 'Also record marketing consent for these contacts', activeDialog: 'Layla is active', activeDialogBody: 'Opening your dashboard…', openDashboard: 'Open dashboard',
   dashboardUnavailable: 'The dashboard isn’t switched on yet. Your setup and Layla’s replies are unaffected.',
+  view_accounts: 'Accounts and VAT', capturedNone: 'Layla hasn’t captured any details from this chat yet.', openRecord: 'Open contact',
+  textCleared: 'Text cleared after 24 hours', textClearedHelp: 'For patients’ privacy, message text is erased after 24 hours. What Layla captured stays.',
 };
 const ar = {
   title: 'لوحة ليلى', loadEarlier: 'عرض الرسائل الأقدم', nav: 'أقسام اللوحة', today: 'اليوم', money: 'المال', customers: 'العملاء', settings: 'الإعدادات', sectionViews: 'أقسام هذه الصفحة',
@@ -93,6 +95,16 @@ const ar = {
   invalid_phone: 'رقم غير صالح', missing_phone: 'بلا رقم', missing_country: 'يحتاج دولة', importNow: 'استيراد {count} جهة اتصال', imported: 'أُضيف {created}، وحُدّث {updated}.',
   truncated: 'يُستورد أول ١٠٠٠ صف فقط.', consentOptional: 'سجّل أيضاً موافقة التسويق لهذه الجهات', activeDialog: 'تم تفعيل ليلى', activeDialogBody: 'جارٍ فتح لوحتك…', openDashboard: 'فتح اللوحة',
   dashboardUnavailable: 'اللوحة غير مفعّلة بعد. إعدادك وردود ليلى لا تتأثر.',
+  view_accounts: 'الحسابات والضريبة', capturedNone: 'لم تسجّل ليلى أي تفاصيل من هذه المحادثة بعد.', openRecord: 'افتح جهة الاتصال',
+  textCleared: 'حُذف النص بعد 24 ساعة', textClearedHelp: 'حفاظاً على خصوصية المرضى، يُحذف نص الرسائل بعد 24 ساعة. ما سجّلته ليلى يبقى.',
+};
+
+// One industry's own words for the shared dashboard screens (keys exist in both tables above).
+const PACK_WORDS = {
+  dental: {
+    en: { customers: 'Patients', contacts: 'Patients', customer: 'Patient', view_contacts: 'Patient list', view_products: 'Supplies', view_services: 'Treatments', openRecord: 'Open patient', textExpired: 'Text cleared after 24 hours' },
+    ar: { customers: 'المرضى', contacts: 'المرضى', customer: 'المريض', view_contacts: 'قائمة المرضى', view_products: 'المستلزمات', view_services: 'العلاجات', openRecord: 'افتح ملف المريض', textExpired: 'حُذف النص بعد 24 ساعة' },
+  },
 };
 
 const reasons = {
@@ -116,11 +128,12 @@ const reasons = {
     import_file_too_large: 'استخدم ملفاً أصغر من ٥ ميجابايت.', import_file_type: 'استخدم ملف CSV أو XLSX.', import_file_empty: 'الملف لا يحتوي على صفوف.', dashboard_unavailable: 'اللوحة غير متاحة حالياً.' },
 };
 
-export function createStrings(lang) {
-  const table = lang === 'ar' ? ar : en;
+/** @param {string} lang @param {string} [packId] the Hasib industry, whose own words replace the defaults */
+export function createStrings(lang, packId) {
+  const words = PACK_WORDS[packId], table = { ...(lang === 'ar' ? ar : en), ...(words ? words[lang === 'ar' ? 'ar' : 'en'] : {}) };
   const t = (key, vars = {}) => String(table[key] ?? en[key] ?? key).replace(/\{(\w+)\}/g, (m, name) => (vars[name] ?? m));
   const reason = code => (lang === 'ar' ? reasons.ar : reasons.en)[code] || (lang === 'ar' ? 'تعذّر إكمال الخطوة. حاول مجدداً.' : 'That didn’t work. Please try again.');
-  return { t, reason, lang, ar: lang === 'ar' };
+  return { t, reason, lang, ar: lang === 'ar', packId: packId || null };
 }
 /** "Submitted" names the channel Meta accepted the message on. */
 /** A plain-language reason for a message that was not sent, or null for unknown reasons. */
@@ -128,3 +141,4 @@ export const issueKey = reason => (reason && Object.hasOwn(en, `issue_${reason}`
 export const statusKey = (status, channel) => status === 'submitted' && channel === 'instagram' ? 'status_submitted_instagram' : `status_${status}`;
 export const STRING_KEYS = Object.keys(en);
 export const ARABIC_KEYS = Object.keys(ar);
+export const PACK_WORD_KEYS = Object.fromEntries(Object.entries(PACK_WORDS).map(([id, w]) => [id, { en: Object.keys(w.en), ar: Object.keys(w.ar) }]));

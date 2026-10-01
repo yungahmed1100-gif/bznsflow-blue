@@ -31,9 +31,10 @@ const REQUIRED = { item_photo: 'itemId', order: 'orderId', order_status: 'orderI
 const NEEDS_REQUEST = new Set(['order_create', 'payment_record', 'stock_move', 'expense_create', 'trade_in', 'repair_create']);
 
 const SHAPES = {
-  items: b => ({ search: str(b.search, 80), cursor: str(b.cursor, 100), limit: int(b.limit) }),
+  items: b => ({ search: str(b.search, 80), cursor: str(b.cursor, 100), limit: int(b.limit), kind: ['product', 'service'].includes(b.kind) ? b.kind : undefined }),
   low_stock: () => ({}),
   today: () => ({}),
+  services_sync: () => ({}),
   item_save: b => ({ requestId: uuid(b.requestId), itemId: id(b.itemId), item: item(b.item), variants: list(b.variants, 50, variant) }),
   item_archive: b => ({ itemId: id(b.itemId) }),
   item_photo: b => ({ itemId: id(b.itemId), photoId: typeof b.photoId === 'string' && /^[A-Za-z0-9_-]{0,64}$/.test(b.photoId) ? b.photoId : undefined }),

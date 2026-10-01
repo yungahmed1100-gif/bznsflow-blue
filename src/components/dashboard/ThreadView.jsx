@@ -1,4 +1,5 @@
 import { ChatOrders } from '../hasib/ChatOrders';
+import { CapturedDetails } from './CapturedDetails';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePolling } from '../../hooks/usePolling';
 import { dashboard, messaging } from '../../lib/dashboard/api';
@@ -38,6 +39,8 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
   const now = Date.now();
   const windowOpen = conversation.windowOpenUntil > now;
   const name = contact.nameSource === 'number' ? formatPhone(contact.number) : contact.name;
+  // Dental chats keep text for 24 hours only (the captured details stay).
+  const clinical = contact.sectorId === 'dental' || s.packId === 'dental';
 
   const act = async (label, task) => {
     setBusy(label); setError('');
@@ -84,6 +87,7 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
           </details>
         </div>
         <p id="ld-leave-help" className="ld-help">{s.t('leaveChatHelp')}</p>
+        <CapturedDetails s={s} contact={contact} qualification={data.qualification} conversationId={conversationId} channel={conversation.channel} />
         <ChatOrders s={s} conversationId={conversationId} />
       </header>
       <ol className="ld-messages" ref={scroller} tabIndex={0} aria-live="polite" aria-relevant="additions"
@@ -94,7 +98,7 @@ export function ThreadView({ s, overview, conversationId, onBack, onChanged }) {
             {(i === 0 || !sameDay(messages[i - 1].at, m.at, overview.timezone)) && <li className="ld-day" aria-label={formatDay(m.at, s.lang, overview.timezone)}><span aria-hidden="true">{formatDay(m.at, s.lang, overview.timezone)}</span></li>}
             <li className={`ld-bubble is-${m.direction === 'in' ? 'in' : 'out'} ${m.direction === 'template' ? 'is-template' : ''}`}>
               <span className="ld-bubble-author">{m.direction === 'in' ? s.t('customer') : m.direction === 'human' ? s.t('yourTeamApp') : m.direction === 'template' ? `${s.t('template')} · ${m.templateName}` : m.manual ? s.t('you') : s.t('layla')}</span>
-              {m.text === null ? <p className="ld-expired">{s.t('textExpired')}</p> : <p dir="auto">{m.text}</p>}
+              {m.text === null ? <p className="ld-expired" title={clinical ? s.t('textClearedHelp') : undefined}>{clinical ? s.t('textCleared') : s.t('textExpired')}</p> : <p dir="auto">{m.text}</p>}
               <span className="ld-bubble-meta">
                 <time dateTime={new Date(m.at).toISOString()} className="ld-num">{formatTime(m.at, s.lang, overview.timezone)}</time>
                 {m.direction !== 'in' && m.direction !== 'human' && <StatusTicks s={s} status={m.status} channel={contact.channel} />}

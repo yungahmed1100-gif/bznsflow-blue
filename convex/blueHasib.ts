@@ -1,7 +1,8 @@
 import { internalMutation } from './_generated/server';
 import { v, type Value } from 'convex/values';
 import { executeHasib, HASIB_OPERATIONS } from './hasib/hasibState.js';
-import { grantPlan as grant, revokePlan as revoke } from './hasib/plans.js';
+import { grantPlan as grant, revokePlan as revoke, accountByEmail } from './hasib/plans.js';
+import { shortenClinicalText } from './blueContacts.js';
 import { sweepOrphanPhotos } from './hasib/catalogState.js';
 
 type Result = Promise<{ ok: boolean; value?: Value; reason?: string }>;
@@ -34,6 +35,7 @@ export const execute = internalMutation({
     lineSerials: v.optional(v.array(v.object({ variantId: v.string(), serials: v.array(v.string()) }))),
     serials: v.optional(v.array(v.string())), serial: v.optional(v.string()), costMinor: v.optional(v.number()), repairId: v.optional(v.string()), device: v.optional(v.string()), fault: v.optional(v.string()),
     accessories: v.optional(v.string()), quoteMinor: v.optional(v.number()), labourMinor: v.optional(v.number()), parts: v.optional(v.array(part)), dueAt: v.optional(v.number()),
+    kind: v.optional(v.string()),
     expenseId: v.optional(v.string()), category: v.optional(v.string()), vatMinor: v.optional(v.number()), vendor: v.optional(v.string()), paidOn: v.optional(v.string()), period: v.optional(v.string()),
   },
   handler: (ctx, args): Result => executeHasib(ctx, { ...args, hashSecret: process.env.BLUE_REVIEW_SERVICE_SECRET }),
@@ -56,3 +58,16 @@ export const revokePlan = internalMutation({ args: { email: v.string() }, handle
 
 /** Hourly: remove photo uploads that were never attached to a product. */
 export const sweepPhotos = internalMutation({ args: {}, handler: (ctx) => sweepOrphanPhotos(ctx, Date.now()) });
+
+/**
+ * Operator, one-off per account: bring chat text stored before the dental rule down to
+ * 24 hours, newest first. Run again with `before` set to the returned `next` until it is null. Choosing Dental in the
+ * dashboard already does this for the account's recent messages.
+ */
+export const shortenDentalText = internalMutation({ args: { email: v.string(), before: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const account = await accountByEmail(ctx, args.email);
+    if (!account) return { ok: false, reason: 'account_not_found' };
+    const now = Date.now();
+    return { ok: true, value: await shortenClinicalText(ctx, account._id, now, args.before ?? now + 1) };
+  } });

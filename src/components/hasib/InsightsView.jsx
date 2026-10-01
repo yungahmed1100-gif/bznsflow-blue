@@ -45,6 +45,8 @@ export function InsightsView({ s, h, overview, onIndustryChanged }) {
   const i = data.data;
   const categoryLabel = key => { const c = overview.pack.expenseCategories.find(x => x.key === key); return c ? (s.ar ? c.ar : c.en) : key; };
   const name = r => <bdi>{h.name(r)}</bdi>;
+  // A clinic sells treatments, not stock: revenue leads, profit per service and stock tiles don't apply.
+  const clinic = !!overview.pack.serviceItems;
 
   return (
     <div className="hb-insights">
@@ -68,7 +70,7 @@ export function InsightsView({ s, h, overview, onIndustryChanged }) {
               <strong>{h.t('laylaWaitingTile')}: {overview.counts.laylaWaiting}</strong>{overview.counts.laylaOverdue ? ` · ${h.t('laylaOverdue', { count: overview.counts.laylaOverdue })}` : ''}</p>}
             <dl className="hb-tiles">
               <Tile label={h.t('sales')} note={h.orders(i.sales.orders)}><Money h={h} minor={i.sales.totalMinor} /></Tile>
-              <Tile label={h.t('grossProfit')}><Money h={h} minor={i.sales.grossProfitMinor} /></Tile>
+              {clinic ? <Tile label={h.t('revenue')}><Money h={h} minor={i.sales.revenueMinor} /></Tile> : <Tile label={h.t('grossProfit')}><Money h={h} minor={i.sales.grossProfitMinor} /></Tile>}
               <Tile label={h.t('operatingCosts')} note={i.expenses.stockPurchasesMinor ? h.t('stockBought', { amount: h.money(i.expenses.stockPurchasesMinor) }) : null}><Money h={h} minor={i.expenses.operatingMinor} /></Tile>
               <Tile label={h.t('cashIn')}><Money h={h} minor={i.cash.reduce((n, c) => n + c.amountMinor, 0)} /></Tile>
               <Tile label={h.t('owed')} note={h.t('owedHelp')}><Money h={h} minor={i.receivablesMinor} /></Tile>
@@ -78,10 +80,10 @@ export function InsightsView({ s, h, overview, onIndustryChanged }) {
             <div className="hb-panels">
               <section className="hb-panel">
                 {i.topProducts.length ? <BarTable caption={h.t('topProducts')} rows={i.topProducts} valueOf={r => r.revenueMinor} columns={[
-                  { key: 'name', label: h.t('products'), render: name },
+                  { key: 'name', label: clinic ? h.t('service') : h.t('products'), render: name },
                   { key: 'qty', label: h.t('qty'), numeric: true, render: r => <span className="ld-num">{r.qty}</span> },
                   { key: 'revenue', label: h.t('revenue'), numeric: true, render: r => <Money h={h} minor={r.revenueMinor} /> },
-                  { key: 'profit', label: h.t('profit'), numeric: true, render: r => <Money h={h} minor={r.profitMinor} /> },
+                  ...(clinic ? [] : [{ key: 'profit', label: h.t('profit'), numeric: true, render: r => <Money h={h} minor={r.profitMinor} /> }]),
                 ]} /> : <><h2 className="hb-panel-title">{h.t('topProducts')}</h2><p className="ld-help">{h.t('noSales')}</p></>}
               </section>
 
@@ -128,9 +130,11 @@ export function InsightsView({ s, h, overview, onIndustryChanged }) {
               {i.tradeIns && <Tile label={h.t('tradeInsTile')} note={h.t('countLabel', { count: i.tradeIns.count })}><Money h={h} minor={i.tradeIns.totalMinor} /></Tile>}
             </dl>}
             <dl className="hb-tiles hb-tiles-small">
-              <Tile label={h.t('stockValueTile')}><Money h={h} minor={i.stock.valueMinor} /></Tile>
-              <Tile label={h.t('lowTile')}><span>{i.stock.low}</span></Tile>
-              <Tile label={h.t('outTile')}><span>{i.stock.out}</span></Tile>
+              {!clinic && <>
+                <Tile label={h.t('stockValueTile')}><Money h={h} minor={i.stock.valueMinor} /></Tile>
+                <Tile label={h.t('lowTile')}><span>{i.stock.low}</span></Tile>
+                <Tile label={h.t('outTile')}><span>{i.stock.out}</span></Tile>
+              </>}
               <Tile label={h.t('buyers')}><span>{i.customers.buyers}</span></Tile>
               <Tile label={h.t('returning')}><span>{i.customers.returning}</span></Tile>
               <Tile label={h.t('walkInSales')}><span>{i.customers.walkIn}</span></Tile>

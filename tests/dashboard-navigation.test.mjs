@@ -34,3 +34,21 @@ test('before an industry is chosen, Today holds the setup and Stock keeps only s
   assert.deepEqual(map.sections, ['today', 'chats', 'customers', 'settings']);
   assert.deepEqual(resolveTab('insights', null, map), { tab: 'today', view: null });
 });
+
+test('a dental clinic: the same sections, a clinic’s views, and old links still land', () => {
+  const dental = { modules: ['orders', 'stock', 'expenses', 'insights'], setupRequired: false, pack: { id: 'dental' } };
+  const map = dashboardMap(dental);
+  assert.deepEqual(map.sections, ['today', 'chats', 'orders', 'stock', 'money', 'customers', 'settings']);
+  assert.deepEqual(map.views.stock, ['services', 'products'], 'treatments first, then supplies');
+  assert.deepEqual(map.views.customers, ['contacts'], 'no mass messaging to patients');
+  assert.deepEqual(resolveTab('broadcast', null, map), { tab: 'customers', view: 'contacts' });
+  assert.deepEqual(resolveTab('stock', null, map), { tab: 'stock', view: 'services' });
+  assert.deepEqual(dashboardMap(retail).views.stock, ['products', 'services'], 'shops are unchanged');
+  assert.deepEqual(dashboardMap(retail).views.customers, ['contacts', 'broadcast']);
+});
+
+test('Accounts and VAT appear in Settings once an industry is set', () => {
+  assert.deepEqual(dashboardMap(retail).views.settings, ['channels', 'business', 'accounts']);
+  assert.deepEqual(dashboardMap(null).views.settings, ['channels', 'business']);
+  assert.deepEqual(dashboardMap({ modules: [], setupRequired: true }).views.settings, ['channels', 'business']);
+});

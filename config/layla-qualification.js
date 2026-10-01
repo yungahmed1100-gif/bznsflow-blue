@@ -285,11 +285,40 @@ export function extractCustomerName(original) {
   return null;
 }
 
-export function validateFieldValue(sectorId, key, value) {
-  const field = qualificationPack(sectorId).fields.find(f => f.key === key);
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2})?$/;
+const EXTRACTORS = { datetime: extractDatetime, budget: extractBudget, timeline: extractTimeline };
+
+/**
+ * Sensitive packs keep only what Layla herself could capture: a listed option, an
+ * approved catalog name, a known place, or a bounded date, time or amount. Anything
+ * else (symptoms, case details, notes) is refused, whoever typed it.
+ */
+function capturable(field, value, catalog) {
+  const t = normalizeText(value);
+  const option = (field.options || []).find(o => o.id === value || normalizeText(o.en) === t || normalizeText(o.ar) === t);
+  if (option) return option.id;
+  if (field.kind === 'catalog') {
+    const row = (catalog || []).find(r => [r.nameEn, r.nameAr].some(n => typeof n === 'string' && n.trim() && normalizeText(n) === t));
+    return row ? clip(row.nameEn || row.nameAr, 80) : null;
+  }
+  if (field.kind === 'area') {
+    const place = PLACES.find(([en, ar, extra = []]) => [en, ar, ...extra].some(n => normalizeText(n) === t));
+    return place ? (isArabicWord(t) ? place[1] : place[0]) : null;
+  }
+  if (field.kind === 'datetime' && ISO_DATE.test(value)) return value;
+  if (field.kind === 'number') return /^\d{1,6}$/.test(value) ? value : null;
+  const hit = EXTRACTORS[field.kind]?.(t);
+  return hit && normalizeText(hit.value) === t ? value : null;
+}
+
+/** A field value an owner, an import or a message may store. `catalog` is the approved catalog, for catalog-kind fields. */
+export function validateFieldValue(sectorId, key, value, catalog = []) {
+  const pack = qualificationPack(sectorId);
+  const field = pack.fields.find(f => f.key === key);
   if (!field || typeof value !== 'string') return null;
   const clean = clip(value, field.kind === 'text' ? 120 : 80);
   if (!clean) return null;
+  if (pack.sensitive) return capturable(field, clean, catalog);
   if (field.kind === 'enum' && !field.options.some(o => o.id === clean)) return null;
   if (field.kind === 'number' && !/^\d{1,6}$/.test(clean)) return null;
   return clean;
@@ -329,7 +358,7 @@ export function extractQualification({ text, sectorId, catalog = [], asked = [],
     && !FILLER.test(normalizeText(original)) && !['human', 'optout', 'prices', 'hours', 'location', 'identity', 'greeting'].includes(intent)) {
     updates.push({ key: field.key, value: clip(original, 80), confidence: 0.6, source: 'contextual' });
   }
-  return { updates: updates.filter(u => validateFieldValue(pack.id, u.key, u.value)), customerName: extractCustomerName(original) };
+  return { updates: updates.filter(u => validateFieldValue(pack.id, u.key, u.value, catalog)), customerName: extractCustomerName(original) };
 }
 
 /** Merge extracted updates. Owner-entered values are never overwritten by a message. */
