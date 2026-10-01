@@ -8,7 +8,7 @@ Prepared 2026-10-01, after Dental (`aece6da`, live on Blue). Six packs are live:
 |---|---|---|---|---|---|
 | Automotive | booking | on | **not applied** | 4/4 pass | `hasib-automotive.test.mjs`, load test; no role journeys |
 | Construction | project | on | **not applied** | 4/4 pass | `hasib-construction.test.mjs`, load test; no role journeys |
-| Real estate | project | on | **not applied** | **0/5**: the generic flow waits for Today metric cards and a "Record commission" button this dashboard doesn't render | `hasib-real-estate-ascend.test.mjs`; no role journeys |
+| Real estate | project | on | **applied** | **hardened 2026-10-01**: own suite, 202 assertions | 10 role journeys; see [real-estate.md](real-estate.md) |
 
 **The main risk.** Team is enabled for all three, but `convex/hasib/staffPolicy.js` guards only catalog packs and packs with service items. An invited employee in these packs therefore receives:
 - the manager's Today money-valued measures (`commission_owed`, `variation_exposure`, `overdue_receivables`);
@@ -23,7 +23,7 @@ The Retail record already flagged this ("job_profit, visit_profit … not hidden
 
 1. **Automotive.** It is closest to what is already hardened (bookings, job cards, parts stock, payments). The front-desk and service-advisor roles map directly onto the Retail and Dental rule.
 2. **Construction.** Project money (variations, claims, retention) needs its own staff rule; its tests are already green, so this is mostly the role pass.
-3. **Real estate.** It starts with repairing its browser scenarios (0/5), then the commission and offer rules.
+3. **Real estate.** Done 2026-10-01 at Ahmed's request, ahead of Automotive and Construction; see [real-estate.md](real-estate.md).
 
 ## The same pass for each
 

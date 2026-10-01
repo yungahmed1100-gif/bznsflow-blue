@@ -42,10 +42,9 @@ export function buildRealEstateSubmission(form, values, context = {}) {
       return {
         operation: 'opportunity_save',
         body: {
-          requestId,
+          ...(values.opportunityId ? { opportunityId: values.opportunityId, version: Number(values.version) } : { requestId }),
           workflow: {
-            contactId: values.contactId,
-            source: 'manual',
+            ...(values.opportunityId ? {} : { contactId: values.contactId, source: 'manual' }),
             need: values.need,
             areas: listFromCsv(values.areas),
             propertyTypes: listFromCsv(values.propertyTypes),
@@ -69,7 +68,7 @@ export function buildRealEstateSubmission(form, values, context = {}) {
           workflow: {
             opportunityId: values.opportunityId,
             propertyId: values.propertyId,
-            status: 'requested',
+            status: values.status === 'confirmed' ? 'confirmed' : 'requested',
             scheduledAt: new Date(values.scheduledAt).getTime(),
             nextAction: values.nextAction,
           },
@@ -104,6 +103,21 @@ export function buildRealEstateSubmission(form, values, context = {}) {
         },
       };
     }
+    case 'outcome':
+      return {
+        operation: 'viewing_save',
+        body: { viewingId: values.viewingId, version: Number(values.version), workflow: { status: values.status, outcome: values.outcome || undefined, nextAction: values.nextAction || undefined } },
+      };
+    case 'counter':
+      return {
+        operation: 'offer_save',
+        body: { offerId: values.offerId, version: Number(values.version), workflow: { status: 'countered', amountMinor: omrToMinor(values.amount), terms: values.terms } },
+      };
+    case 'lost':
+      return {
+        operation: 'opportunity_stage',
+        body: { opportunityId: values.opportunityId, version: Number(values.version), status: 'lost', reason: values.reason },
+      };
     case 'close':
       return {
         operation: 'deal_close',

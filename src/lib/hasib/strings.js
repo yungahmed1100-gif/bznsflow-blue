@@ -337,6 +337,40 @@ const shopReasons = {
   preview_read_only: ['This is a read-only preview. Nothing is saved.', 'هذه معاينة للقراءة فقط، ولا يُحفظ شيء.'],
 };
 for (const [key, [english, arabic]] of Object.entries(shopReasons)) { reasons.en[key] = english; reasons.ar[key] = arabic; }
+// Real Estate refusals (convex/hasib/realEstateState.js).
+const realEstateReasons = {
+  invalid_stage_transition: ['A deal moves forward one step at a time, or to Lost. It is won only by closing it.', 'تتقدّم الصفقة خطوة بخطوة أو تُسجَّل كخاسرة، ولا تُحتسب رابحة إلا بإغلاقها.'],
+  lost_reason_required: ['Say why the deal was lost.', 'اذكر سبب خسارة الصفقة.'],
+  qualification_incomplete: ['Add areas, property type, maximum budget, finance, decision maker and timeline first.', 'أضف المناطق ونوع العقار والحد الأعلى للميزانية والتمويل وصاحب القرار والإطار الزمني أولاً.'],
+  opportunity_closed: ['This deal is closed and can no longer be edited.', 'هذه الصفقة مغلقة ولا يمكن تعديلها.'],
+  opportunity_assigned_elsewhere: ['This customer already has an open deal with another agent.', 'لدى هذا العميل صفقة مفتوحة مع وكيل آخر.'],
+  opportunity_not_found: ['That deal is not available to you. Reload the page.', 'هذه الصفقة غير متاحة لك. أعد تحميل الصفحة.'],
+  opportunity_conflict: ['Someone changed this deal. It has been reloaded; try again.', 'عدّل شخص آخر هذه الصفقة. أعد المحاولة بعد التحديث.'],
+  invalid_opportunity: ['Check the budget and the customer’s requirements.', 'تحقّق من الميزانية ومتطلبات العميل.'],
+  invalid_assignment: ['You can assign a deal or listing only to yourself.', 'يمكنك إسناد الصفقة أو العقار إلى نفسك فقط.'],
+  invalid_viewing: ['Check the viewing date and time.', 'تحقّق من تاريخ ووقت المعاينة.'],
+  invalid_viewing_transition: ['This viewing is already finished.', 'هذه المعاينة منتهية بالفعل.'],
+  viewing_outcome_required: ['Write how the viewing went before marking it completed.', 'اكتب نتيجة المعاينة قبل تسجيلها كمكتملة.'],
+  viewing_conflict: ['Someone changed this viewing. Try again.', 'عدّل شخص آخر هذه المعاينة. أعد المحاولة.'],
+  invalid_offer: ['An offer needs an amount and its terms.', 'يحتاج العرض إلى مبلغ وشروط.'],
+  offer_approval_required: ['The manager must approve this offer before it is presented.', 'يجب أن يوافق المدير على العرض قبل تقديمه.'],
+  invalid_offer_transition: ['That step isn’t possible for this offer now.', 'لا يمكن تنفيذ هذه الخطوة على العرض الآن.'],
+  offer_conflict: ['Someone changed this offer. Try again.', 'عدّل شخص آخر هذا العرض. أعد المحاولة.'],
+  invalid_compliance: ['Choose a check and confirm it or mark it not applicable.', 'اختر بنداً وأكّده أو اجعله غير منطبق.'],
+  compliance_conflict: ['Someone changed these checks. Try again.', 'عدّل شخص آخر هذه البنود. أعد المحاولة.'],
+  compliance_incomplete: ['Confirm all five compliance checks before closing.', 'أكّد بنود الامتثال الخمسة قبل الإغلاق.'],
+  accepted_offer_required: ['Close the deal from its accepted offer.', 'أغلق الصفقة من العرض المقبول.'],
+  commission_required: ['Enter the agency commission.', 'أدخل عمولة الوكالة.'],
+  property_conflict: ['Someone changed this listing. Try again.', 'عدّل شخص آخر هذا الإعلان. أعد المحاولة.'],
+  property_not_found: ['That listing is no longer available.', 'هذا الإعلان لم يعد متاحاً.'],
+  invalid_property: ['Check the listing’s title, location and price.', 'تحقّق من عنوان الإعلان والموقع والسعر.'],
+  draft_conflict: ['Someone changed this message. Try again.', 'عدّل شخص آخر هذه الرسالة. أعد المحاولة.'],
+  invalid_draft: ['Write the message text.', 'اكتب نص الرسالة.'],
+  match_not_found: ['That match is no longer available.', 'هذه المطابقة لم تعد متاحة.'],
+  commission_not_found: ['That commission record is no longer available.', 'سجل العمولة هذا لم يعد متاحاً.'],
+  task_not_found: ['That task is already closed.', 'هذه المهمة مغلقة بالفعل.'],
+};
+for (const [key, [english, arabic]] of Object.entries(realEstateReasons)) { reasons.en[key] = english; reasons.ar[key] = arabic; }
 
 const GROUPED = new Intl.NumberFormat('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 

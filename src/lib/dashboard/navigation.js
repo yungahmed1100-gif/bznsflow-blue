@@ -32,10 +32,12 @@ export function dashboardMap(hasib, capabilities = { broadcasts: true, money: tr
   const dental = on('orders') && hasib?.pack?.id === 'dental';
   const construction = hasib?.pack?.id === 'construction' && !hasib.setupRequired;
   const automotive = hasib?.pack?.id === 'automotive' && !hasib.setupRequired;
+  // Real Estate's Properties is one listings screen, not products and services.
+  const realEstate = hasib?.pack?.id === 'real-estate' && !hasib.setupRequired;
   // Services are edited in Business details, which is the manager's.
   const managerViews = list => list.filter(v => v !== 'services' || workspaceRole !== 'employee');
   const views = {
-    stock: construction || automotive ? [] : on('stock') ? managerViews(dental ? ['services', 'products'] : VIEWS.stock) : ['services'],
+    stock: construction || automotive || realEstate ? [] : on('stock') ? managerViews(dental ? ['services', 'products'] : VIEWS.stock) : ['services'],
     money: construction || automotive ? [] : VIEWS.money.filter(on),
     customers: clinic || dental ? ['contacts'] : capabilities.broadcasts ? VIEWS.customers : ['contacts'],
     // Accounts and VAT belong to Hasib's money, so they appear once an industry is set.

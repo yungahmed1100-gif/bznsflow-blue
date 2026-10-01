@@ -128,8 +128,8 @@ export async function seedIndustry({ m, tenant, hasib, pack }) {
     let property = await create('property_save', { workflow: { label: 'Sample two-bedroom apartment', reference: 'DEMO-1', transactionType: 'sale', propertyType: 'apartment', area: 'Muscat', location: 'Muscat', askingPriceMinor: 65000000, bedrooms: 2, authorityStatus: 'confirmed', availability: 'available' } });
     property = await run('property_verify', { propertyId: property.id, version: property.version });
     const deal = await create('opportunity_save', { workflow: { contactId: refs.contactId, conversationId: refs.conversationId, need: 'buy', areas: ['Muscat'], propertyTypes: ['apartment'], budgetMinMinor: 50000000, budgetMaxMinor: 70000000, bedrooms: 2, financeReadiness: 'cash', decisionMakerReadiness: 'ready', timeline: '30 days', mustHaves: [] } });
-    let viewing = await create('viewing_save', { workflow: { opportunityId: deal.id, propertyId: property.id, status: 'confirmed', scheduledAt: now - HOUR } });
-    viewing = await run('viewing_save', { viewingId: viewing.id, version: viewing.version, workflow: { status: 'completed', outcome: 'Owner recorded agreement' } });
+    const viewing = await create('viewing_save', { workflow: { opportunityId: deal.id, propertyId: property.id, status: 'confirmed', scheduledAt: now - HOUR } });
+    await run('viewing_save', { viewingId: viewing.id, version: viewing.version, workflow: { status: 'completed', outcome: 'Owner recorded agreement' } });
     let offer = await create('offer_save', { workflow: { opportunityId: deal.id, propertyId: property.id, amountMinor: 64000000, terms: 'Cash, completion in 30 days' } });
     offer = await run('offer_approve', { offerId: offer.id, version: offer.version });
     offer = await run('offer_save', { offerId: offer.id, version: offer.version, workflow: { status: 'presented' } });

@@ -346,3 +346,25 @@ button.hb-visual-metric:hover, button.hb-visual-metric:focus-visible { border-co
 /* Clinic Today: what Layla captured, shown as short facts */
 .hb-captured { color: var(--ink-muted); }
 .hb-need-list .hb-link { background: none; border: 0; padding: 0; font: inherit; color: var(--blue); text-decoration: underline; cursor: pointer; min-block-size: 24px; }
+
+/* Real Estate: deal detail, lists, compliance and tasks (src/components/hasib/realestate/) */
+.hb-real-estate { display: grid; gap: 16px; }
+.hb-deal-detail { display: grid; gap: 12px; }
+.hb-deal-detail h3 { margin: 12px 0 0; padding-block-start: 12px; border-block-start: 1px solid var(--rule); font-size: 1.05rem; }
+.hb-deal-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 16px; margin: 0; }
+.hb-deal-facts div { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--card); }
+.hb-deal-facts dt { font-size: .82rem; color: var(--ink-2); }
+.hb-deal-facts dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.hb-re-list, .hb-re-checks, .hb-re-deals, .hb-re-tasks, .hb-re-history { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.hb-re-list > li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--card); overflow-wrap: anywhere; }
+.hb-re-list > li > p { flex-basis: 100%; margin: 0; color: var(--ink-2); }
+.hb-re-list .ld-actions, .hb-re-checks .ld-actions { margin-inline-start: auto; }
+.hb-re-checks li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--card); }
+.hb-re-checks li[data-done] { border-color: var(--green); }
+.hb-re-deals { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.hb-re-deals li p { margin: 4px 0; }
+.hb-re-tasks li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.hb-re-tasks li p { margin: 4px 0 0; color: var(--ink-2); }
+.hb-re-history { color: var(--ink-2); font-size: .92rem; }
+.hb-warn { color: var(--coral); font-weight: 600; }
+.hb-real-estate .hb-confirm { position: sticky; inset-block-start: 8px; z-index: 2; }

@@ -16,7 +16,8 @@ const API_PORT = Number(process.env.INDUSTRY_BROWSER_API_PORT || 5399);
 const BASE = `http://127.0.0.1:${PORT}`;
 const journeysOnly = process.argv.includes('--journeys-only');
 const requested = process.argv.slice(2).filter(arg => !arg.startsWith('--'));
-const packs = requested.length ? requested : industryCatalog().map(p => p.id);
+// Real Estate has its own dashboard and suite (tests/real-estate-browser.mjs); its generic scenarios are retired.
+const packs = (requested.length ? requested : industryCatalog().map(p => p.id)).filter(id => id !== 'real-estate');
 const results = [];
 await mkdir(OUT, { recursive: true });
 

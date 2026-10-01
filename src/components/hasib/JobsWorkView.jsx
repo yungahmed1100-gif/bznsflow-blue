@@ -8,21 +8,21 @@ import { Dialog } from '../dashboard/Dialog';
 import { Money } from './Badges';
 import { loadWorkflowPages } from '../../lib/hasib/pagination';
 
-/** Job cards and property enquiries share contacts and the existing charge ledger. */
-export function JobsWorkView({ s, h, overview, timezone = 'Asia/Muscat', onChanged, initialCreate, propertiesOnly = false }) {
-  const pack = hasibPack(overview.pack.id), property = pack.ownerUi.workflow === 'property';
+/** Job cards share contacts and the existing charge ledger. Real Estate has its own dashboard (RealEstateDashboard). */
+export function JobsWorkView({ s, h, overview, timezone = 'Asia/Muscat', onChanged, initialCreate }) {
+  const pack = hasibPack(overview.pack.id);
   const text = (en, ar) => h.ar ? ar : en;
-  const [form, setForm] = useState(initialCreate ? property ? 'enquiry' : 'job' : ''), [values, setValues] = useState({}), [selected, setSelected] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [form, setForm] = useState(initialCreate ? 'job' : ''), [values, setValues] = useState({}), [selected, setSelected] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [requestIds] = useState(() => new Map());
   const [pages, setPages] = useState(20);
   const state = usePolling(async () => {
-    const ops = property ? ['properties', 'property_enquiries'] : ['jobs', 'equipment', 'items', 'orders'];
+    const ops = ['jobs', 'equipment', 'items', 'orders'];
     const result = await Promise.all(ops.map(op => loadWorkflowPages(cursor => hasib(op, { limit: 200, ...(cursor ? { cursor } : {}) }), pages)));
     const contacts = await loadWorkflowPages(cursor => dashboard('contacts', { limit: 50, ...(cursor ? { cursor } : {}) }), pages);
     return { ...Object.fromEntries(ops.map((op, i) => [op, result[i].items])), contacts: contacts.items, hasMore: !!contacts.cursor || result.some(page => page.cursor) };
   }, [overview.pack.id, pages], { interval: 30000 });
   const data = state.data || {};
-  const open = (name, row = null) => { setSelected(row); setValues(row?.propertyId ? { propertyId: row.propertyId } : {}); setError(''); setForm(name); };
+  const open = (name, row = null) => { setSelected(row); setValues({}); setError(''); setForm(name); };
   const run = async (op, workflow, idKey, row = selected) => {
     if (busy) return;
     setBusy(true); setError('');
@@ -35,10 +35,6 @@ export function JobsWorkView({ s, h, overview, timezone = 'Asia/Muscat', onChang
   const submit = e => {
     e.preventDefault();
     try {
-      if (form === 'property') return run('property_save', { label: values.name, location: values.location, askingPriceMinor: minor('amount'), availability: values.availability || 'available' }, 'propertyId');
-      if (form === 'enquiry') return run('enquiry_create', { contactId: values.contactId, location: values.location, budgetMinor: minor('amount'), ...(values.propertyId ? { propertyId: values.propertyId } : {}) });
-      if (form === 'viewing') return run('enquiry_update', { status: 'viewing', ...(values.propertyId ? { propertyId: values.propertyId } : {}), viewingAt: stamp('dueAt'), ...(values.outcome ? { viewingOutcome: values.outcome } : {}), ...(values.followUpAt ? { followUpAt: stamp('followUpAt') } : {}) }, 'enquiryId');
-      if (form === 'commission') return run('enquiry_update', { status: 'won', ...(values.propertyId ? { propertyId: values.propertyId } : {}), commissionMinor: minor('amount') }, 'enquiryId');
       if (form === 'estimate') return run('job_estimate', { lines: values.lines.map(line => ({ name: line.name, qty: Number(line.qty), unitPriceMinor: Math.round(Number(line.price) * 1000), ...(line.variantId ? { variantId: line.variantId } : {}) })) }, 'jobId');
       if (form === 'approval') return run('job_approve', { estimateVersion: selected.estimates.at(-1).version, approvedBy: values.name }, 'jobId');
       if (form === 'cost') return run('job_update', { actualMinutes: Number(values.minutes || selected.actualMinutes), costs: [...selected.costs, { label: values.name, amountMinor: minor('amount') }], costsComplete: values.complete === 'yes' }, 'jobId');
@@ -52,13 +48,11 @@ export function JobsWorkView({ s, h, overview, timezone = 'Asia/Muscat', onChang
   const field = (key, en, ar, type = 'text', required = true) => <label className="ld-field">{text(en, ar)}<input required={required} type={type} step={type === 'number' ? 'any' : undefined} value={values[key] || ''} onChange={e => setValues(v => ({ ...v, [key]: e.target.value }))} /></label>;
   const select = (key, en, ar, list, required = true) => <label className="ld-field">{text(en, ar)}<select required={required} value={values[key] || ''} onChange={e => setValues(v => ({ ...v, [key]: e.target.value }))}><option value="">—</option>{(list || []).map(row => <option key={row.id} value={row.id}>{row.name || row.label || row.title}</option>)}</select></label>;
   const contactName = id => data.contacts?.find(c => c.id === id)?.name || text('Customer', 'عميل');
-  return <div className="hb-work"><div className="ld-page-head"><h1>{pack.ownerUi[propertiesOnly ? 'stock' : 'work'][h.ar ? 'ar' : 'en']}</h1><button className="ld-button ld-primary" onClick={() => open(propertiesOnly ? 'property' : property ? 'enquiry' : 'job')}>{text('Add record', 'إضافة سجل')}</button></div>
+  return <div className="hb-work"><div className="ld-page-head"><h1>{pack.ownerUi.work[h.ar ? 'ar' : 'en']}</h1><button className="ld-button ld-primary" onClick={() => open('job')}>{text('Add record', 'إضافة سجل')}</button></div>
     {(error || state.error) && <p role="alert">{error || h.reason(state.error.reason) || s.reason(state.error.reason)}</p>}
     {data.hasMore && <button className="ld-button" disabled={state.loading} onClick={() => setPages(value => value + 20)}>{text('Load more records', 'تحميل المزيد من السجلات')}</button>}
-    <p className="ld-help">{timezone}{property && ` · ${text('Property prices are not agency revenue. Only recorded commissions count.', 'أسعار العقارات ليست إيراداً للمكتب. تُحتسب العمولات المسجلة فقط.')}`}</p>
-    {property ? <>
-      {propertiesOnly ? (data.properties || []).map(row => <section className="hb-panel" key={row.id}><h2>{row.label}</h2><p>{row.location} · <Money h={h} minor={row.askingPriceMinor} /></p><label className="ld-field">{text('Availability', 'التوفر')}<select disabled={busy} value={row.availability} onChange={e => run('property_save', { label: row.label, location: row.location, askingPriceMinor: row.askingPriceMinor, availability: e.target.value }, 'propertyId', row)}>{[['available', 'Available', 'متاح'], ['reserved', 'Reserved', 'محجوز'], ['unavailable', 'Unavailable', 'غير متاح']].map(([id, en, ar]) => <option key={id} value={id}>{text(en, ar)}</option>)}</select></label></section>) : (data.property_enquiries || []).map(row => <section className="hb-panel" key={row.id}><h2>{contactName(row.contactId)}</h2><p>{row.location} · <Money h={h} minor={row.budgetMinor} /></p>{row.viewingAt && <p>{formatDateTime(row.viewingAt, s.lang, timezone)} · {row.viewingOutcome}</p>}<div className="ld-actions">{!['won', 'lost'].includes(row.status) && <><button className="ld-button" disabled={busy} onClick={() => run('enquiry_update', { status: 'replied' }, 'enquiryId', row)}>{text('Record reply', 'تسجيل الرد')}</button><button className="ld-button" onClick={() => open('viewing', row)}>{text('Viewing and follow-up', 'المعاينة والمتابعة')}</button><button className="ld-button" onClick={() => open('commission', row)}>{text('Record commission', 'تسجيل العمولة')}</button></>}{row.orderId && <a className="ld-button" href={`?tab=orders&order=${row.orderId}`}>{text('Open charge', 'فتح الرسوم')}</a>}</div></section>)}
-    </> : <>
+    <p className="ld-help">{timezone}</p>
+    <>
       <div className="ld-actions">{['automotive', 'hvac'].includes(pack.id) && <button className="ld-button" onClick={() => open('equipment')}>{text('Add vehicle or equipment', 'إضافة مركبة أو جهاز')}</button>}</div>
       {(data.jobs || []).map(row => <section className="hb-panel" key={row.id}><h2>{row.title}</h2><p>{contactName(row.contactId)} · {formatDateTime(row.dueAt, s.lang, timezone)}</p><p>{text('Status', 'الحالة')}: {text(({ draft: 'Draft', awaiting_approval: 'Awaiting approval', approved: 'Approved', in_progress: 'In progress', completed: 'Completed', cancelled: 'Cancelled', returned: 'Reversed' })[row.status] || row.status, ({ draft: 'مسودة', awaiting_approval: 'بانتظار الموافقة', approved: 'موافق عليه', in_progress: 'قيد التنفيذ', completed: 'مكتمل', cancelled: 'ملغى', returned: 'معكوس' })[row.status] || row.status)}</p>
         {row.checklist.map((item, index) => <label key={index} className="ld-check"><input type="checkbox" disabled={busy || ['completed', 'cancelled', 'returned'].includes(row.status)} checked={item.done} onChange={e => run('job_update', { checklist: row.checklist.map((x, i) => i === index ? { ...x, done: e.target.checked } : x) }, 'jobId', row)} />{item.text}</label>)}
@@ -69,17 +63,14 @@ export function JobsWorkView({ s, h, overview, timezone = 'Asia/Muscat', onChang
         {row.orderId && <a className="ld-button" href={`?tab=orders&order=${row.orderId}`}>{text('Open charge and payments', 'فتح الرسوم والدفعات')}</a>}
         <details><summary>{text('Costs and estimate history', 'التكاليف وسجل عروض الأسعار')}</summary>{row.estimates.map(estimate => <div key={estimate.version}>{text('Version', 'الإصدار')} {estimate.version}{estimate.lines.map((line, i) => <p key={i}>{line.name} × {line.qty} · <Money h={h} minor={line.unitPriceMinor} /></p>)}</div>)}{row.costs.map((cost, i) => <p key={i}>{cost.label} · <Money h={h} minor={cost.amountMinor} /></p>)}{row.extras?.map((extra, index) => <p key={index}>{extra.label} · <Money h={h} minor={extra.amountMinor} /> · {extra.approved ? text('Approved', 'موافق عليه') : ['completed', 'cancelled', 'returned'].includes(row.status) ? text('Awaiting approval', 'بانتظار الموافقة') : <button className="ld-button" onClick={() => { open('approve_extra', row); setValues({ extraIndex: index }); }}>{text('Record approval', 'تسجيل الموافقة')}</button>}</p>)}{row.milestones?.map((milestone, i) => <p key={i}>{milestone.label} · <Money h={h} minor={milestone.amountMinor} /> · {milestone.withheld ? text('Withheld', 'محتجز') : text('Due payment', 'دفعة مستحقة')}</p>)}</details>
       </section>)}
-    </>}
+    </>
     {form && <Dialog s={s} title={text('Record details', 'تسجيل التفاصيل')} onClose={() => setForm('')}><form onSubmit={submit}><fieldset disabled={busy} className="hb-action-fields">{error && <p role="alert">{error}</p>}
-      {!['enquiry', 'viewing', 'commission', 'estimate'].includes(form) && field('name', form === 'approval' ? 'Approved by' : 'Description', form === 'approval' ? 'وافق عليه' : 'الوصف')}
-      {['job', 'equipment', 'enquiry'].includes(form) && select('contactId', 'Customer', 'العميل', data.contacts, form !== 'job')}
-      {['property', 'enquiry'].includes(form) && field('location', 'Location', 'الموقع')}
-      {['property', 'enquiry', 'commission', 'cost', 'extra', 'milestone'].includes(form) && field('amount', form === 'commission' ? 'Commission (OMR)' : 'Amount (OMR)', form === 'commission' ? 'العمولة (ر.ع.)' : 'المبلغ (ر.ع.)', 'number')}
-      {['enquiry', 'viewing', 'commission'].includes(form) && select('propertyId', form === 'enquiry' ? 'Property (optional)' : 'Property', form === 'enquiry' ? 'العقار (اختياري)' : 'العقار', data.properties, form !== 'enquiry')}
-      {['job', 'equipment', 'viewing', 'milestone'].includes(form) && field('dueAt', 'Due date and time', 'التاريخ والوقت المستحق', 'datetime-local', form !== 'equipment')}
+      {form !== 'estimate' && field('name', form === 'approval' ? 'Approved by' : 'Description', form === 'approval' ? 'وافق عليه' : 'الوصف')}
+      {['job', 'equipment'].includes(form) && select('contactId', 'Customer', 'العميل', data.contacts, form !== 'job')}
+      {['cost', 'extra', 'milestone'].includes(form) && field('amount', 'Amount (OMR)', 'المبلغ (ر.ع.)', 'number')}
+      {['job', 'equipment', 'milestone'].includes(form) && field('dueAt', 'Due date and time', 'التاريخ والوقت المستحق', 'datetime-local', form !== 'equipment')}
       {form === 'job' && <>{select('equipmentId', 'Vehicle or equipment', 'المركبة أو الجهاز', data.equipment, false)}{select('repeatOfId', 'Repeat fault from job', 'عطل متكرر من عمل سابق', data.jobs, false)}{field('recurringDays', 'Repeat every (days, optional)', 'يتكرر كل (أيام، اختياري)', 'number', false)}{pack.id === 'construction' && field('amount', 'Budget (OMR)', 'الميزانية (ر.ع.)', 'number', false)}<label className="ld-field">{text('Checklist (one task per line)', 'قائمة المهام (مهمة في كل سطر)')}<textarea value={values.checklist || ''} onChange={e => setValues(v => ({ ...v, checklist: e.target.value }))} /></label></>}
       {form === 'equipment' && <>{field('identifier', 'Plate or serial number', 'رقم اللوحة أو الرقم التسلسلي')}{field('visits', 'Maintenance visits remaining', 'زيارات الصيانة المتبقية', 'number', false)}</>}
-      {form === 'viewing' && <>{field('outcome', 'Viewing outcome', 'نتيجة المعاينة', 'text', false)}{field('followUpAt', 'Next follow-up', 'المتابعة القادمة', 'datetime-local', false)}</>}
       {form === 'cost' && <>{field('minutes', 'Actual minutes', 'الدقائق الفعلية', 'number', false)}{select('complete', 'All costs recorded?', 'هل سُجلت كل التكاليف؟', [{ id: 'yes', name: text('Yes', 'نعم') }, { id: 'no', name: text('No', 'لا') }])}</>}
       {form === 'extra' && field('approvedBy', 'Approved by (leave empty while waiting)', 'وافق عليه (اتركه فارغاً أثناء الانتظار)', 'text', false)}
       {form === 'milestone' && select('orderId', 'Linked milestone charge', 'رسوم المرحلة المرتبطة', data.orders?.map(row => ({ ...row, name: `#${row.number} · ${h.money(row.totalMinor)}` })), false)}
