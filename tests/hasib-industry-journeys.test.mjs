@@ -13,7 +13,8 @@ import { hasibArgs } from '../api/_lib/hasib/validate.js';
 import { assertEntry, assertHasibRows } from './helpers/hasib-contract.mjs';
 import { seedIndustry } from '../scripts/hasib-demo-industries.mjs';
 
-const INDUSTRIES = ['retail', 'retail-tech', 'beauty', 'dental', 'clinic', 'restaurant', 'cafe', 'cakes', 'automotive', 'fitness', 'education', 'cleaning', 'hvac', 'construction', 'real-estate'];
+// Dental runs its own clinic journey (visits, not bookings) in tests/hasib-dental.test.mjs.
+const INDUSTRIES = ['retail', 'retail-tech', 'beauty', 'clinic', 'restaurant', 'cafe', 'cakes', 'automotive', 'fitness', 'education', 'cleaning', 'hvac', 'construction', 'real-estate'];
 for (const packId of INDUSTRIES) test(`${packId}: synthetic owner journey passes API shaping and Convex entry contract`, async () => {
   const m = convexMemory();
   m.ctx.hasibPreview = true;

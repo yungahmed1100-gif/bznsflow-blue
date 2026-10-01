@@ -25,6 +25,8 @@ export async function syncCatalogEntry(ctx, item, variants, now) {
     benefitEn: '', benefitAr: '', descriptionEn: '', descriptionAr: '', availability: '', prices: priceOf(live), source: STOCK_SOURCE, confidence: 1,
     laylaUseEn: 'Answer from live stock: sizes in stock, price and photo.', laylaUseAr: 'الإجابة من المخزون الفعلي: المقاسات المتوفرة والسعر والصورة.',
     revision: meta?.revision || 1, updatedAt: now };
+  // An entry the owner manages in Layla's catalog (a clinic's treatment) is never overwritten from Hasib.
+  if (existing && existing.source !== STOCK_SOURCE) return existing.entryKey;
   if (existing) { await ctx.db.patch(existing._id, fields); return existing.entryKey; }
   const entryKey = crypto.randomUUID();
   await ctx.db.insert('blueCatalogEntries', { ownerKey, entryKey, ...fields, sortOrder: 0, createdAt: now });

@@ -61,7 +61,20 @@ const SECTOR = {
     modules: { recipes: 'available', batches: 'available' },
     expenseCategories: extra(t('aggregator_fees', 'Delivery app commission', 'عمولة تطبيقات التوصيل'), t('waste', 'Waste', 'الهدر')),
   },
-  dental: { modules: { batches: 'planned' } },
+  // Dental: operational records only. Orders read as Visits, contacts as Patients and
+  // Stock as Services (treatments from Layla's catalog, supplies from stock). Nothing
+  // clinical is stored: visits carry no notes and every extra field is bounded.
+  dental: {
+    labels: { orders: 'visits', stock: 'services', customers: 'patients' },
+    sensitive: true, noOrderNotes: true, fulfilment: ['in_store'],
+    // Supplies are the clinic's own stock: never offered to patients. Treatments come from Layla's catalog.
+    internalStock: true, serviceItems: true,
+    orderFields: [{ key: 'visit_date', en: 'Visit date', ar: 'تاريخ الزيارة', type: 'date' }, { key: 'branch', en: 'Branch', ar: 'الفرع', type: 'text', max: 40 }],
+    expenseCategories: [EXPENSES[0], EXPENSES[1], t('supplies', 'Supplies', 'المستلزمات'), t('lab_fees', 'Dental lab fees', 'رسوم مختبر الأسنان'),
+      t('equipment', 'Equipment maintenance', 'صيانة المعدات'), EXPENSES[3], EXPENSES[4], EXPENSES[6], EXPENSES[7]],
+    // Visits are Hasib orders, so the generic booking modules stay off for dental.
+    modules: { appointments: 'off', plans: 'off', batches: 'planned' },
+  },
   clinic: { modules: { batches: 'planned' } },
   automotive: { modules: { jobCards: 'available' }, orderFields: [{ key: 'plate', en: 'Plate number', ar: 'رقم اللوحة', type: 'text', max: 20 }, { key: 'mileage', en: 'Mileage (km)', ar: 'العداد (كم)', type: 'number' }] },
   education: { modules: { enrolments: 'available', appointments: 'available' } },
@@ -73,7 +86,8 @@ const OWNER_PACKS = {
   retail: ['Orders', 'الطلبات', 'Products', 'المنتجات', 'orders', [['best_variant', 'Best-selling variant', 'المقاس واللون الأكثر مبيعاً'], ['unsold_stock', 'Stock unsold 60 days', 'بضاعة لم تُبع منذ ٦٠ يوماً'], ['product_requests', 'Unfilled product requests', 'طلبات منتجات لم تُلبَّ']]],
   'retail-tech': ['Orders', 'الطلبات', 'Products', 'المنتجات', 'orders', [['device_profit', 'Profit per device', 'الربح لكل جهاز'], ['unsold_stock', 'Stock held 60 days', 'بضاعة منذ ٦٠ يوماً'], ['overdue_repairs', 'Overdue repairs', 'إصلاحات متأخرة']]],
   beauty: ['Bookings', 'الحجوزات', 'Supplies', 'المستلزمات', 'bookings', [['missed_visits', 'Missed visits', 'زيارات فائتة'], ['booked_hours', 'Booked hours', 'الساعات المحجوزة'], ['return_visits', 'Completed return visits', 'زيارات متكررة مكتملة']]],
-  dental: ['Visits', 'الزيارات', 'Supplies', 'المستلزمات', 'bookings', [['missed_visits', 'Missed visits', 'زيارات فائتة'], ['followups_due', 'Follow-ups due', 'متابعات مستحقة'], ['unpaid_visits', 'Unpaid visit charges', 'رسوم زيارات غير مدفوعة']]],
+  // Dental reads Hasib orders as Visits and stock as Services (treatments plus internal supplies).
+  dental: ['Visits', 'الزيارات', 'Services', 'الخدمات', 'orders', [['missed_visits', 'Missed visits', 'زيارات فائتة'], ['followups_due', 'Follow-ups due', 'متابعات مستحقة'], ['unpaid_visits', 'Unpaid visit charges', 'رسوم زيارات غير مدفوعة']]],
   clinic: ['Visits', 'الزيارات', 'Supplies', 'المستلزمات', 'bookings', [['unconfirmed_visits', 'Unconfirmed visits', 'زيارات غير مؤكدة'], ['missed_visits', 'Missed visits', 'زيارات فائتة'], ['unpaid_visits', 'Unpaid visit charges', 'رسوم زيارات غير مدفوعة']]],
   restaurant: ['Orders', 'الطلبات', 'Menu', 'القائمة', 'orders', [['waste_cost', 'Waste cost', 'تكلفة الهدر'], ['dish_profit', 'Profit by dish', 'الربح حسب الطبق'], ['channel_profit', 'Money left by sales channel', 'المتبقي حسب قناة البيع']]],
   cafe: ['Orders', 'الطلبات', 'Menu', 'القائمة', 'orders', [['drink_profit', 'Profit by drink', 'الربح حسب المشروب'], ['remake_waste', 'Milk and remake waste', 'هدر الحليب وإعادة التحضير'], ['low_ingredients', 'Ingredients running low', 'مكونات قاربت على النفاد']]],
@@ -148,7 +162,8 @@ function build(id, archetype) {
     modules: { ...base.modules, ...(own.modules || {}) },
     variantOptions: own.variantOptions || base.variantOptions,
     orderFields: own.orderFields || base.orderFields,
-    expenseCategories: own.expenseCategories || base.expenseCategories });
+    expenseCategories: own.expenseCategories || base.expenseCategories,
+    ...(own.labels ? { labels: own.labels, sensitive: !!own.sensitive, noOrderNotes: !!own.noOrderNotes, fulfilment: own.fulfilment, internalStock: !!own.internalStock, serviceItems: !!own.serviceItems } : {}) });
 }
 
 // Hasib-only packs: industries finer than Layla's sectors, chosen in Hasib's industry setting.

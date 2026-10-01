@@ -14,20 +14,24 @@ export function StockView({ s, h, overview, initialLow = false, initialAction = 
   const [search, setSearch] = useState(''), [lowOnly, setLowOnly] = useState(initialLow);
   const [editing, setEditing] = useState(initialAction === 'product' && overview.workspaceRole !== 'employee' ? { item: null } : null), [moving, setMoving] = useState(null), [importing, setImporting] = useState(initialAction === 'import' && overview.workspaceRole !== 'employee');
   const query = useDebounced(search.trim(), 300);
-  const list = usePolling(() => lowOnly ? hasib('low_stock') : hasib('items', query ? { search: query } : {}), [query, lowOnly], { interval: 30000 });
+  // A clinic's Stock holds only its supplies; treatments live in Services → Treatments.
+  const supplies = !!overview.pack.internalStock;
+  const list = usePolling(() => lowOnly ? hasib('low_stock') : hasib('items', { ...(query ? { search: query } : {}), ...(supplies ? { kind: 'product' } : {}) }), [query, lowOnly, supplies], { interval: 30000 });
   const refresh = () => { list.refresh({ quiet: true }); onChanged(); };
   // ItemEditor shows a failure inside its own dialog.
   const archive = async item => { await hasib('item_archive', { itemId: item.id }); setEditing(null); refresh(); };
   const manager = overview.workspaceRole !== 'employee';
   // The low-stock endpoint returns variants; group them back under their product.
-  const items = lowOnly ? Object.values((list.data?.items || []).reduce((acc, v) => {
+  const all = lowOnly ? Object.values((list.data?.items || []).reduce((acc, v) => {
     acc[v.itemId] ||= { id: v.itemId, nameAr: v.nameAr, nameEn: v.nameEn, trackStock: true, serialized: v.serialized, variants: [], partial: true };
     acc[v.itemId].variants.push(v); return acc;
   }, {})) : list.data?.items || [];
+  // Search uses the full-text index, which can't filter by kind.
+  const items = supplies ? all.filter(i => i.partial || i.kind !== 'service') : all;
 
   return (
     <div className="hb-stock">
-      <PageHeader title={hasibPack(overview.pack.id).ownerUi.stock[h.ar ? 'ar' : 'en']} description={s.ar ? 'صور وأسعار ومخزون واضح لكل منتج.' : 'Clear photos, prices and stock for every product.'} icon="box" primary={manager ? { label: h.t('addProduct'), onClick: () => setEditing({ item: null }) } : null}>
+      <PageHeader title={supplies ? h.t('products') : hasibPack(overview.pack.id).ownerUi.stock[h.ar ? 'ar' : 'en']} description={supplies ? (s.ar ? 'المستلزمات التي تستخدمها العيادة. لا تُعرض على المرضى.' : 'Supplies the clinic uses. Never offered to patients.') : s.ar ? 'صور وأسعار ومخزون واضح لكل منتج.' : 'Clear photos, prices and stock for every product.'} icon="box" primary={manager ? { label: h.t('addProduct'), onClick: () => setEditing({ item: null }) } : null}>
         <div className="ld-toolbar">
           {!lowOnly && <label className="ld-search"><span className="ld-visually-hidden">{h.t('searchItems')}</span>
             <input type="search" value={search} placeholder={h.t('searchItems')} onChange={e => setSearch(e.target.value)} /></label>}

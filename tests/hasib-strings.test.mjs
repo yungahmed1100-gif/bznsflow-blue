@@ -48,3 +48,17 @@ test('order counts agree with the number in both languages', () => {
   assert.deepEqual([0, 1, 2].map(en.orders), ['0 orders', '1 order', '2 orders']);
 });
 
+
+test('an industry’s own words replace the defaults in both languages, and only for that industry', async () => {
+  const { HASIB_PACK_WORD_KEYS } = await import('../src/lib/hasib/strings.js');
+  for (const [id, keys] of Object.entries(HASIB_PACK_WORD_KEYS)) {
+    assert.deepEqual([...keys.ar].sort(), [...keys.en].sort(), `${id} overrides match`);
+    for (const k of keys.en) assert(HASIB_EN_KEYS.includes(k), `${id}.${k} overrides a real key`);
+  }
+  assert.equal(createHasibStrings('en', 'dental').t('orders'), 'Visits');
+  assert.equal(createHasibStrings('ar', 'dental').t('orders'), 'الزيارات');
+  assert.equal(createHasibStrings('en', 'dental').orders(2), '2 visits');
+  assert.equal(createHasibStrings('ar', 'dental').orders(2), 'زيارتان');
+  assert.equal(createHasibStrings('en', 'retail').t('orders'), 'Orders');
+  assert.equal(createHasibStrings('en').t('stock'), 'Stock');
+});

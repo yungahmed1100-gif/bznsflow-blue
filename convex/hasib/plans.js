@@ -12,7 +12,7 @@ export async function planFor(ctx, accountId) {
   return row?.status === 'active' ? row.plan : null;
 }
 
-async function accountByEmail(ctx, email) {
+export async function accountByEmail(ctx, email) {
   return ctx.db.query('accounts').withIndex('by_email', q => q.eq('email', normEmail(email))).unique();
 }
 

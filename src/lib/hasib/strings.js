@@ -100,6 +100,18 @@ const en = {
   imeiReceiveHint: 'IMEI products start at zero: receive units with their IMEIs through Adjust stock.', repairOrderHelp: 'This order belongs to a repair. Change its status from the repair ticket in Service.',
   teamTitle: 'Team', teamLimit: 'You and up to {limit} employees. Employees sell, take payments and manage stock; money, settings and the team stay with you.', teamInvite: 'Invite employee', teamInviteHelp: 'They sign in with this email and a code we send them. They never see your costs, profit or cash totals.', teamEmail: 'Employee email', teamSendInvite: 'Send invitation', teamInviteSent: 'Invitation sent to {email}.', teamInviteNotSent: 'Invitation saved, but the email didn’t send. Use Resend in a minute.', teamResend: 'Resend', teamRevoke: 'Remove access', teamRevokeConfirm: 'Remove {email} from your team? They are signed out at once and can no longer open your dashboard.', teamEmpty: 'No employees yet', teamEmptyHelp: 'Invite up to five people to take orders and manage stock with you.', teamStatus_pending: 'Invitation sent', teamStatus_active: 'Active', teamStatus_revoked: 'Access removed',
   setupDone: 'Done', setupTodo: 'To do', setupStart: 'Start', onHandShort: '{count} left',
+  // Clinics (dental): Today
+  requestsLine: 'Asked for a treatment, no visit recorded yet: {count}', unpaidLine: 'Visits with money still owed: {count}', openVisits: 'Open visits', openSupplies: 'Open supplies',
+  openChat: 'Open chat', recordVisit: 'Record visit', receptionToday: 'Layla at reception today', serviceQuestions: 'Service questions', priceQuestions: 'Price questions',
+  appointmentRequests: 'Appointment requests', handoffs: 'Handed to your team', revenueToday: 'Recorded revenue today',
+  help_serviceQuestions: 'Messages today asking what the clinic offers.', help_priceQuestions: 'Messages today asking what a treatment costs.',
+  help_appointmentRequests: 'Patients who asked for an appointment today. Layla doesn’t book, so answer them from Chats.', help_handoffs: 'Times Layla passed a conversation to your team today.',
+  help_revenueToday: 'Visits recorded today, before VAT. Payments are counted separately.', visitsToday: '{count} visits recorded',
+  setup_laylaSector: 'Set Layla’s business type to Dental clinics', setup_treatments: 'Add your treatments and prices', setup_supplies: 'Add the supplies you keep count of',
+  // Settings → Accounts and VAT
+  accountsTitle: 'Accounts and VAT', accountsIntro: 'How Hasib counts your money. Changes apply to new records; saved ones keep the VAT they were recorded with.',
+  vatRegistered: 'VAT registered', vatRate: 'VAT rate (%)', vatin: 'VAT number (optional)', saveSettings: 'Save settings', settingsSaved: 'Saved.',
+  businessTimezone: 'Business time zone', timezoneHelp: 'Today, periods and dates follow this time zone.', expenseCategoriesTitle: 'Expense categories', expenseCategoriesHelp: 'These come with your industry.',
 };
 const ar = {
   notEnoughRecords: 'لا توجد سجلات كافية', details: 'التقارير التفصيلية', expectedProfit: 'الربح المتوقع للأعمال المفتوحة', missingCounts: 'سجّل جردين فعليين للمخزون لمقارنة الاستخدام الفعلي.', waste_remake: 'إعادة تحضير مشروب',
@@ -200,15 +212,64 @@ const ar = {
   imeiReceiveHint: 'منتجات IMEI تبدأ من صفر: استلم الوحدات بأرقامها من «تعديل المخزون».', repairOrderHelp: 'هذا الطلب تابع لتذكرة صيانة. غيّر حالته من التذكرة في قسم الصيانة.',
   teamTitle: 'الفريق', teamLimit: 'أنت وحتى {limit} موظفين. الموظفون يبيعون ويسجلون الدفعات ويديرون المخزون، وتبقى الأموال والإعدادات والفريق لك.', teamInvite: 'دعوة موظف', teamInviteHelp: 'يسجّل الدخول بهذا البريد ورمز نرسله إليه، ولا يرى تكاليفك أو أرباحك أو مجاميع النقد.', teamEmail: 'بريد الموظف', teamSendInvite: 'إرسال الدعوة', teamInviteSent: 'أُرسلت الدعوة إلى {email}.', teamInviteNotSent: 'حُفظت الدعوة لكن البريد لم يُرسل. استخدم إعادة الإرسال بعد دقيقة.', teamResend: 'إعادة الإرسال', teamRevoke: 'إلغاء الوصول', teamRevokeConfirm: 'إزالة {email} من فريقك؟ سيُسجَّل خروجه فوراً ولن يتمكن من فتح لوحتك.', teamEmpty: 'لا يوجد موظفون بعد', teamEmptyHelp: 'ادعُ حتى خمسة أشخاص لتسجيل الطلبات وإدارة المخزون معك.', teamStatus_pending: 'أُرسلت الدعوة', teamStatus_active: 'نشط', teamStatus_revoked: 'أُلغي الوصول',
   setupDone: 'تم', setupTodo: 'مطلوب', setupStart: 'ابدأ', onHandShort: 'المتبقي {count}',
+  requestsLine: 'طلبوا علاجاً ولم تُسجَّل لهم زيارة بعد: {count}', unpaidLine: 'زيارات عليها مبالغ مستحقة: {count}', openVisits: 'افتح الزيارات', openSupplies: 'افتح المستلزمات',
+  openChat: 'افتح المحادثة', recordVisit: 'سجّل زيارة', receptionToday: 'ليلى في الاستقبال اليوم', serviceQuestions: 'أسئلة عن الخدمات', priceQuestions: 'أسئلة عن الأسعار',
+  appointmentRequests: 'طلبات مواعيد', handoffs: 'حُوّلت إلى فريقك', revenueToday: 'الإيرادات المسجلة اليوم',
+  help_serviceQuestions: 'رسائل اليوم تسأل عمّا تقدّمه العيادة.', help_priceQuestions: 'رسائل اليوم تسأل عن تكلفة علاج.',
+  help_appointmentRequests: 'مرضى طلبوا موعداً اليوم. ليلى لا تحجز المواعيد، فرُدّ عليهم من المحادثات.', help_handoffs: 'عدد المرات التي حوّلت فيها ليلى محادثة إلى فريقك اليوم.',
+  help_revenueToday: 'الزيارات المسجلة اليوم قبل ضريبة القيمة المضافة. تُحتسب المدفوعات بشكل منفصل.', visitsToday: 'الزيارات المسجلة: {count}',
+  setup_laylaSector: 'اجعل نوع نشاط ليلى «عيادات الأسنان»', setup_treatments: 'أضف العلاجات وأسعارها', setup_supplies: 'أضف المستلزمات التي تتابع كمياتها',
+  accountsTitle: 'الحسابات والضريبة', accountsIntro: 'طريقة احتساب حسيب لأموالك. تسري التغييرات على السجلات الجديدة، وتحتفظ السجلات المحفوظة بالضريبة التي سُجّلت بها.',
+  vatRegistered: 'مسجّل في ضريبة القيمة المضافة', vatRate: 'نسبة الضريبة (%)', vatin: 'الرقم الضريبي (اختياري)', saveSettings: 'حفظ الإعدادات', settingsSaved: 'تم الحفظ.',
+  businessTimezone: 'المنطقة الزمنية للنشاط', timezoneHelp: 'يعتمد «اليوم» والفترات والتواريخ على هذه المنطقة الزمنية.', expenseCategoriesTitle: 'فئات المصروفات', expenseCategoriesHelp: 'تأتي هذه الفئات مع نوع نشاطك.',
+};
+
+// One industry's own words for the same screens. Keys must exist in the base tables;
+// tests/hasib-strings.test.mjs checks both languages carry the same overrides.
+const PACK_WORDS = {
+  dental: {
+    en: {
+      orders: 'Visits', stock: 'Services', newOrder: 'Record visit', createOrder: 'Record visit', orderNumber: 'Visit #{number}', noOrders: 'No visits recorded yet. Record one from a chat or here.',
+      allOrders: 'All visits', customer: 'Patient', walkIn: 'Patient without a chat', customerName: 'Patient name (optional)', items: 'Treatments', addItem: 'Add treatment',
+      searchItems: 'Search treatments', noItemsFound: 'No matching treatment.', customLine: 'Other charge', saveOrder: 'Save visit', confirmNow: 'Confirm now',
+      unmatched: 'Layla captured “{text}”, which doesn’t match a treatment. Add it below.', ordersSummary: '{count} visits · lifetime {total} · owes {balance}', noOrdersForContact: 'No visits yet.',
+      st_pending: 'Not confirmed', st_confirmed: 'Booked', st_completed: 'Done', st_returned: 'Refunded',
+      products: 'Supplies', addProduct: 'Add supply', editProduct: 'Edit supply', noProducts: 'No supplies yet. Add the supplies you want to keep count of.',
+      topProducts: 'Revenue by service', owedHelp: 'Unpaid balances on open visits', noSales: 'No visits recorded in this period yet.',
+      definitions: 'How these are counted: revenue is every confirmed visit that was not cancelled or refunded, without VAT. Payments count when you record them.',
+      ordersInChat: 'Visits in this chat', help_owedToYou: 'What patients still have to pay on visits that are not closed.', openStock: 'Open supplies',
+      lowStockLine: 'Supplies running low: {count}', buyers: 'Patients seen', walkInSales: 'Visits without a chat', moneyToday: 'Cash received today',
+      help_laylaReplies: 'Messages Layla wrote to patients today.', setup_industry: 'Choose your type of business',
+      operatingCosts: 'Expenses', netProfitHelp: 'Revenue minus expenses, both without VAT', stockBought: 'Supplies bought {amount}',
+      service: 'Service',
+    },
+    ar: {
+      orders: 'الزيارات', stock: 'الخدمات', newOrder: 'سجّل زيارة', createOrder: 'سجّل زيارة', orderNumber: 'زيارة رقم {number}', noOrders: 'لا توجد زيارات مسجلة بعد. سجّل زيارة من محادثة أو من هنا.',
+      allOrders: 'كل الزيارات', customer: 'المريض', walkIn: 'مريض دون محادثة', customerName: 'اسم المريض (اختياري)', items: 'العلاجات', addItem: 'أضف علاجاً',
+      searchItems: 'ابحث عن علاج', noItemsFound: 'لا يوجد علاج مطابق.', customLine: 'رسوم أخرى', saveOrder: 'حفظ الزيارة', confirmNow: 'تأكيد الآن',
+      unmatched: 'سجّلت ليلى «{text}»، ولا يطابق أي علاج. أضفه أدناه.', ordersSummary: 'الزيارات {count} · الإجمالي {total} · المتبقي {balance}', noOrdersForContact: 'لا توجد زيارات بعد.',
+      st_pending: 'غير مؤكدة', st_confirmed: 'محجوزة', st_completed: 'تمت', st_returned: 'مستردة',
+      products: 'المستلزمات', addProduct: 'أضف مستلزماً', editProduct: 'تعديل المستلزم', noProducts: 'لا توجد مستلزمات بعد. أضف المستلزمات التي تريد متابعة كمياتها.',
+      topProducts: 'الإيرادات حسب الخدمة', owedHelp: 'الأرصدة غير المدفوعة على الزيارات المفتوحة', noSales: 'لا توجد زيارات مسجلة في هذه الفترة بعد.',
+      definitions: 'طريقة الاحتساب: الإيراد هو كل زيارة مؤكدة لم تُلغَ ولم تُسترد، دون ضريبة القيمة المضافة. تُحتسب المدفوعات عند تسجيلها.',
+      ordersInChat: 'الزيارات في هذه المحادثة', help_owedToYou: 'ما يزال على المرضى دفعه عن زيارات غير مغلقة.', openStock: 'افتح المستلزمات',
+      lowStockLine: 'مستلزمات قاربت على النفاد: {count}', buyers: 'مرضى زاروا العيادة', walkInSales: 'زيارات دون محادثة', moneyToday: 'المبالغ المستلمة اليوم',
+      help_laylaReplies: 'الرسائل التي كتبتها ليلى للمرضى اليوم.', setup_industry: 'اختيار نوع نشاطك',
+      operatingCosts: 'المصروفات', netProfitHelp: 'الإيرادات ناقص المصروفات، دون ضريبة القيمة المضافة', stockBought: 'مستلزمات مشتراة {amount}',
+      service: 'الخدمة',
+    },
+  },
 };
 const reasons = {
-  en: { insufficient_stock: 'Not enough stock. Switch the stock rule to “warn” or receive stock first.', order_conflict: 'This order changed in another tab. It has been reloaded.',
+  en: { invalid_order: 'Check the details: a date must be a real date, and fields have a length limit.', invalid_settings: 'Check the settings: a VAT rate from 0 to 100% and a VAT number of letters and digits only.',
+    insufficient_stock: 'Not enough stock. Switch the stock rule to “warn” or receive stock first.', order_conflict: 'This order changed in another tab. It has been reloaded.',
     invalid_transition: 'That status change isn’t allowed from here.', refund_exceeds_paid: 'A refund can’t be more than what was paid.', order_closed: 'This order is closed. Only refunds are possible.',
     import_file_too_large: 'That file is too big (15 MB at most).', import_file_type: 'That kind of file can’t be read. Use Excel, CSV, PDF, Word or a photo.', import_file_empty: 'No products were found in that file.', invalid_import: 'Those products couldn’t be saved. Check the file and try again.', serial_mismatch: 'This product is already in Stock without IMEI tracking.', item_not_found: 'That product is no longer in Stock.',
     photo_limit: 'You’ve added a lot of photos today. Try again tomorrow.', invalid_photo: 'That photo can’t be used. Choose a JPG, PNG or WebP picture under 5 MB.', photo_type: 'Choose a JPG, PNG or WebP picture.', photo_size: 'That picture is too big. Choose one under 5 MB.', photo_upload_failed: 'The photo didn’t upload. Check your connection and try again.',
     duplicate_sku: 'Another product already uses that SKU.', invalid_item: 'Check the product: a name and a price are needed for each variant.', invalid_order_lines: 'Check the lines: quantities and prices must be valid.', invalid_recipe: 'Choose a menu item, yield and stocked ingredients.', invalid_waste: 'Check the ingredient, quantity and waste reason.', invalid_count: 'Enter a valid counted quantity.', invalid_receipt: 'Check the supplier, date, quantities and unit costs.', invalid_batch: 'Check the prep output and ingredient quantities.',
     variant_not_found: 'That product is no longer available.', hasib_unavailable: 'Orders and stock are not switched on for this account yet.', invalid_amount: 'Enter a valid amount.', invalid_expense: 'Check the expense: category, amount and date are needed, and VAT can’t exceed the amount.', pack_not_live: 'Choose an available industry to use orders and stock.', serials_required: 'Choose the IMEI of each unit sold.', serial_unavailable: 'That IMEI is not in stock for this product.', serials_mismatch: 'The number of IMEIs must match the quantity.', duplicate_serial: 'That IMEI is already in stock.', invalid_serial: 'Check the IMEI: letters and digits only.', use_serial_flow: 'IMEI products change stock by receiving or writing off named units.', serialized_part: 'Parts with IMEIs are sold as their own order, not as repair parts.', repair_locked: 'Quote and parts are fixed once the device is ready.', repair_conflict: 'This repair changed in another tab. It has been reloaded.', invalid_repair: 'Device and fault are needed.', invalid_trade_in: 'Check the trade-in: price and method are needed.', not_serialized: 'Trade-ins need a product with IMEI tracking.', serial_not_found: 'This IMEI is not in your records.' },
-  ar: { insufficient_stock: 'الكمية غير كافية. غيّر قاعدة المخزون إلى «تنبيه» أو استلم بضاعة أولاً.', order_conflict: 'تغيّر هذا الطلب في نافذة أخرى، وتمت إعادة تحميله.',
+  ar: { invalid_order: 'راجع التفاصيل: يجب أن يكون التاريخ صحيحاً، ولكل حقل حد أقصى للطول.', invalid_settings: 'راجع الإعدادات: نسبة ضريبة من 0 إلى 100% ورقم ضريبي من حروف وأرقام فقط.',
+    insufficient_stock: 'الكمية غير كافية. غيّر قاعدة المخزون إلى «تنبيه» أو استلم بضاعة أولاً.', order_conflict: 'تغيّر هذا الطلب في نافذة أخرى، وتمت إعادة تحميله.',
     invalid_transition: 'لا يمكن تغيير الحالة بهذا الشكل.', refund_exceeds_paid: 'لا يمكن أن يتجاوز الاسترداد المبلغ المدفوع.', order_closed: 'هذا الطلب مغلق، ويمكن فقط تسجيل استرداد.',
     import_file_too_large: 'الملف كبير جداً (15 ميغابايت كحد أقصى).', import_file_type: 'لا يمكن قراءة هذا النوع من الملفات. استخدم إكسل أو CSV أو PDF أو وورد أو صورة.', import_file_empty: 'لم نجد منتجات في هذا الملف.', invalid_import: 'تعذّر حفظ هذه المنتجات. راجع الملف وحاول مرة أخرى.', serial_mismatch: 'هذا المنتج موجود في المخزون بدون تتبّع IMEI.', item_not_found: 'هذا المنتج لم يعد في المخزون.',
     photo_limit: 'أضفت صوراً كثيرة اليوم. حاول مرة أخرى غداً.', invalid_photo: 'لا يمكن استخدام هذه الصورة. اختر صورة JPG أو PNG أو WebP أصغر من 5 ميغابايت.', photo_type: 'اختر صورة بصيغة JPG أو PNG أو WebP.', photo_size: 'الصورة كبيرة جداً. اختر صورة أصغر من 5 ميغابايت.', photo_upload_failed: 'لم تُرفع الصورة. تحقّق من الاتصال وحاول مرة أخرى.',
@@ -279,8 +340,9 @@ for (const [key, [english, arabic]] of Object.entries(shopReasons)) { reasons.en
 
 const GROUPED = new Intl.NumberFormat('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
-export function createHasibStrings(lang) {
-  const isAr = lang === 'ar', table = isAr ? ar : en;
+/** @param {string} lang @param {string} [packId] the Hasib industry, whose own words replace the defaults */
+export function createHasibStrings(lang, packId) {
+  const isAr = lang === 'ar', words = PACK_WORDS[packId], table = { ...(isAr ? ar : en), ...(words ? words[isAr ? 'ar' : 'en'] : {}) };
   const t = (key, vars = {}) => String(table[key] ?? en[key] ?? key).replace(/\{(\w+)\}/g, (m, name) => (vars[name] ?? m));
   const reason = code => (isAr ? reasons.ar : reasons.en)[code] || null;
   // Display figures are grouped (1,282.000); inputs and exports keep the plain form parseAmount reads.
@@ -290,8 +352,11 @@ export function createHasibStrings(lang) {
   /** An order line's label: repair labour is rendered in the owner's language. */
   const lineName = l => (l.role === 'labour' ? t('labourLine', { device: l.name }) : l.name);
   // Arabic counts agree with the number: طلب واحد، طلبان، 3–10 طلبات، 11+ طلباً.
-  const orders = n => isAr ? (n === 1 ? 'طلب واحد' : n === 2 ? 'طلبان' : n >= 3 && n <= 10 ? `${n} طلبات` : `${n} طلباً`) : `${n} ${n === 1 ? 'order' : 'orders'}`;
-  return { t, reason, amount, money, name, lineName, orders, lang, ar: isAr };
+  const orders = packId === 'dental'
+    ? n => isAr ? (n === 1 ? 'زيارة واحدة' : n === 2 ? 'زيارتان' : n >= 3 && n <= 10 ? `${n} زيارات` : `${n} زيارة`) : `${n} ${n === 1 ? 'visit' : 'visits'}`
+    : n => isAr ? (n === 1 ? 'طلب واحد' : n === 2 ? 'طلبان' : n >= 3 && n <= 10 ? `${n} طلبات` : `${n} طلباً`) : `${n} ${n === 1 ? 'order' : 'orders'}`;
+  return { t, reason, amount, money, name, lineName, orders, lang, ar: isAr, packId: packId || null };
 }
 export const HASIB_EN_KEYS = Object.keys(en), HASIB_AR_KEYS = Object.keys(ar);
 export const HASIB_REASON_KEYS = { en: Object.keys(reasons.en), ar: Object.keys(reasons.ar) };
+export const HASIB_PACK_WORD_KEYS = Object.fromEntries(Object.entries(PACK_WORDS).map(([id, w]) => [id, { en: Object.keys(w.en), ar: Object.keys(w.ar) }]));

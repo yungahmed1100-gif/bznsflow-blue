@@ -2,14 +2,20 @@ import { orderProfit } from './profit.js';
 import { industryMetrics } from './industryMetrics.js';
 // The Today home: what needs the owner, what Layla did, and the money, in the
 // business's own day. Every list is capped; counts say when there is more.
-import { ok } from './shared.js';
+// Every figure is read from what BznsFlow recorded: Layla's chats and captured
+// fields, and Hasib's orders (a clinic's visits), payments and stock.
+import { ok, trackedLow } from './shared.js';
 import { periodRange, businessDate } from './period.js';
 import { businessTimezone, expensesIn } from './expensesState.js';
-import { receivables } from './insightsState.js';
+import { receivables, ordersIn, salesSummary } from './insightsState.js';
 import { restaurantSummary, expirySummary } from './restaurantState.js';
+import { displayName, sectorFor } from '../blueContacts.js';
+import { qualificationPack } from '../../config/layla-qualification.js';
 
-const DAY = 86400000, SHOW = 5, SCAN = 500;
+const DAY = 86400000, SHOW = 5, SCAN = 500, REQUEST_WINDOW = 14 * DAY;
 const NOT_SENT = new Set(['blocked', 'failed']);
+const CLOSED = new Set(['cancelled', 'returned']);
+const CAPTURED = new Set(['customer', 'contextual']);
 
 async function waitingOrders(ctx, accountId) {
   const byStatus = s => ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => q.eq('accountId', accountId).eq('status', s)).take(200);
@@ -20,13 +26,8 @@ async function waitingOrders(ctx, accountId) {
 }
 
 async function lowStock(ctx, accountId) {
-  const rows = (await ctx.db.query('hasibVariants').withIndex('by_account_low', q => q.eq('accountId', accountId).eq('low', true)).take(100)).filter(v => !v.archived).sort((a, b) => a.onHand - b.onHand);
-  const items = [];
-  for (const v of rows) {
-    const item = await ctx.db.get(v.itemId);
-    if (item?.trackStock) items.push({ variantId: v._id, itemId: item._id, nameAr: item.nameAr, nameEn: item.nameEn, options: v.options, onHand: v.onHand });
-  }
-  return { count: items.length, items: items.slice(0,SHOW) };
+  const rows = await trackedLow(ctx, accountId);
+  return { count: rows.length, items: rows.slice(0, SHOW).map(({ variant: v, item }) => ({ variantId: v._id, itemId: item._id, nameAr: item.nameAr, nameEn: item.nameEn, options: v.options, onHand: v.onHand })) };
 }
 
 async function handedChats(ctx, accountId, now) {
@@ -69,11 +70,91 @@ async function restaurantToday(ctx, accountId, range) {
   return restaurantSummary(ctx, accountId, range, { sales, figures, expenses });
 }
 
+// ---- Clinics (dental): the same day, in a clinic's terms ----
+
+/**
+ * Patients who asked Layla for a service in the last two weeks and have no visit
+ * recorded since they asked. Only what Layla captured is shown: the service,
+ * preferred time and branch, never message text.
+ */
+async function serviceRequests(ctx, accountId, now) {
+  const contacts = await ctx.db.query('blueContacts').withIndex('by_account_state_activity', q => q.eq('accountId', accountId).eq('state', 'active').gte('lastActivityAt', now - REQUEST_WINDOW)).take(SCAN);
+  const open = [];
+  for (const c of contacts) {
+    const service = (c.fields || []).find(f => f.key === 'service' && f.value && CAPTURED.has(f.source) && f.at >= now - REQUEST_WINDOW);
+    if (!service || c.optout) continue;
+    const visit = await ctx.db.query('hasibOrders').withIndex('by_contact_created', q => q.eq('contactId', c._id).gte('createdAt', service.at)).first();
+    if (visit && visit.accountId === accountId) continue;
+    open.push({ contact: c, service });
+  }
+  open.sort((a, b) => a.service.at - b.service.at);
+  // Approved catalog services give a captured treatment name in both languages.
+  const catalog = open.length ? await ctx.db.query('blueCatalogEntries').withIndex('by_owner_status_order', q => q.eq('ownerKey', String(accountId)).eq('status', 'approved')).take(200) : [];
+  const items = [];
+  for (const { contact, service } of open.slice(0, SHOW)) {
+    const field = key => (contact.fields || []).find(f => f.key === key)?.value || null;
+    // A listed option ("cleaning", "branch") is shown in the owner's language; a catalog name or place as captured.
+    const labelled = (key, value) => {
+      const option = value && qualificationPack(contact.sectorId).fields.find(f => f.key === key)?.options?.find(o => o.id === value);
+      const entry = value && !option && catalog.find(e => e.nameEn === value || e.nameAr === value);
+      return value ? (option ? { en: option.en, ar: option.ar } : entry ? { en: entry.nameEn || entry.nameAr, ar: entry.nameAr || entry.nameEn } : { en: value, ar: value }) : null;
+    };
+    const person = await ctx.db.query('blueConversations').withIndex('by_contact', q => q.eq('contactId', contact._id)).first();
+    items.push({ contactId: contact._id, conversationId: person?._id || null, name: displayName(contact).name, service: labelled('service', service.value),
+      preferredTime: field('preferred_time'), location: labelled('location', field('location')), at: service.at });
+  }
+  return { count: open.length, items };
+}
+
+/** Visits not closed that still have money owed on them, oldest first. Same rule as "Owed to you". */
+async function unpaidVisits(ctx, accountId) {
+  const rows = (await ctx.db.query('hasibOrders').withIndex('by_account_created', q => q.eq('accountId', accountId)).order('desc').take(1000))
+    .filter(o => !CLOSED.has(o.status) && o.totalMinor > o.paidMinor).sort((a, b) => a.createdAt - b.createdAt);
+  const items = [];
+  for (const o of rows.slice(0, SHOW)) {
+    const contact = o.contactId && await ctx.db.get(o.contactId);
+    items.push({ id: o._id, number: o.number, customerName: contact?.state === 'active' ? displayName(contact).name : o.customerName || null, balanceMinor: o.totalMinor - o.paidMinor, createdAt: o.createdAt });
+  }
+  return { count: rows.length, items };
+}
+
+/** What Layla handled today, from the topic recorded on each message. Counts only; no text. */
+async function receptionToday(ctx, accountId, from) {
+  const messages = await ctx.db.query('blueMessages').withIndex('by_account_at', q => q.eq('accountId', accountId).gte('at', from)).take(SCAN * 4);
+  const asked = topic => messages.filter(m => m.direction === 'in' && m.topic === topic).length;
+  return {
+    replies: messages.filter(m => m.direction === 'out' && !m.manual && !m.media && !NOT_SENT.has(m.status)).length,
+    serviceQuestions: asked('services'), priceQuestions: asked('prices'), appointmentRequests: asked('disabled'),
+    handoffs: messages.filter(m => m.direction === 'out' && m.handoff && !NOT_SENT.has(m.status)).length,
+  };
+}
+
+async function clinicSetup(ctx, accountId, row) {
+  const items = await ctx.db.query('hasibItems').withIndex('by_account_archived_updated', q => q.eq('accountId', accountId).eq('archived', false)).take(200);
+  const services = await ctx.db.query('blueCatalogEntries').withIndex('by_owner_status_order', q => q.eq('ownerKey', String(accountId)).eq('status', 'approved')).take(200);
+  return { laylaSector: sectorFor(row) === 'dental', treatments: services.some(e => e.kind === 'service'), supplies: items.some(i => i.kind === 'product') };
+}
+
+async function clinicToday(ctx, tenant, now, tz, today, month) {
+  const { accountId } = tenant;
+  const recorded = salesSummary((await ordersIn(ctx, accountId, today)).rows).figures;
+  const requests = await serviceRequests(ctx, accountId, now), unpaid = await unpaidVisits(ctx, accountId), stock = await lowStock(ctx, accountId);
+  const cash = await money(ctx, accountId, today, month);
+  return ok({
+    date: businessDate(now, tz), timezone: tz, clinic: true,
+    needsYou: { requests: requests.items, requestsCount: requests.count, chats: await handedChats(ctx, accountId, now), unpaid: unpaid.items, unpaidCount: unpaid.count, lowStock: stock.items, lowStockCount: stock.count },
+    layla: await receptionToday(ctx, accountId, today.from),
+    money: { revenueTodayMinor: recorded.revenueMinor, visitsToday: recorded.orders, todayMinor: cash.todayMinor, owedMinor: cash.owedMinor },
+    setup: await clinicSetup(ctx, accountId, tenant.row),
+  });
+}
+
 export async function executeToday(ctx, tenant, a, now) {
   if (a.operation !== 'today') return null;
   const { accountId, pack } = tenant;
   const tz = await businessTimezone(ctx, accountId);
   const today = periodRange('today', now, tz), month = periodRange('month', now, tz);
+  if (pack.serviceItems) return clinicToday(ctx, tenant, now, tz, today, month);
   const [orders, stock] = [await waitingOrders(ctx, accountId), await lowStock(ctx, accountId)];
   let repairsReady = null;
   if (pack.modules.repairs === 'available') {

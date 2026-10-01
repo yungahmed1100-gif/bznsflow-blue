@@ -38,6 +38,8 @@ export function ContactPanel({ s, contact, pack, timezone, canDelete = true, onS
                 <select value={fields[f.key]} onChange={e => setFields({ ...fields, [f.key]: e.target.value })}>
                   <option value="">—</option>
                   {f.options.map(o => <option key={o.id} value={o.id}>{s.ar ? o.ar : o.en}</option>)}
+                  {/* A value Layla captured outside the list (an approved catalog name or a known area) stays selectable. */}
+                  {initialFields[f.key] && !f.options.some(o => o.id === initialFields[f.key]) && <option value={initialFields[f.key]}>{initialFields[f.key]}</option>}
                 </select>
               ) : <input value={fields[f.key]} maxLength={f.kind === 'text' ? 120 : 80} inputMode={f.kind === 'number' ? 'numeric' : undefined} dir="auto" onChange={e => setFields({ ...fields, [f.key]: e.target.value })} />}
               {captured && <small>{captured.source === 'owner' ? s.t('fromOwner') : s.t('captured')}</small>}

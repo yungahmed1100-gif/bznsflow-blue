@@ -19,12 +19,12 @@ const CLOSED = new Set(['cancelled', 'returned']);
 /** Revenue of one order without VAT, split by line so products can be ranked. */
 const orderRevenue = orderProfit;
 
-async function ordersIn(ctx, accountId, range) {
+export async function ordersIn(ctx, accountId, range) {
   const rows = await ctx.db.query('hasibOrders').withIndex('by_account_created', q => q.eq('accountId', accountId).gte('createdAt', range.from).lt('createdAt', range.to)).take(ORDER_LIMIT + 1);
   return { rows: rows.slice(0, ORDER_LIMIT), truncated: rows.length > ORDER_LIMIT };
 }
 
-function salesSummary(orders) {
+export function salesSummary(orders) {
   const sales = orders.filter(o => !NOT_SALES.has(o.status)), products = new Map();
   let revenue = 0, cogs = 0;
   for (const o of sales) {

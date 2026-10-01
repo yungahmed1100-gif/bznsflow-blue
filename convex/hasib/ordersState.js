@@ -78,14 +78,30 @@ async function applyOrderStock(ctx, accountId, order, lines, sign, now, recipeDr
   for (const l of changes) await writeMove(ctx, { accountId, variantId: l.variant._id, delta: l.delta, reason: sign < 0 ? 'sale' : 'sale_reversal', refType: l.recipe ? 'recipe_order' : 'order', refId: order, unitCostMinor: l.unitCostMinor ?? l.variant.costMinor, now, lotAware });
 }
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+/** A pack's extra order field value, checked by its type. Empty means "not given". */
+function fieldValue(field, raw) {
+  const value = bounded(raw ?? '', field?.max || 300);
+  if (value === null || !value) return value;
+  if (field.type === 'date') return ISO_DAY.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) ? value : null;
+  if (field.type === 'datetime') return /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2})?$/.test(value) ? value : null;
+  if (field.type === 'boolean') return value === 'yes' ? value : null;
+  if (field.type === 'number') return /^\d{1,9}(?:\.\d{1,3})?$/.test(value) ? value : null;
+  return value;
+}
+
 function orderInput(a, pack) {
   if (!CHANNELS.includes(a.channel)) return null;
   const f = a.fulfilment || {};
   const area = bounded(f.area ?? '', 80);
   if (!FULFILMENT.includes(f.type) || area === null || (f.dueAt !== undefined && !Number.isSafeInteger(f.dueAt))) return null;
+  // A clinic's visits happen in the clinic: no delivery, no address, no delivery fee.
+  if (pack.fulfilment && (!pack.fulfilment.includes(f.type) || area || a.deliveryFeeMinor)) return null;
   const allowed = new Map(pack.orderFields.map(x => [x.key, x]));
-  const customFields = Array.isArray(a.customFields) ? a.customFields.map(c => ({ key: c?.key, value: bounded(c?.value ?? '', allowed.get(c?.key)?.max || 300) })) : [];
+  const customFields = Array.isArray(a.customFields) ? a.customFields.map(c => ({ key: c?.key, value: allowed.has(c?.key) ? fieldValue(allowed.get(c.key), c?.value) : null })) : [];
   if (customFields.length > 10 || customFields.some(c => !allowed.has(c.key) || c.value === null)) return null;
+  // Packs that must hold no clinical free text refuse notes outright rather than dropping them silently.
+  if (pack.noOrderNotes && typeof a.notes === 'string' && a.notes.trim()) return null;
   const notes = bounded(a.notes ?? '', 500), customerName = bounded(a.customerName ?? '', 80);
   if (notes === null || customerName === null) return null;
   if (a.channelCostMinor !== undefined && !isMinor(a.channelCostMinor)) return null;

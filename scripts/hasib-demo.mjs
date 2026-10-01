@@ -22,7 +22,7 @@ import { grantPlan } from '../convex/hasib/plans.js';
 import { checkPhotoBytes } from '../convex/hasib/photoBytes.js';
 
 const PORT = Number(process.argv.find(a => /^\d+$/.test(a)) || 5310), DIST = new URL('../dist/', import.meta.url).pathname;
-// --pack=retail-tech seeds a Muscat phone and electronics store instead of the abaya boutique.
+// --pack=retail-tech seeds a Muscat phone and electronics store, --pack=dental a Muscat dental clinic, instead of the abaya boutique.
 const PACK = (process.argv.find(a => a.startsWith('--pack=')) || '--pack=retail').slice(7);
 // --plan=catalyst runs a Layla-only account: no plan grant, no Hasib, real chat controls.
 const CATALYST = process.argv.includes('--plan=catalyst');
@@ -40,9 +40,10 @@ const uploads = new Map();
 
 // ── Seed ───────────────────────────────────────────────────────────────────
 const tenant = await seedTenant(m, { name: 'n', sector: 'Retail' });
-await m.db.patch(tenant.rowId, { profile: PACK === 'retail-tech' ? { businessName: 'Muscat Mobile', sector: 'Retail', services: 'Phones, accessories and repairs', prices: 'From 3 OMR', hours: '10–11', location: 'Ruwi, Muscat', humanContact: 'owner@muscatmobile.example', reviewed: true } : { businessName: 'Noor Abayas', sector: 'Retail', services: 'Abayas, shaylas and tailoring', prices: 'From 8 OMR', hours: '10–10', location: 'Al Khuwair, Muscat', humanContact: 'owner@noor.example', reviewed: true } });
+const DENTAL = { businessName: 'Bayan Dental Clinic', sector: 'Dental clinics', services: 'Check-ups, cleaning, fillings, whitening, root canal, braces and implants', prices: 'From 10 OMR', hours: 'Sat–Thu 9–9', location: 'Qurum, Muscat', humanContact: 'reception@bayan.example', reviewed: true };
+await m.db.patch(tenant.rowId, { profile: PACK === 'dental' ? DENTAL : PACK === 'retail-tech' ? { businessName: 'Muscat Mobile', sector: 'Retail', services: 'Phones, accessories and repairs', prices: 'From 3 OMR', hours: '10–11', location: 'Ruwi, Muscat', humanContact: 'owner@muscatmobile.example', reviewed: true } : { businessName: 'Noor Abayas', sector: 'Retail', services: 'Abayas, shaylas and tailoring', prices: 'From 8 OMR', hours: '10–10', location: 'Al Khuwair, Muscat', humanContact: 'owner@noor.example', reviewed: true } });
 for (const key of ['global', 'broadcast', 'hasib']) await m.db.insert('blueMessagingSettings', { key, enabled: key !== 'broadcast' });
-if (!CATALYST) await grantPlan(m.ctx, { email: 'n@example.com', plan: 'ascend', packId: PACK === 'retail-tech' ? 'retail-tech' : 'retail' }, m.now());
+if (!CATALYST) await grantPlan(m.ctx, { email: 'n@example.com', plan: 'ascend', packId: ['retail-tech', 'dental'].includes(PACK) ? PACK : 'retail' }, m.now());
 await m.db.insert('blueBusinessSettings', { accountId: tenant.accountId, timezone: 'Asia/Muscat', updatedAt: m.now() });
 const call = (fn, operation, args = {}, at = m.now()) => fn(m.ctx, { operation, sessionHash: tenant.sessionHash, hashSecret: SECRET, workerFunction: 'dispatch', ...args }, at);
 // The signed-in person for HTTP calls; seeding always runs as the manager.
@@ -165,6 +166,7 @@ async function seedCatalyst() {
 }
 
 if (CATALYST) await seedCatalyst();
+else if (PACK === 'dental') await (await import('./hasib-demo-dental.mjs')).seedDental({ m, tenant, call, hasib, executeMessaging, DAY, HOUR });
 else if (PACK === 'retail-tech') await (await import('./hasib-demo-tech.mjs')).seedTech({ m, tenant, call, hasib, executeMessaging, DAY, HOUR });
 else if (PACK === 'retail') await seedFashion();
 else {
@@ -262,5 +264,5 @@ createServer(async (req, res) => {
     return await staticFile(res, url.pathname === '/' ? '/layla/dashboard' : url.pathname);
   } catch (e) { json(res, 500, { ok: false, reason: 'demo_error', detail: String(e.message).slice(0, 200) }); }
 }).listen(PORT, '127.0.0.1', () => {
-  console.log(`Hasib demo (${PACK === 'retail-tech' ? 'Muscat Mobile' : 'Noor Abayas'}${EMPLOYEE ? ', signed in as an employee' : ''}) → http://localhost:${PORT}/layla/dashboard?tab=insights   ·   English: http://localhost:${PORT}/en/layla/dashboard?tab=insights`);
+  console.log(`Hasib demo (${PACK === 'dental' ? 'Bayan Dental Clinic' : PACK === 'retail-tech' ? 'Muscat Mobile' : 'Noor Abayas'}${EMPLOYEE ? ', signed in as an employee' : ''}) → http://localhost:${PORT}/layla/dashboard?tab=insights   ·   English: http://localhost:${PORT}/en/layla/dashboard?tab=insights`);
 });

@@ -172,6 +172,8 @@ try {
   // 6. An expense voided once, even when Void is double-clicked.
   {
     const { page, context, problems } = await open(manager.base, 1440, 'en', '/layla/dashboard?tab=money&view=expenses');
+    // Seeded expenses are days old, so on the 1st of a month "This month" is empty.
+    await page.getByLabel('Period').selectOption('30d');
     await page.locator('.hb-expenses table').waitFor();
     const before = (await api(page, manager.base, 'expenses', { period: '30d' })).items.filter(e => e.voided).length;
     await page.locator('.hb-expenses tbody tr').first().getByRole('button', { name: 'Void' }).click();

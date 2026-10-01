@@ -28,6 +28,7 @@ import { TeamView } from '../components/hasib/TeamView';
 import { SectionTabs } from '../components/dashboard/SectionTabs';
 import { dashboardMap, resolveTab } from '../lib/dashboard/navigation';
 import { ServiceView } from '../components/hasib/ServiceView';
+import { AccountsSettings } from '../components/hasib/AccountsSettings';
 import { browserTimezone } from '../lib/dashboard/format';
 import { createStrings } from '../lib/dashboard/strings';
 import { RealEstateDashboard } from '../components/hasib/RealEstateDashboard';
@@ -38,7 +39,6 @@ import '../styles/layla-dashboard.css';
 import '../styles/hasib.css';
 
 export default function LaylaDashboard({ lang = 'ar' }) {
-  const s = useMemo(() => createStrings(lang), [lang]);
   const [params, setParams] = useSearchParams();
   const [ready, setReady] = useState(false);
   const [previewIndustry, setPreviewIndustry] = useState('');
@@ -48,9 +48,12 @@ export default function LaylaDashboard({ lang = 'ar' }) {
   const hasibAllowed = !!overview.data?.capabilities?.operations || !!overview.data?.founderPreview;
   const hasibState = usePolling(loadHasib, [], { interval: 60000, enabled: ready && !!overview.data?.connected && hasibAllowed });
   const hasibOverview = hasibState.data?.modules ? hasibState.data : null;
+  // An industry names things its own way (a clinic's Orders are Visits); section ids stay the same.
+  const packId = hasibOverview?.setupRequired ? undefined : hasibOverview?.pack?.id;
+  const s = useMemo(() => createStrings(lang, packId), [lang, packId]);
   // Eight plain sections; Hasib's appear only when Business Setup selects a live pack.
   const map = useMemo(() => dashboardMap(hasibOverview, overview.data?.capabilities || hasibOverview?.capabilities, overview.data?.workspaceRole), [hasibOverview, overview.data?.capabilities, overview.data?.workspaceRole]);
-  const h = useMemo(() => createHasibStrings(lang), [lang]);
+  const h = useMemo(() => createHasibStrings(lang, packId), [lang, packId]);
   // The prerendered shell has no URL, so resolving the tab before mount bakes "chats" into
   // the markup and hydration keeps that stale aria-current/data-tab. Resolve after mount.
   const { tab, view } = ready ? resolveTab(params.get('tab'), params.get('view'), map) : { tab: null, view: null };
@@ -135,6 +138,7 @@ export default function LaylaDashboard({ lang = 'ar' }) {
                 : tab === 'money' ? <InsightsView s={s} h={h} overview={hasibOverview} onGo={go} />
                 : tab === 'customers' && view === 'broadcast' ? (data.integration ? <BroadcastView s={s} overview={data} onTimezone={() => overview.refresh({ quiet: true })} /> : <p className="ld-state">{s.ar ? 'الرسائل الجماعية متاحة لقناة واتساب فقط.' : 'Messaging many customers is available on WhatsApp only.'}</p>)
                 : tab === 'customers' ? <>{hasibOverview?.pack && <FollowupView s={s} h={h} packId={hasibOverview.pack.id} timezone={data.timezone} />}<ContactsView s={s} overview={data} onOpenChat={id => go('chats', { chat: id })} /></>
+                : tab === 'settings' && view === 'accounts' ? <AccountsSettings s={s} h={h} overview={hasibOverview} timezone={data.timezone} onChanged={() => { refreshHasib(); overview.refresh({ quiet: true }); }} />
                 : tab === 'settings' && view === 'business' ? <><BusinessDetails s={s} section={map.sections.includes('stock') ? 'details' : 'all'} initialIndustryId={hasibOverview?.readOnly ? undefined : hasibOverview?.legacyIndustryId || undefined} onSaved={refreshHasib} />
                     {!hasibOverview?.readOnly && hasibOverview?.pack && <IndustrySetup selection={false} heading={false} s={s} h={h} livePacks={hasibOverview.livePacks} industries={hasibOverview.industries} current={hasibOverview.pack.id} settings={hasibOverview.settings} onChosen={refreshHasib} />}</>
                 : tab === 'team' ? <TeamView s={s} h={h} />

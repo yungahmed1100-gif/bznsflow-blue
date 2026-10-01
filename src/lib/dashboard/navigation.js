@@ -1,4 +1,5 @@
 // The owner dashboard's map: eight plain sections, some with a few views inside.
+// Section ids never change by industry; only labels and views do (a clinic's Orders read as Visits).
 // Old `?tab=` links (insights, expenses, contacts, broadcast, channels, business)
 // keep working by landing on the section and view that now holds them.
 
@@ -6,7 +7,7 @@ const VIEWS = {
   stock: ['products', 'services'],
   money: ['insights', 'expenses'],
   customers: ['contacts', 'broadcast'],
-  settings: ['channels', 'business'],
+  settings: ['channels', 'business', 'accounts'],
 };
 const ALIASES = {
   insights: ['money', 'insights'], expenses: ['money', 'expenses'],
@@ -17,7 +18,7 @@ const TEAM_PACKS = ['retail', 'retail-tech', 'real-estate', 'clinic', 'construct
 export const SECTION_ORDER = ['today', 'chats', 'orders', 'stock', 'service', 'money', 'customers', 'team', 'settings'];
 
 /**
- * @param {{ modules: string[], setupRequired: boolean } | null} hasib the Hasib overview, or null when Hasib is off
+ * @param {{ modules: string[], setupRequired: boolean, pack?: { id: string } } | null} hasib the Hasib overview, or null when Hasib is off
  * @param {Record<string, boolean>} [capabilities]
  * @param {'manager' | 'employee'} [role] the role from the main overview, used until the Hasib overview arrives
  * @returns {{ sections: string[], views: Record<string, string[]> }}
@@ -27,14 +28,18 @@ export function dashboardMap(hasib, capabilities = { broadcasts: true, money: tr
   const workspaceRole = hasib?.workspaceRole ?? role;
   const on = m => !!hasib && !hasib.setupRequired && hasib.modules.includes(m);
   const clinic = hasib?.pack?.id === 'clinic' && !hasib.setupRequired;
+  // Dental: Services leads with its treatments (products are its supplies); Patients is one list, no mass messaging.
+  const dental = on('orders') && hasib?.pack?.id === 'dental';
   const construction = hasib?.pack?.id === 'construction' && !hasib.setupRequired;
   const automotive = hasib?.pack?.id === 'automotive' && !hasib.setupRequired;
+  // Services are edited in Business details, which is the manager's.
+  const managerViews = list => list.filter(v => v !== 'services' || workspaceRole !== 'employee');
   const views = {
-    // Services are edited in Business details, which is the manager's.
-    stock: construction || automotive ? [] : on('stock') ? VIEWS.stock.filter(v => v !== 'services' || workspaceRole !== 'employee') : ['services'],
+    stock: construction || automotive ? [] : on('stock') ? managerViews(dental ? ['services', 'products'] : VIEWS.stock) : ['services'],
     money: construction || automotive ? [] : VIEWS.money.filter(on),
-    customers: clinic ? ['contacts'] : capabilities.broadcasts ? VIEWS.customers : ['contacts'],
-    settings: construction ? [] : VIEWS.settings,
+    customers: clinic || dental ? ['contacts'] : capabilities.broadcasts ? VIEWS.customers : ['contacts'],
+    // Accounts and VAT belong to Hasib's money, so they appear once an industry is set.
+    settings: construction ? [] : on('orders') ? VIEWS.settings : VIEWS.settings.filter(v => v !== 'accounts'),
   };
   const has = {
     today: !!hasib, chats: !clinic, orders: on('orders'), stock: on('stock'), service: on('repairs'),

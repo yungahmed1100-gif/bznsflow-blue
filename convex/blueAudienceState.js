@@ -1,7 +1,7 @@
 // Contact import and marketing-consent evidence. Importing never sends anything,
 // never clears an opt-out and never overwrites an owner-entered name or field.
 import { resolveTenant } from './blueTenant.js';
-import { ensureContact, publicContact, searchTextFor, sectorFor } from './blueContacts.js';
+import { catalogForFields, ensureContact, publicContact, searchTextFor, sectorFor } from './blueContacts.js';
 import { qualificationStatus, validateFieldValue } from '../config/layla-qualification.js';
 
 export const IMPORT_BATCH_ROWS = 100;
@@ -38,6 +38,7 @@ export async function executeAudience(ctx, a, now = Date.now()) {
   if (a.consent && !consent) return fail('invalid_consent');
   if (a.requireConsent && !consent) return fail('consent_required');
   const sectorId = sectorFor(row);
+  const catalog = await catalogForFields(ctx, accountId, sectorId);
 
   // One attestation per import; later pages of the same import reuse it.
   let batchId;
@@ -62,7 +63,7 @@ export async function executeAudience(ctx, a, now = Date.now()) {
     if (Array.isArray(input.fields) && input.fields.length <= 20) {
       const map = new Map(contact.fields.map(f => [f.key, f]));
       for (const f of input.fields) {
-        const value = validateFieldValue(sectorId, f?.key, f?.value);
+        const value = validateFieldValue(sectorId, f?.key, f?.value, catalog);
         if (value && !map.get(f.key)?.value) map.set(f.key, { key: f.key, value, source: 'owner', confidence: 1, at: now });
       }
       patch.fields = [...map.values()];

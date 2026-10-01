@@ -61,7 +61,8 @@ async function commerceContext(ctx, row, secret) {
   if (!HASIB_PLANS.includes(await planFor(ctx, row.accountId))) return null;
   const tenant = { accountId: row.accountId, row, secret };
   const pack = await packFor(ctx, tenant);
-  if (!isLivePack(pack.id) || pack.modules.orders !== 'available') return null;
+  // A clinic's stock is its own supplies: Layla never quotes it or files orders from chat.
+  if (!isLivePack(pack.id) || pack.modules.orders !== 'available' || pack.internalStock) return null;
   tenant.pack = pack;
   return tenant;
 }

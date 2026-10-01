@@ -9,7 +9,7 @@ const HasibContext = createContext(null);
  * for this account, and every consumer then renders nothing.
  */
 export function HasibProvider({ lang, overview, business, timezone, onChanged, children }) {
-  const value = useMemo(() => overview ? { overview, h: createHasibStrings(lang), business, timezone, onChanged } : null, [overview, lang, business, timezone, onChanged]);
+  const value = useMemo(() => overview ? { overview, h: createHasibStrings(lang, overview.pack?.id), business, timezone, onChanged } : null, [overview, lang, business, timezone, onChanged]);
   return <HasibContext.Provider value={value}>{children}</HasibContext.Provider>;
 }
 export const useHasib = () => useContext(HasibContext);

@@ -309,3 +309,15 @@
 .ld-section-tabs a[aria-current=page] { border-block-end-color: currentColor; font-weight: 800; }
 .ld-section-tabs a:focus-visible { outline: 2px solid var(--blue, #1d4ed8); outline-offset: 2px; }
 .ld-section-tabs a:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
+
+/* What Layla captured in a chat, above the conversation */
+.ld-captured { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding-block: 6px 2px; }
+.ld-captured h3 { margin: 0; font-size: .85rem; font-weight: 700; color: var(--ink-muted); }
+.ld-captured-list { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.ld-captured-list div { display: flex; gap: 4px; align-items: baseline; }
+.ld-captured-list dt { font-size: .85rem; color: var(--ink-muted); }
+.ld-captured-list dt::after { content: ':'; }
+.ld-captured-list dd { margin: 0; font-weight: 600; }
+.ld-captured-none { margin: 0; font-size: .88rem; color: var(--ink-muted); }
+.ld-captured .ld-button { margin-inline-start: auto; min-block-size: 44px; }
+@media (max-width: 640px) { .ld-captured .ld-button { margin-inline-start: 0; } }

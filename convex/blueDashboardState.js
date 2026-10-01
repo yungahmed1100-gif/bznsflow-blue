@@ -3,7 +3,7 @@
 // credentials, hashes or internal integration identifiers.
 import { publicInstagram } from './blueInstagramState.js';
 import { resolveTenant, ownsIntegration, owned, encodeCursor, decodeCursor, afterCursor } from './blueTenant.js';
-import { DAY, deleteContact, linkConversation, ownerContactPatch, publicContact, sectorFor } from './blueContacts.js';
+import { DAY, catalogForFields, deleteContact, linkConversation, ownerContactPatch, publicContact, sectorFor } from './blueContacts.js';
 import { messagingReady } from './blueMessagingState.js';
 import { packDescription } from '../config/layla-qualification.js';
 import { renderTemplate } from '../config/layla-templates.js';
@@ -143,7 +143,7 @@ export async function executeDashboard(ctx, a, now = Date.now()) {
     const before = Number.isSafeInteger(a.before) && a.before > 0 ? a.before : null;
     const page = await threadMessages(ctx, person, contact, before, THREAD_PAGE, now);
     return ok({ conversation: { id: person._id, channel:person.channel || 'whatsapp', takeover: person.takeover, optout: person.optout || contact.optout, windowOpenUntil: person.lastInbound ? person.lastInbound + DAY : 0 },
-      contact: publicContact(contact, person), ...page });
+      contact: publicContact(contact, person), qualification: packDescription(contact.sectorId || sectorId), ...page });
   }
 
   if (a.operation === 'contacts') {
@@ -172,7 +172,7 @@ export async function executeDashboard(ctx, a, now = Date.now()) {
   if (a.operation === 'contact_update') {
     const contact = await owned(ctx, a.contactId, accountId, 'blueContacts');
     if (!contact || contact.state !== 'active') return fail('contact_not_found');
-    const { patch, error } = ownerContactPatch(contact, a.patch || {}, now);
+    const { patch, error } = ownerContactPatch(contact, a.patch || {}, now, await catalogForFields(ctx, accountId, contact.sectorId));
     if (error) return fail(error);
     await ctx.db.patch(contact._id, patch);
     return ok({ contact: publicContact({ ...contact, ...patch }, await conversationFor(ctx, contact)) });

@@ -49,6 +49,17 @@ export async function sellableVariant(ctx, accountId, id) {
 
 export const isLow = (onHand, reorderPoint) => onHand <= reorderPoint;
 
+/** Low or out-of-stock variants of stock-tracked items only; a service is never "low". Lowest first, with their item. */
+export async function trackedLow(ctx, accountId) {
+  const rows = (await ctx.db.query('hasibVariants').withIndex('by_account_low', q => q.eq('accountId', accountId).eq('low', true)).take(100)).filter(v => !v.archived);
+  const out = [];
+  for (const variant of rows) {
+    const item = await ctx.db.get(variant.itemId);
+    if (item && !item.archived && item.trackStock) out.push({ variant, item });
+  }
+  return out.sort((a, b) => a.variant.onHand - b.variant.onHand);
+}
+
 /**
  * Check a batch of stock deltas against policy before anything is written.
  * `changes` is [{ variant, delta }]; deltas for the same variant are combined.

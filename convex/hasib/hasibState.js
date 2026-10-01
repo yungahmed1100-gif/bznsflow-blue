@@ -20,7 +20,11 @@ import { resolveTenant } from '../blueTenant.js';
 import { visibleModules, isLivePack, livePackSummaries, industryCatalog, HASIB_PACKS } from '../../config/hasib-packs.js';
 import { STOCK_POLICIES } from './stock.js';
 import { hasibEnabled } from './gate.js';
-import { ok, fail, settingsFor, packFor } from './shared.js';
+import { ok, fail, settingsFor, packFor, trackedLow } from './shared.js';
+import { shortenClinicalText, textRetentionFor, CLINICAL_TEXT_RETENTION_MS } from '../blueContacts.js';
+import { syncServiceItems } from './serviceSync.js';
+import { STOCK_SOURCE } from './stockSync.js';
+import { hasibPack } from '../../config/hasib-packs.js';
 import { executeCatalog } from './catalogState.js';
 import { executeOrders } from './ordersState.js';
 import { executeExpenses } from './expensesState.js';
@@ -37,7 +41,7 @@ import { staffArgs, staffResult, auditChange } from './staffPolicy.js';
 export const HASIB_OPERATIONS = [...Object.keys(BOOKING_OPERATIONS), ...JOB_OPERATIONS, ...REAL_ESTATE_OPERATIONS, ...TEAM_OPERATIONS, ...CLINIC_OPERATIONS, ...CONSTRUCTION_OPERATIONS, ...AUTOMOTIVE_OPERATIONS, 'overview', 'settings_update', 'items', 'item_save', 'item_archive', 'stock_move', 'stock_moves', 'low_stock',
   'order_create', 'order_status', 'orders', 'order', 'payment_record', 'contact_summary', 'conversation_orders', 'expense_create', 'expenses', 'expense_void', 'insights',
   'today', 'photo_upload_url', 'photo_register', 'item_photo', 'items_import', 'serials', 'serial_lookup', 'trade_in', 'repairs', 'repair', 'repair_create', 'repair_approval', 'repair_update', 'repair_status',
-  'baking_suggestions', 'order_preparation', 'recipes', 'recipe_save', 'waste_create', 'stock_count', 'stock_receive', 'batch_create', 'restaurant_summary', 'stock_expiry'];
+  'baking_suggestions', 'order_preparation', 'recipes', 'recipe_save', 'waste_create', 'stock_count', 'stock_receive', 'batch_create', 'restaurant_summary', 'stock_expiry', 'services_sync'];
 
 // Operations that belong to an optional module; a pack without that module refuses them.
 const MODULE_OPS = { serials: ['serials', 'serial_lookup'], tradeIns: ['trade_in'], repairs: ['repairs', 'repair', 'repair_create', 'repair_approval', 'repair_update', 'repair_status'], recipes: ['recipes', 'recipe_save', 'waste_create', 'stock_count', 'stock_receive', 'restaurant_summary'], batches: ['batch_create'], shelfLife: ['stock_expiry'] };
@@ -47,6 +51,22 @@ const moduleOf = op => Object.keys(MODULE_OPS).find(m => MODULE_OPS[m].includes(
 export { hasibEnabled };
 
 const publicSettings = s => ({ currency: s.currency, vatRegistered: s.vatRegistered, vatRateBps: s.vatRateBps, pricesIncludeVat: s.pricesIncludeVat, vatin: s.vatin || '', stockPolicy: s.stockPolicy, unsoldDays: s.unsoldDays ?? 60, absenceDays: s.absenceDays ?? 14, listingFreshnessDays: s.listingFreshnessDays ?? 30, constructionIncidentHoursDenominator:s.constructionIncidentHoursDenominator ?? 200000 });
+
+/** What choosing an industry changes beyond the setting itself. */
+async function applyPackChoice(ctx, accountId, pack, now) {
+  // A clinical industry's 24-hour chat-text rule applies to recent messages at once.
+  if (textRetentionFor(null, pack.id) === CLINICAL_TEXT_RETENTION_MS) {
+    // Newest first, up to 2,000 messages in this change; a busier account finishes with blueHasib:shortenDentalText.
+    let next = now + 1;
+    for (let page = 0; page < 4 && next !== null; page++) next = (await shortenClinicalText(ctx, accountId, now, next)).next;
+  }
+  // Internal stock (a clinic's supplies) leaves Layla's catalog; treatments become chargeable.
+  if (pack.internalStock) {
+    const published = await ctx.db.query('blueCatalogEntries').withIndex('by_owner_status_order', q => q.eq('ownerKey', String(accountId)).eq('status', 'approved')).take(500);
+    for (const entry of published.filter(e => e.source === STOCK_SOURCE)) await ctx.db.patch(entry._id, { status: 'archived', updatedAt: now });
+  }
+  if (pack.serviceItems) await syncServiceItems(ctx, accountId, now);
+}
 
 async function updateSettings(ctx, accountId, a, now) {
   const current = await ctx.db.query('hasibSettings').withIndex('by_account', q => q.eq('accountId', accountId)).unique();
@@ -79,6 +99,7 @@ async function updateSettings(ctx, accountId, a, now) {
   const row = { accountId, ...(next.packId ? { packId: next.packId } : {}), currency: next.currency, vatRegistered: next.vatRegistered, vatRateBps: next.vatRateBps, pricesIncludeVat: next.pricesIncludeVat,
     ...(next.vatin ? { vatin: next.vatin } : {}), stockPolicy: next.stockPolicy, unsoldDays: next.unsoldDays ?? 60, absenceDays: next.absenceDays ?? 14, listingFreshnessDays: next.listingFreshnessDays ?? 30, constructionIncidentHoursDenominator:next.constructionIncidentHoursDenominator ?? 200000, updatedAt: now };
   if (current) await ctx.db.replace(current._id, row); else await ctx.db.insert('hasibSettings', row);
+  if (a.packId !== undefined) await applyPackChoice(ctx, accountId, hasibPack(a.packId), now);
   return ok({ settings: publicSettings(row) });
 }
 
@@ -119,8 +140,9 @@ async function dispatchHasib(ctx, tenant, actor, plan, pack, a, now) {
     for (const status of ['confirmed', 'ready']) confirmedAsks.push(...(await ctx.db.query('hasibOrders').withIndex('by_account_status_created', q => q.eq('accountId', tenant.accountId).eq('status', status)).take(200)));
     // Waiting for the owner: Layla's orders she could not confirm, and confirmed ones the customer asked to change.
     const layla = [...pending, ...confirmedAsks.filter(o => o.flags?.includes('change_requested'))].filter(o => o.source === 'layla');
-    const low = (await ctx.db.query('hasibVariants').withIndex('by_account_low', q => q.eq('accountId', tenant.accountId).eq('low', true)).take(100)).filter(v => !v.archived);
-    return ok({ pack: { id: pack.id, archetype: pack.archetype, version: pack.version, ownerUi: pack.ownerUi, todayMetrics: pack.todayMetrics, thresholds: pack.thresholds, variantOptions: pack.variantOptions, orderFields: pack.orderFields, expenseCategories: pack.expenseCategories, modules: pack.modules },
+    const low = await trackedLow(ctx, tenant.accountId);
+    return ok({ pack: { id: pack.id, archetype: pack.archetype, version: pack.version, ownerUi: pack.ownerUi, todayMetrics: pack.todayMetrics, thresholds: pack.thresholds, variantOptions: pack.variantOptions, orderFields: pack.orderFields, expenseCategories: pack.expenseCategories, modules: pack.modules,
+        ...(pack.labels ? { labels: pack.labels, sensitive: pack.sensitive, noOrderNotes: pack.noOrderNotes, fulfilment: pack.fulfilment, internalStock: pack.internalStock, serviceItems: pack.serviceItems } : {}) },
       selectedIndustryId: pack.id, legacyIndustryId: settings.packId || null, industry: industryCatalog().find(row => row.id === pack.id),
       plan, workspaceRole: actor.role, capabilities: capabilitiesFor(plan, actor.role), teamSummary: { role: actor.role, operationalRole: actor.operationalRole || (actor.role === 'manager' ? 'manager' : 'service_advisor'), actorAccountId: actor.actorAccountId, employeeLimit: actor.workspace.employeeLimit }, setupRequired: false, livePacks: livePackSummaries(), industries: industryCatalog().map(i => ctx.hasibPreview === true ? { ...i, live: true, preview: true } : i), modules: visibleModules(pack), settings: publicSettings(settings), counts: { pendingOrders: pending.length, lowStock: low.length, laylaWaiting: layla.length, laylaOverdue: layla.filter(o => now - o.createdAt > 86400000).length } });
   }
@@ -134,6 +156,7 @@ async function dispatchHasib(ctx, tenant, actor, plan, pack, a, now) {
   }
   if (a.operation === 'photo_register') return registerPhoto(ctx, tenant.accountId, a, now);
   if (a.operation === 'items_import') return importItems(ctx, tenant, a, now);
+  if (a.operation === 'services_sync') return pack.serviceItems ? ok(await syncServiceItems(ctx, tenant.accountId, now)) : fail('module_unavailable');
   const module = moduleOf(a.operation);
   if (module && pack.modules[module] !== 'available') return fail('module_unavailable');
   if (a.operation === 'baking_suggestions') return pack.id === 'cakes' ? ok(await bakingSuggestions(ctx, tenant.accountId, now, await businessTimezone(ctx, tenant.accountId))) : fail('module_unavailable');
