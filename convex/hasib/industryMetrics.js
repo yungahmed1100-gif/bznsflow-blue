@@ -128,11 +128,12 @@ export async function industryMetrics(ctx, tenant, now, range, food) {
     put('payments_due',sum(jobs.flatMap(j=>j.milestones).filter(m=>!m.withheld&&m.dueAt<=now),m=>m.unpaidMinor),'money');
   }
   if (pack.id==='real-estate') {
-    const enquiries = await scan('hasibPropertyEnquiries');
-    put('enquiries_waiting',enquiries.filter(e=>e.status==='new').length);
-    put('viewings_due',enquiries.filter(e=>e.viewingAt>=range.from&&e.viewingAt<range.to&&!e.viewingOutcome).length);
-    const linked = new Set(enquiries.map(e=>e.orderId).filter(Boolean));
-    put('commission_owed',sum(orders.filter(o=>linked.has(o._id)&&active(o)),o=>Math.max(0,o.totalMinor-o.paidMinor)),'money');
+    // Read from the deal pipeline (realEstateState.js); the old enquiry model is retired.
+    const deals = await scan('realEstateOpportunities'), viewings = await scan('realEstateViewings','by_account_date'), commissions = await scan('realEstateCommissions');
+    put('enquiries_waiting',deals.filter(d=>d.stage==='new').length);
+    put('viewings_due',viewings.filter(v=>v.scheduledAt>=range.from&&v.scheduledAt<range.to&&['requested','confirmed'].includes(v.status)).length);
+    const owed = new Set(commissions.filter(c=>c.status==='due').map(c=>String(c.orderId)));
+    put('commission_owed',sum(orders.filter(o=>owed.has(String(o._id))&&active(o)),o=>Math.max(0,o.totalMinor-o.paidMinor)),'money');
   }
   return { industryMetrics: pack.todayMetrics.map(m=>({...m,...(values[m.id]||{value:null,format:'number'})})), industryActions: actions };
 }

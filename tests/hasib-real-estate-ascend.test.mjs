@@ -20,7 +20,7 @@ test('real-estate form payloads normalize currency and comma-separated fields', 
   assert.equal(property.body.workflow.askingPriceMinor, 125000500);
   assert.deepEqual(property.body.workflow.features, ['pool', 'garden', 'pool']);
   assert.deepEqual(property.body.workflow.photoIds, ['photo-1']);
-  assert.equal(property.body.workflow.verificationAt, 1234);
+  assert.equal(property.body.workflow.verificationAt, undefined, 'saving a listing never verifies it');
 
   const opportunity = buildRealEstateSubmission('opportunity', {
     contactId: 'contact-1', need: 'buy', areas: 'Qurum, Madinat Al Sultan Qaboos', propertyTypes: 'villa, townhouse', budgetMin: '100000', budgetMax: '150000',
@@ -44,8 +44,10 @@ async function fixture() {
 
 test('qualification deduplicates an open need and matching uses only fresh authorized inventory', async () => {
   const { m, tenant, actor, contactId } = await fixture();
-  const property = value(await executeProperty(m.ctx, tenant, { operation: 'property_save', requestId: randomUUID(), workflow: { label: 'Qurum Villa', reference: 'RE-1', transactionType: 'sale', propertyType: 'villa', area: 'Qurum', location: 'Muscat', askingPriceMinor: 120000000, bedrooms: 3, authorityStatus: 'confirmed', verificationAt: m.now(), availability: 'available' } }, m.now()));
-  value(await executeProperty(m.ctx, tenant, { operation: 'property_save', requestId: randomUUID(), workflow: { label: 'Stale Villa', transactionType: 'sale', propertyType: 'villa', area: 'Qurum', location: 'Muscat', askingPriceMinor: 110000000, bedrooms: 3, authorityStatus: 'confirmed', verificationAt: m.now() - 31 * 86400000, availability: 'available' } }, m.now()));
+  let property = value(await executeProperty(m.ctx, tenant, { operation: 'property_save', requestId: randomUUID(), workflow: { label: 'Qurum Villa', reference: 'RE-1', transactionType: 'sale', propertyType: 'villa', area: 'Qurum', location: 'Muscat', askingPriceMinor: 120000000, bedrooms: 3, authorityStatus: 'confirmed', availability: 'available' } }, m.now()));
+  property = value(await executeProperty(m.ctx, tenant, { operation: 'property_verify', propertyId: property.id, version: property.version }, m.now()));
+  const stale = value(await executeProperty(m.ctx, tenant, { operation: 'property_save', requestId: randomUUID(), workflow: { label: 'Stale Villa', transactionType: 'sale', propertyType: 'villa', area: 'Qurum', location: 'Muscat', askingPriceMinor: 110000000, bedrooms: 3, authorityStatus: 'confirmed', availability: 'available' } }, m.now()));
+  value(await executeProperty(m.ctx, tenant, { operation: 'property_verify', propertyId: stale.id, version: stale.version }, m.now() - 31 * 86400000));
   const args = { operation: 'opportunity_save', requestId: randomUUID(), workflow: { contactId, source: 'whatsapp', need: 'buy', areas: ['Qurum'], propertyTypes: ['villa'], budgetMinMinor: 100000000, budgetMaxMinor: 130000000, bedrooms: 3, financeReadiness: 'ready', decisionMakerReadiness: 'ready', timeline: '30_days', mustHaves: ['garden'] } };
   const opportunity = value(await executeRealEstate(m.ctx, tenant, actor, args, m.now()));
   assert.equal(opportunity.stage, 'qualified');
@@ -81,9 +83,11 @@ test('manager close is compliance-gated and creates one commission charge only',
   const opportunity = value(await executeRealEstate(m.ctx, tenant, actor, { operation: 'opportunity_save', requestId: randomUUID(), workflow: { contactId, need: 'buy', areas: ['Muscat'], propertyTypes: ['office'], budgetMinMinor: 0, budgetMaxMinor: 100000000, financeReadiness: 'cash', decisionMakerReadiness: 'ready', timeline: 'now', mustHaves: [] } }, m.now()));
   let offer = value(await executeRealEstate(m.ctx, tenant, actor, { operation: 'offer_save', requestId: randomUUID(), workflow: { opportunityId: opportunity.id, propertyId: property.id, amountMinor: 85000000, terms: 'Cash' } }, m.now()));
   offer = value(await executeRealEstate(m.ctx, tenant, actor, { operation: 'offer_approve', offerId: offer.id, version: offer.version }, m.now()));
+  offer = value(await executeRealEstate(m.ctx, tenant, actor, { operation: 'offer_save', offerId: offer.id, version: offer.version, workflow: { status: 'presented' } }, m.now()));
   offer = value(await executeRealEstate(m.ctx, tenant, actor, { operation: 'offer_save', offerId: offer.id, version: offer.version, workflow: { status: 'accepted' } }, m.now()));
   assert.equal((await executeRealEstate(m.ctx, tenant, actor, { operation: 'deal_close', opportunityId: opportunity.id, offerId: offer.id, commissionMinor: 2000000 }, m.now())).reason, 'compliance_incomplete');
-  value(await executeRealEstate(m.ctx, tenant, actor, { operation: 'compliance_update', opportunityId: opportunity.id, workflow: { identityStatus: 'confirmed', authorityStatus: 'confirmed', financingStatus: 'confirmed', agreementStatus: 'confirmed', completionStatus: 'confirmed' } }, m.now()));
+  let compliance;
+  for (const kind of ['identity', 'authority', 'financing', 'agreement', 'completion']) compliance = value(await executeRealEstate(m.ctx, tenant, actor, { operation: 'compliance_update', opportunityId: opportunity.id, version: compliance?.version, kind, status: 'confirmed' }, m.now()));
   const first = value(await executeRealEstate(m.ctx, tenant, actor, { operation: 'deal_close', opportunityId: opportunity.id, offerId: offer.id, commissionMinor: 2000000 }, m.now()));
   const replay = value(await executeRealEstate(m.ctx, tenant, actor, { operation: 'deal_close', opportunityId: opportunity.id, offerId: offer.id, commissionMinor: 2000000 }, m.now()));
   assert.equal(replay.id, first.id);

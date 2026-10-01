@@ -14,7 +14,7 @@ const cases = [
   ['resources','hasibResources',executeBookings], ['services','hasibServices',executeBookings], ['waitlist','hasibWaitlist',executeBookings],
   ['memberships','hasibMemberships',executeMemberships], ['membership_credits','hasibCredits',executeMemberships],
   ['followups','hasibFollowups',executeFollowups], ['jobs','hasibJobs',executeJobs], ['equipment','hasibEquipment',executeJobs],
-  ['properties','hasibProperties',executeProperty], ['property_enquiries','hasibPropertyEnquiries',executeProperty], ['product_requests','hasibProductRequests',executeRequests],
+  ['properties','hasibProperties',executeProperty], ['product_requests','hasibProductRequests',executeRequests],
 ];
 for (const [operation,table,execute] of cases) test(`${operation}: API cursor reaches records after the default 25 without leaking tenants`, async () => {
   const m=convexMemory(),accountId='accounts_1';

@@ -33,7 +33,6 @@ export function buildRealEstateSubmission(form, values, context = {}) {
             assignedAccountId: values.assignedAccountId || undefined,
             availability: values.availability || 'available',
             authorityStatus: values.authorityStatus,
-            verificationAt: context.now,
             features: listFromCsv(values.features),
             photoIds: (context.propertyPhotos || []).map(photo => photo.id),
           },

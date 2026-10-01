@@ -123,17 +123,28 @@ export async function seedIndustry({ m, tenant, hasib, pack }) {
     if (job.recurringDays) refs.nextJobId = (await create('job_repeat', { jobId: job.id, version: job.version })).id;
     await followup('job', job.id);
   } else if (pack.id === 'real-estate') {
-    const property = await create('property_save', { workflow: { label: 'Sample two-bedroom apartment', location: 'Muscat', askingPriceMinor: 65000000, availability: 'available' } });
-    let enquiry = await create('enquiry_create', { workflow: { contactId: refs.contactId, propertyId: property.id, location: 'Muscat', budgetMinor: 70000000, viewingAt: now + HOUR, followUpAt: now } });
-    enquiry = await run('enquiry_update', { enquiryId: enquiry.id, version: enquiry.version, workflow: { status: 'won', viewingOutcome: 'Owner recorded agreement', commissionMinor: 150000 } });
-    refs.enquiryId = enquiry.id;
+    // The deal pipeline end to end: a verified listing, a qualified buyer, a viewing, an approved and accepted offer,
+    // five compliance checks, then the close that books only the agency's commission.
+    let property = await create('property_save', { workflow: { label: 'Sample two-bedroom apartment', reference: 'DEMO-1', transactionType: 'sale', propertyType: 'apartment', area: 'Muscat', location: 'Muscat', askingPriceMinor: 65000000, bedrooms: 2, authorityStatus: 'confirmed', availability: 'available' } });
+    property = await run('property_verify', { propertyId: property.id, version: property.version });
+    const deal = await create('opportunity_save', { workflow: { contactId: refs.contactId, conversationId: refs.conversationId, need: 'buy', areas: ['Muscat'], propertyTypes: ['apartment'], budgetMinMinor: 50000000, budgetMaxMinor: 70000000, bedrooms: 2, financeReadiness: 'cash', decisionMakerReadiness: 'ready', timeline: '30 days', mustHaves: [] } });
+    let viewing = await create('viewing_save', { workflow: { opportunityId: deal.id, propertyId: property.id, status: 'confirmed', scheduledAt: now - HOUR } });
+    viewing = await run('viewing_save', { viewingId: viewing.id, version: viewing.version, workflow: { status: 'completed', outcome: 'Owner recorded agreement' } });
+    let offer = await create('offer_save', { workflow: { opportunityId: deal.id, propertyId: property.id, amountMinor: 64000000, terms: 'Cash, completion in 30 days' } });
+    offer = await run('offer_approve', { offerId: offer.id, version: offer.version });
+    offer = await run('offer_save', { offerId: offer.id, version: offer.version, workflow: { status: 'presented' } });
+    offer = await run('offer_save', { offerId: offer.id, version: offer.version, workflow: { status: 'accepted' } });
+    let check;
+    for (const kind of ['identity', 'authority', 'financing', 'agreement', 'completion']) check = await run('compliance_update', { opportunityId: deal.id, version: check?.version, kind, status: 'confirmed' });
+    const commission = await run('deal_close', { opportunityId: deal.id, offerId: offer.id, commissionMinor: 150000 });
+    refs.opportunityId = deal.id;
     refs.propertyId = property.id;
-    refs.orderId = enquiry.orderId;
-    let order = await run('order', { orderId: enquiry.orderId });
+    refs.orderId = commission.orderId;
+    let order = await run('order', { orderId: commission.orderId });
     order = await run('order_status', { orderId: order.id, version: order.version, to: 'confirmed' });
     await complete(order);
-    await pay(await run('order', { orderId: enquiry.orderId }));
-    await create('enquiry_create', { workflow: { contactId: refs.secondContactId, location: 'Seeb', budgetMinor: 60000000, viewingAt: now + HOUR, followUpAt: now } });
+    await pay(await run('order', { orderId: commission.orderId }));
+    await create('opportunity_save', { workflow: { contactId: refs.secondContactId, need: 'rent', areas: ['Seeb'], propertyTypes: ['villa'], budgetMinMinor: 0, budgetMaxMinor: 600000, financeReadiness: 'unknown', decisionMakerReadiness: 'unknown', timeline: 'unknown', mustHaves: [] } });
     await followup('property', property.id);
   } else if (['retail', 'retail-tech'].includes(pack.id)) {
     const tech = pack.id === 'retail-tech';

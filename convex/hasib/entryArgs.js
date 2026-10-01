@@ -34,6 +34,8 @@ const workflow = v.object({
   equipmentId: v.optional(v.string()),
   repeatOfId: v.optional(v.string()),
   propertyId: v.optional(v.string()),
+  // Real Estate viewings, offers and follow-up drafts name their deal.
+  opportunityId: v.optional(v.string()),
   variantId: v.optional(v.string()),
   orderId: v.optional(v.string()),
   dueAt: v.optional(v.number()),

@@ -13,7 +13,8 @@ const STAFF_HIDDEN = new Set(['costMinor', 'costKnown', 'unitCostMinor', 'operat
 const AUDIT_SCAN = 200;
 
 // Dental charges visits from its treatment and supply items, so its front desk follows the shop rules.
-const staffGuarded = (tenant) => tenant.actor?.role === 'employee' && (tenant.pack?.archetype === 'catalog' || !!tenant.pack?.serviceItems);
+// Real Estate agents never refund or see costs; deal money is the manager's (realEstateState.js).
+const staffGuarded = (tenant) => tenant.actor?.role === 'employee' && (tenant.pack?.archetype === 'catalog' || !!tenant.pack?.serviceItems || tenant.pack?.id === 'real-estate');
 
 /** A copy of `value` without the fields an employee must not see. */
 export function redactForStaff(value) {

@@ -95,7 +95,8 @@ for (const packId of INDUSTRIES) test(`${packId}: synthetic owner journey passes
     const order = await m.db.get(refs.orderId);
     assert.equal(order.totalMinor, 150000, 'only commission is booked as agency revenue');
     assert.equal((await m.db.get(refs.propertyId)).askingPriceMinor, 65000000);
-    assert.equal((await hasib('property_enquiries')).items.length, 2);
+    assert.equal((await hasib('opportunities')).items.length, 2, 'the won deal and a new enquiry');
+    assert.equal((await hasib('commissions')).items[0].amountMinor, 150000);
   }
   if (packId === 'retail-tech') {
     assert.equal(m.table('hasibSerials').filter(s => s.status === 'sold').length, 1);

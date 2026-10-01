@@ -163,7 +163,7 @@ async function dispatchHasib(ctx, tenant, actor, plan, pack, a, now) {
   if (a.operation === 'order_preparation' && pack.id !== 'cakes') return fail('module_unavailable');
   const op = a.operation;
   const allowed = op.startsWith('job') || op.startsWith('equipment') ? ['automotive','cleaning','hvac','construction']
-    : op.startsWith('property') || op.startsWith('enquiry') ? ['real-estate']
+    : op.startsWith('property') ? ['real-estate']
     : op.startsWith('product_request') ? ['retail','retail-tech']
     : op.startsWith('membership') ? ['fitness','education']
     : Object.keys(BOOKING_OPERATIONS).includes(op) && !op.startsWith('followup') ? ['beauty','dental','clinic','fitness','education'] : null;

@@ -32,6 +32,8 @@ const restaurantLine = i => compact({ variantId: id(i?.variantId), qty: quantity
 
 /** Actions whose id-bearing argument is required; a malformed id is refused rather than dropped. */
 const REQUIRED = { item_photo: 'itemId', order: 'orderId', order_status: 'orderId', payment_record: 'orderId', item_archive: 'itemId', stock_moves: 'variantId', stock_move: 'variantId', contact_summary: 'contactId', conversation_orders: 'conversationId', expense_void: 'expenseId', serials: 'variantId', trade_in: 'variantId', repair: 'repairId', repair_update: 'repairId', repair_status: 'repairId', recipe_save: 'menuVariantId', waste_create: 'variantId', stock_count: 'variantId', batch_create: 'outputVariantId' };
+// A Real Estate save that names an existing record is an update, versioned rather than replay-keyed.
+const UPDATED_BY = { opportunity_save: 'opportunityId', viewing_save: 'viewingId', offer_save: 'offerId', draft_save: 'draftId' };
 const NEEDS_REQUEST = new Set(['order_create', 'payment_record', 'stock_move', 'expense_create', 'trade_in', 'repair_create', 'waste_create', 'stock_count', 'stock_receive', 'batch_create']);
 
 const SHAPES = {
@@ -125,7 +127,7 @@ for (const operation of JOB_OPERATIONS) {
   if (operation.endsWith('_create')) NEEDS_REQUEST.add(operation);
 }
 for (const operation of REAL_ESTATE_OPERATIONS) {
-  SHAPES[operation] = b => ({ requestId:uuid(b.requestId), version:int(b.version), opportunityId:id(b.opportunityId), matchId:id(b.matchId), viewingId:id(b.viewingId), offerId:id(b.offerId), draftId:id(b.draftId), commissionId:id(b.commissionId), memberId:id(b.memberId), email:str(b.email,254), commissionMinor:int(b.commissionMinor), status:str(b.status,30), cursor:str(b.cursor,2048), limit:int(b.limit), workflow:workflowShape(b.workflow) });
+  SHAPES[operation] = b => ({ requestId:uuid(b.requestId), version:int(b.version), opportunityId:id(b.opportunityId), matchId:id(b.matchId), viewingId:id(b.viewingId), offerId:id(b.offerId), draftId:id(b.draftId), commissionId:id(b.commissionId), taskId:id(b.taskId), propertyId:id(b.propertyId), kind:str(b.kind,30), reason:str(b.reason,200), memberId:id(b.memberId), email:str(b.email,254), commissionMinor:int(b.commissionMinor), status:str(b.status,30), cursor:str(b.cursor,2048), limit:int(b.limit), workflow:workflowShape(b.workflow) });
   if (['opportunity_save','viewing_save','offer_save','draft_save'].includes(operation)) NEEDS_REQUEST.add(operation);
 }
 for (const operation of TEAM_OPERATIONS) {
@@ -154,7 +156,7 @@ export function hasibArgs(action, body) {
   if (!shape) throw new PilotError('invalid_action');
   const args = compact(shape(body));
   if (REQUIRED[action] && !args[REQUIRED[action]]) throw new PilotError('invalid_request');
-  if (NEEDS_REQUEST.has(action) && !args.requestId) throw new PilotError('invalid_request');
+  if (NEEDS_REQUEST.has(action) && !args.requestId && !(UPDATED_BY[action] && args[UPDATED_BY[action]])) throw new PilotError('invalid_request');
   if (action === 'item_save' && !args.itemId && !args.requestId) throw new PilotError('invalid_request');
   return args;
 }
