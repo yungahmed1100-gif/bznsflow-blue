@@ -75,6 +75,8 @@ try {
         const body = route.request().postDataJSON() || {};
         if (u.searchParams.get('surface') !== 'customer') return route.fulfill({ json: { ok: true, connected: false, available: false } });
         calls.push(body.action || 'get');
+        // The first (automatic) claim is refused; the owner recovers from the checklist.
+        if (body.action === 'claim_draft' && calls.filter(c => c === 'claim_draft').length === 1) return route.fulfill({ status: 409, json: { ok: false, reason: 'draft_operation_in_progress' } });
         if (body.action === 'claim_draft') state.savedToAccount = true;
         return route.fulfill({ json: state });
       }
@@ -82,9 +84,20 @@ try {
       return route.continue();
     });
     await page.goto(`${BASE}/layla/setup`);
-    await page.getByRole('button', { name: 'ربط واتساب', exact: true }).waitFor();
-    assert.equal(calls.filter(c => c === 'claim_draft').length, 1, 'the setup is claimed once, without a click'); checks++;
-    assert.equal(await page.getByRole('heading', { name: 'احفظ إعدادك لربط القنوات' }).count(), 0, 'no save prompt once claimed'); checks++;
+    const card = page.getByRole('region', { name: 'WhatsApp', exact: true });
+    const alert = card.getByRole('alert');
+    await alert.waitFor();
+    assert.equal(calls.filter(c => c === 'claim_draft').length, 1, 'the setup is claimed once automatically'); checks++;
+    assert.match(await alert.textContent(), /خطوة ربط ما زالت قيد الإنهاء/, 'the refusal says what to do'); checks++;
+    assert.equal(await alert.evaluate(el => document.activeElement === el), true, 'the message takes focus'); checks++;
+    await card.getByRole('button', { name: 'ربط واتساب', exact: true }).click();
+    const prepare = card.getByRole('button', { name: 'تجهيز الربط مع Meta' });
+    assert.equal(await prepare.isDisabled(), true); checks++;
+    assert.match(await prepare.getAttribute('aria-describedby'), /whatsapp-requirements/, 'the disabled button points to what is missing'); checks++;
+    await card.getByRole('button', { name: 'احفظ إعدادي في حسابي' }).click();
+    await page.waitForFunction(() => !document.querySelector('#whatsapp-requirements button'));
+    assert.equal(calls.filter(c => c === 'claim_draft').length, 2, 'one press saves the setup'); checks++;
+    assert.equal(await page.getByRole('heading', { name: 'احفظ إعدادك لربط القنوات' }).count(), 0, 'no hidden save prompt for a signed-in owner'); checks++;
     await context.close();
   }
   console.log(`${checks} WhatsApp connect checks passed. Synthetic rehearsal; no Meta consent or delivery evidence.`);

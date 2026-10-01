@@ -18,7 +18,7 @@ function PathChoice({ tr, path, value, onChange, children }) {
 
 // WhatsApp card on the channels step: number type, Meta's signup window, the
 // verification checklist and the new-number registration PIN.
-export function WhatsAppConnect({ tr, explain, open, onOpen, data, busy, available, reviewMode, prepared, preparing, path, onPathChange, preselect, onPreselectChange, onPrepare, onConnect, onCancelAttempt, run, act, request, applyState }) {
+export function WhatsAppConnect({ tr, explain, open, onOpen, errorNote, onClaim, data, busy, available, reviewMode, prepared, preparing, path, onPathChange, preselect, onPreselectChange, onPrepare, onConnect, onCancelAttempt, run, act, request, applyState }) {
   const [pin, setPin] = useState('');
   const requirements = whatsappRequirements({ data, available, reviewMode });
   const ready = requirements.every(([, ok]) => ok);
@@ -42,6 +42,7 @@ export function WhatsAppConnect({ tr, explain, open, onOpen, data, busy, availab
     {integration?.path === 'coexistence' && !['connected', 'paused'].includes(integration.status) && <p className="layla-notice layla-notice--progress" role="status">{tr('Keep the WhatsApp Business app open on your phone while Meta finishes connecting and syncing. This can take a few minutes.', 'أبقِ تطبيق واتساب للأعمال مفتوحاً على هاتفك حتى تُكمل Meta الربط والمزامنة. قد يستغرق ذلك بضع دقائق.')}</p>}
     {data?.selection && <section className="layla-answer"><h3>{tr('Choose the number you intended to connect', 'اختر الرقم الذي تريد ربطه')}</h3>
       {data.selection.candidates.map(phone => <button key={phone.id} className="layla-secondary" disabled={busy || Date.now() >= data.selection.expiresAt} onClick={() => run({ action: 'select_phone', phone: phone.id })}><bdi>+{phone.sender}</bdi></button>)}
+      {!integration && errorNote}
       <button className="layla-secondary" disabled={busy} onClick={() => run({ action: 'cancel_selection' })}>{tr('Cancel this selection', 'إلغاء الاختيار')}</button>
     </section>}
     {data?.connectionChecks && <ul className="layla-checklist">{[['path', tr('Number type verified', 'التحقق من نوع الرقم')], ['registered', tr('Number registered', 'تسجيل الرقم')], ['routing', tr('Blue connection verified', 'التحقق من ربط Blue')]].map(([key, label]) => <li key={key} data-ok={data.connectionChecks[key] ? '' : undefined}>{label}<span className="ld-visually-hidden">{data.connectionChecks[key] ? tr(': done', ': تم') : tr(': waiting', ': قيد الانتظار')}</span></li>)}</ul>}
@@ -51,6 +52,7 @@ export function WhatsAppConnect({ tr, explain, open, onOpen, data, busy, availab
     {integration && <p role="status">{['connected', 'paused'].includes(integration.status)
       ? tr('This number is connected. Turn on replies in the next step.', 'هذا الرقم مرتبط. فعّل الردود في الخطوة التالية.')
       : tr('This number is saved. Complete the registration step if shown, or check your connection to continue.', 'هذا الرقم محفوظ. أكمل خطوة التسجيل إن ظهرت، أو تحقّق من الاتصال للمتابعة.')}</p>}
+    {integration && errorNote}
     {integration && <button className="layla-secondary" disabled={busy} onClick={() => run({ action: 'refresh' })}>{tr('Check my connection', 'التحقق من الاتصال')}</button>}
     {data?.ownerConnectAvailable && !prepared && <section className="layla-answer" aria-labelledby="layla-owner-number">
       <h3 id="layla-owner-number">{tr('BznsFlow’s own number', 'رقم BznsFlow الخاص')}</h3>
@@ -59,6 +61,7 @@ export function WhatsAppConnect({ tr, explain, open, onOpen, data, busy, availab
     </section>}
     {!integration && !data?.selection && !open && <>
       <p>{tr('Let Layla answer your WhatsApp customers. You choose the number next.', 'دع ليلى تردّ على عملائك في واتساب. ستختار الرقم في الخطوة التالية.')}</p>
+      {errorNote}
       <button className="layla-primary" disabled={busy} onClick={onOpen}>{tr('Connect WhatsApp', 'ربط واتساب')}</button>
     </>}
     {!integration && !data?.selection && open && <>
@@ -72,11 +75,18 @@ export function WhatsAppConnect({ tr, explain, open, onOpen, data, busy, availab
         <label>{tr('Meta business portfolio ID', 'معرّف محفظة الأعمال في Meta')}<small>{tr('Settings → Business info', 'الإعدادات ← معلومات النشاط')}</small><input inputMode="numeric" autoComplete="off" dir="ltr" maxLength={30} disabled={busy} value={preselect.business} onChange={e => onPreselectChange({ ...preselect, business: e.target.value.replace(/\D/g, '').slice(0, 30) })} /></label>
         <label>{tr('WhatsApp Business account ID', 'معرّف حساب واتساب للأعمال')}<small>{tr('Settings → Accounts → WhatsApp accounts', 'الإعدادات ← الحسابات ← حسابات واتساب')}</small><input inputMode="numeric" autoComplete="off" dir="ltr" maxLength={30} disabled={busy} value={preselect.waba} onChange={e => onPreselectChange({ ...preselect, waba: e.target.value.replace(/\D/g, '').slice(0, 30) })} /></label>
       </details>}
-      {!ready && <ul className="layla-checklist" aria-label={tr('Before connecting WhatsApp', 'قبل ربط واتساب')}>{requirements.map(([key, ok]) => <li key={key} data-ok={ok ? '' : undefined}>{labels[key]}<span className="ld-visually-hidden">{ok ? tr(': done', ': تم') : tr(': needed', ': مطلوب')}</span></li>)}</ul>}
+      {!ready && <ul id="whatsapp-requirements" className="layla-checklist" aria-label={tr('Before connecting WhatsApp', 'قبل ربط واتساب')}>{requirements.map(([key, ok]) => <li key={key} data-ok={ok ? '' : undefined}>
+        {/* An unmet item is never a dead end: saving to the account is one press away. */}
+        {key === 'account' && !ok && data?.account && data?.accountSaveAvailable
+          ? <button type="button" className="layla-secondary" disabled={busy} onClick={onClaim}>{busy ? tr('Saving your setup to your account…', 'جارٍ حفظ إعدادك في حسابك…') : tr('Save my setup to my account', 'احفظ إعدادي في حسابي')}</button>
+          : labels[key]}
+        <span className="ld-visually-hidden">{ok ? tr(': done', ': تم') : tr(': needed', ': مطلوب')}</span></li>)}</ul>}
       {ready && <p className="layla-help">{tr('Meta’s window opens next. Log in with the Facebook account that manages your business. Passwords and codes go only into Meta’s window.', 'ستفتح نافذة Meta. سجّل الدخول بحساب فيسبوك الذي يدير نشاطك. أدخل كلمات المرور والرموز في نافذة Meta فقط.')}</p>}
+      {!ready && <p id="whatsapp-requirements-hint" className="layla-cta-hint">{tr('Complete the items above to continue.', 'أكمل البنود أعلاه للمتابعة.')}</p>}
+      {errorNote}
       {ownPrepared
         ? <button className="layla-primary" disabled={busy} onClick={onConnect}>{busy ? tr('Complete the Meta window…', 'أكمل الخطوات في نافذة Meta…') : tr('Connect with Facebook', 'الربط عبر فيسبوك')}</button>
-        : <button className="layla-primary" disabled={busy || preparing || !ready} onClick={onPrepare}>{preparing ? tr('Getting Meta ready…', 'جارٍ تجهيز Meta…') : tr('Get Meta ready', 'تجهيز الربط مع Meta')}</button>}
+        : <button className="layla-primary" disabled={busy || preparing || !ready} aria-describedby={ready ? undefined : 'whatsapp-requirements whatsapp-requirements-hint'} onClick={onPrepare}>{preparing ? tr('Getting Meta ready…', 'جارٍ تجهيز Meta…') : tr('Get Meta ready', 'تجهيز الربط مع Meta')}</button>}
       {busy && ownPrepared && <button className="layla-secondary" onClick={() => onCancelAttempt('meta_cancelled')}>{tr('Cancel this attempt', 'إلغاء هذه المحاولة')}</button>}
     </>}
     {integration?.path === 'new_number' && integration.status === 'registration_required' && <form autoComplete="off" onSubmit={register}>

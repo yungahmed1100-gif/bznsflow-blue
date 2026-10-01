@@ -65,7 +65,15 @@ export async function executeBlueAuth(ctx,a,now = Date.now()) {
       if (!hash(a.sessionHash) || !hash(a.draftHash)) return fail('invalid_state');
       if (account.draftHash) return ok({draftHash:account.draftHash});
       const draft = await lookup('blueReviewSessions','by_hash','sessionHash',a.sessionHash);
-      if (!draft || draft.expiresAt <= now || draft.accountId || (draft.integration && !a.credential) || draft.pendingSelection || draft.operation || !draft.lastPreview || (draft.attempt && !draft.attempt.claimed && draft.attempt.expiresAt > now && ['prepared','awaiting_meta'].includes(draft.status))) return fail('draft_not_claimable');
+      // Each refusal names its cause so the owner knows what to do. Confirmed business details are
+      // enough: the Layla preview is optional and comes last, so it is not required here.
+      if (!draft || draft.expiresAt <= now) return fail('draft_expired');
+      if (draft.accountId) return fail('draft_already_claimed');
+      if (draft.operation) return fail('draft_operation_in_progress');
+      if (draft.pendingSelection) return fail('draft_selection_pending');
+      if (draft.attempt && !draft.attempt.claimed && draft.attempt.expiresAt > now && ['prepared','awaiting_meta'].includes(draft.status)) return fail('draft_attempt_active');
+      if (!draft.profile?.reviewed) return fail('draft_details_unconfirmed');
+      if (draft.integration && !a.credential) return fail('draft_not_claimable');
       if (draft.integration) {
         if (a.credential.v !== 1 || a.credential.data.length > 12000) return fail('draft_not_claimable');
         const claim = await lookup('blueAssetClaims','by_phone','phone',draft.integration.phone);

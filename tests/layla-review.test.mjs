@@ -6,6 +6,8 @@ import { createReviewHandler, inspectReviewConnection } from '../api/_lib/layla/
 import { BLUE_CLOUD, reviewStore } from '../api/_lib/convex.js';
 import { PilotError } from '../api/_lib/layla/config.js';
 import { createSignupAttempt, signupInit, signupOptions } from '../src/lib/layla-signup.js';
+import { executeBlueAuth } from '../convex/blueAuthState.js';
+import { hashAccountToken } from '../api/_lib/blue-auth.js';
 
 const env = {CONVEX_CLOUD_URL:BLUE_CLOUD,BLUE_REVIEW_SERVICE_SECRET:'a'.repeat(64),LAYLA_CREDENTIAL_ENCRYPTION_KEY:'b'.repeat(64),BLUE_CUSTOMER_SETUP_ENABLED:'true',BLUE_REVIEW_ROUTING_APPROVED:'true',LAYLA_META_APP_ID:'1388038082832745',LAYLA_CUSTOMER_CONFIG_ID:'2144711899802123',LAYLA_META_APP_SECRET:'test-only-secret',BLUE_REVIEW_VERIFY_TOKEN:'test-verification'};
 const profile = {businessName:'Blue Review Studio',sector:'Studio',services:'Portraits',prices:'20 OMR',hours:'9–5',location:'Muscat',humanContact:'team@example.com',reviewed:true};
@@ -199,6 +201,21 @@ async function ownerClient({envExtra={},email=OWNER.email,exchange,inspect}={}) 
   assert.equal((await c.call({action:'profile',businessName:profile.businessName,profile})).statusCode,200);
   return {h,c,exchanges,row};
 }
+test('a signed-in owner saves their business details to their account without previewing Layla first',async()=>{
+  // Regression: claiming used to require a Layla preview, which onboarding now puts last and makes optional.
+  const token='a'.repeat(64),db=memory();
+  const accountId=await db.db.insert('accounts',{email:'owner@example.com',role:'customer',createdAt:db.now()});
+  await db.db.insert('sessions',{accountId,tokenHash:hashAccountToken(token),createdAt:db.now(),expiresAt:db.now()+86400000});
+  const accountStore=async(operation,args)=>{const r=await executeBlueAuth({db:db.db},{operation,...args},db.now());if(!r.ok)throw new PilotError(r.reason,409);return r.value;};
+  const handler=createReviewHandler({env:ownerEnv(),store:db.store,now:db.now,reviewMode:false,accountStore,fetcher:async()=>({ok:true,text:async()=>'{}'}),verifyConfig:async()=>{}});
+  const c=await client(handler,`__Host-blue_account=${token}`);
+  assert.equal(c.initial.body.savedToAccount,false);
+  const saved=await c.call({action:'profile',businessName:profile.businessName,profile});
+  assert.equal(saved.statusCode,200);assert.equal(saved.body.lastPreview,null,'no preview was run');
+  const claimed=await c.call({action:'claim_draft'});
+  assert.equal(claimed.statusCode,200,claimed.body.reason);assert.equal(claimed.body.savedToAccount,true);
+  assert.equal((await c.call()).body.savedToAccount,true,'the account keeps the setup on reload');
+});
 test('the owner connects their own directly created number with the Blue-only token, never through the browser',async()=>{
   const {h,c,exchanges}=await ownerClient();
   const before=(await c.call()).body;assert.equal(before.ownerConnectAvailable,true);

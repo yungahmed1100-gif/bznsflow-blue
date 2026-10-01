@@ -27,6 +27,30 @@ export const EXPLANATIONS = {
     en: "A connection is already in progress, or you have reached the attempt limit. Finish the current connection or try again later.",
     ar: "هناك عملية ربط قيد التنفيذ، أو بلغت حد المحاولات. أكمل الربط الحالي أو حاول لاحقاً.",
   },
+  draft_expired: {
+    en: "This setup was not saved in time and has expired. Enter your business details again; it takes a minute.",
+    ar: "انتهت صلاحية هذا الإعداد قبل حفظه. أدخل معلومات نشاطك مجدداً، ولن يستغرق ذلك سوى دقيقة.",
+  },
+  draft_already_claimed: {
+    en: "This setup is already saved to an account. Sign in with that account to continue.",
+    ar: "هذا الإعداد محفوظ بالفعل في حساب. سجّل الدخول بذلك الحساب للمتابعة.",
+  },
+  draft_operation_in_progress: {
+    en: "A connection step is still finishing. Wait a few seconds, then press Try again.",
+    ar: "خطوة ربط ما زالت قيد الإنهاء. انتظر بضع ثوانٍ ثم اضغط «حاول مجدداً».",
+  },
+  draft_selection_pending: {
+    en: "Choose the WhatsApp number to connect first, or cancel that choice, then save your setup.",
+    ar: "اختر رقم واتساب الذي تريد ربطه أولاً أو ألغِ الاختيار، ثم احفظ إعدادك.",
+  },
+  draft_attempt_active: {
+    en: "A Meta connection window is still open. Close or cancel it, then press Try again.",
+    ar: "ما زالت نافذة ربط Meta مفتوحة. أغلقها أو ألغِ المحاولة ثم اضغط «حاول مجدداً».",
+  },
+  draft_details_unconfirmed: {
+    en: "Confirm your business details first: tick “I reviewed this business information” and save.",
+    ar: "أكّد معلومات نشاطك أولاً: ضع علامة على «راجعت معلومات النشاط هذه» واحفظ.",
+  },
   draft_not_claimable: {
     en: "Finish or cancel the current Meta operation, then save your setup again. Your account is already signed in.",
     ar: "أكمل عملية Meta الحالية أو ألغها، ثم احفظ إعدادك مجدداً. حسابك مسجّل الدخول بالفعل.",

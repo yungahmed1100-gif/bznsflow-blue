@@ -72,7 +72,8 @@ function convexStore({ route, fallback, timeout = 8000, reasons = REASON_CODE, s
 const REVIEW_REASONS = ['invalid_profile', 'profile_changed', 'refresh_throttled', 'session_expired',
   'attempt_used', 'attempt_expired', 'invalid_state', 'operation_conflict', 'asset_in_use', 'attempt_limit'];
 
-const AUTH_REASONS = ['too_soon', 'too_many', 'code_invalid', 'session_expired', 'draft_not_claimable'];
+const AUTH_REASONS = ['too_soon', 'too_many', 'code_invalid', 'session_expired', 'draft_not_claimable',
+  'draft_expired', 'draft_already_claimed', 'draft_operation_in_progress', 'draft_selection_pending', 'draft_attempt_active', 'draft_details_unconfirmed'];
 
 // A dashboard call that fails for want of a session is a 401, not a conflict:
 // the client retries it by signing in, not by changing the request.

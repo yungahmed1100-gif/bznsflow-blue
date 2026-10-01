@@ -58,7 +58,7 @@ test('a pending employee invitation activates only after verified sign-in and re
 });
 test('claim rotates anonymous authority, persists account recovery and does not overwrite a saved draft',async()=>{
   const m=memory(),tokenHash=await login(m),sessionHash='e'.repeat(64),draftHash='f'.repeat(64);
-  const id=await m.db.insert('blueReviewSessions',{sessionHash,expiresAt:90000,lastPreview:{text:'safe'},profile:{services:'Portraits'}});
+  const id=await m.db.insert('blueReviewSessions',{sessionHash,expiresAt:90000,lastPreview:{text:'safe'},profile:{services:'Portraits',reviewed:true}});
   const claim=await m.call('claim_draft',{tokenHash,sessionHash,draftHash});assert.equal(claim.ok,true);
   assert.equal((await m.db.get(id)).sessionHash,draftHash);assert((await m.db.get(id)).expiresAt>86400000);
   assert.equal((await m.call('session',{tokenHash})).value.draftHash,draftHash);
@@ -67,11 +67,34 @@ test('claim rotates anonymous authority, persists account recovery and does not 
 });
 test('draft claim refuses existing integration and expired drafts, and expired sessions cannot recover',async()=>{
   const m=memory(),tokenHash=await login(m),sessionHash='e'.repeat(64);
-  const id=await m.db.insert('blueReviewSessions',{sessionHash,expiresAt:90000,lastPreview:{text:'safe'},integration:{id:'existing'}});
+  const id=await m.db.insert('blueReviewSessions',{sessionHash,expiresAt:90000,lastPreview:{text:'safe'},profile:{reviewed:true},integration:{id:'existing'}});
   assert.equal((await m.call('claim_draft',{tokenHash,sessionHash,draftHash:'f'.repeat(64)})).reason,'draft_not_claimable');
   await m.db.patch(id,{integration:undefined,expiresAt:0});
-  assert.equal((await m.call('claim_draft',{tokenHash,sessionHash,draftHash:'f'.repeat(64)})).reason,'draft_not_claimable');
+  assert.equal((await m.call('claim_draft',{tokenHash,sessionHash,draftHash:'f'.repeat(64)})).reason,'draft_expired');
   m.advance(2592000001);assert.equal((await m.call('session',{tokenHash})).value,null);
+});
+test('confirmed business details can be saved to an account without a Layla preview',async()=>{
+  // The preview is optional and comes last in onboarding; claiming must not depend on it.
+  const m=memory(),tokenHash=await login(m),sessionHash='e'.repeat(64),draftHash='f'.repeat(64);
+  const id=await m.db.insert('blueReviewSessions',{sessionHash,expiresAt:90000,profile:{businessName:'Qurum Coast Properties',reviewed:true}});
+  const claim=await m.call('claim_draft',{tokenHash,sessionHash,draftHash});
+  assert.equal(claim.ok,true,claim.reason);
+  assert.equal((await m.db.get(id)).sessionHash,draftHash);
+  assert.ok((await m.db.get(id)).accountId);
+});
+test('a draft that cannot be claimed says why, so the owner knows what to do',async()=>{
+  const m=memory(),tokenHash=await login(m),sessionHash='e'.repeat(64),claim=()=>m.call('claim_draft',{tokenHash,sessionHash,draftHash:'f'.repeat(64)});
+  const id=await m.db.insert('blueReviewSessions',{sessionHash,expiresAt:90000,profile:{reviewed:false}});
+  assert.equal((await claim()).reason,'draft_details_unconfirmed');
+  await m.db.patch(id,{profile:{reviewed:true},operation:'op'});
+  assert.equal((await claim()).reason,'draft_operation_in_progress');
+  await m.db.patch(id,{operation:undefined,pendingSelection:{candidates:[{id:'1'}]}});
+  assert.equal((await claim()).reason,'draft_selection_pending');
+  await m.db.patch(id,{pendingSelection:undefined,status:'prepared',attempt:{id:'a',claimed:false,expiresAt:90000}});
+  assert.equal((await claim()).reason,'draft_attempt_active');
+  await m.db.patch(id,{status:'business_saved',attempt:undefined,accountId:'someone-else'});
+  assert.equal((await claim()).reason,'draft_already_claimed');
+  assert.equal((await m.call('claim_draft',{tokenHash,sessionHash:'d'.repeat(64),draftHash:'f'.repeat(64)})).reason,'draft_expired');
 });
 test('sign-in rejects forged origin and unavailable mail without sending',async()=>{
   const res=()=>({headers:{},getHeader(k){return this.headers[k];},setHeader(k,v){this.headers[k]=v;},status(n){this.statusCode=n;},end(v){this.body=JSON.parse(v);}});
@@ -81,7 +104,7 @@ test('sign-in rejects forged origin and unavailable mail without sending',async(
 
 test('claiming an existing integration rotates its credential context and preserves the asset reservation',async()=>{
   const m=memory(),tokenHash=await login(m),sessionHash='e'.repeat(64),draftHash='f'.repeat(64);
-  const id=await m.db.insert('blueReviewSessions',{sessionHash,expiresAt:90000,lastPreview:{text:'safe'},integration:{id:'integration',phone:'123',waba:'456',credential:{data:'old'}}});
+  const id=await m.db.insert('blueReviewSessions',{sessionHash,expiresAt:90000,lastPreview:{text:'safe'},profile:{reviewed:true},integration:{id:'integration',phone:'123',waba:'456',credential:{data:'old'}}});
   const claimId=await m.db.insert('blueAssetClaims',{phone:'123',waba:'456',sessionHash,createdAt:1000});
   const credential={v:1,iv:'synthetic',data:'rewrapped',tag:'synthetic'};
   assert.equal((await m.call('claim_draft',{tokenHash,sessionHash,draftHash,credential})).ok,true);

@@ -65,6 +65,9 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
     });
   }
   const pending = useRef(null), actionBusy = useRef(false);
+  // Errors appear next to the step's action, not at the top of the page, and take focus so they are seen and read.
+  const errorRef = useRef(null);
+  useEffect(() => { if (error) { errorRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); errorRef.current?.focus({ preventScroll: true }); } }, [error]);
   // The path Meta's window was last prepared for automatically: at most once per
   // path, so an abandoned or failed attempt never burns the attempt budget in a loop.
   const autoPrepared = useRef(null);
@@ -219,6 +222,7 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
   // journeyStep ids are not in the order the customer walks them.
   const currentPosition = Math.max(0, STEP_ORDER.indexOf(step));
   const needsAccount = !reviewMode && !data?.savedToAccount;
+  const errorNote = error ? <p ref={errorRef} tabIndex={-1} className="layla-error" role="alert">{error}</p> : null;
   const saveProps = { lang, tr, data, busy, act, authRequest,
     onSignedIn: async () => { applyState(await request()); applyState(await request({ action: 'claim_draft' })); setSaveOpen(false); },
     onClaim: () => run({ action: 'claim_draft' }) };
@@ -245,21 +249,24 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
         <h2 ref={heading} tabIndex={-1}>{steps[step]}</h2>
         {instagramReturn && <p className={instagramReturn.ok ? 'layla-saved' : 'layla-notice layla-notice--problem'} role={instagramReturn.ok ? 'status' : 'alert'}>{instagramReturn.text}</p>}
         {data?.account && <p>{tr('Signed in as','تم الدخول باسم')} {data.account.email} <button className="layla-secondary" disabled={busy} onClick={signOut}>{tr('Sign out / Use another account','تسجيل الخروج / استخدام حساب آخر')}</button></p>}
-        {error && <p className="layla-error" role="alert">{error}</p>}
         {data?.profile && <p className={data.savedToAccount ? 'layla-saved' : 'layla-saved layla-saved--preview'}>{data.savedToAccount ? tr('Saved to your account', 'محفوظ في حسابك') : tr('Preview saved in this browser for 24 hours.', 'المعاينة محفوظة في هذا المتصفح لمدة ٢٤ ساعة.')}</p>}
         {saveOpen && step !== 1 && needsAccount && <SaveAccountPanel {...saveProps} />}
+        {step !== 0 && step !== 1 && errorNote}
         {step === 0 && <BusinessDetailsForm key={data?.profileVersion ?? 'new'} lang={lang} mode="onboarding" initial={{ profile: data?.profile, businessName: data?.profile?.businessName }} busy={busy || checking} onSubmit={saveBusiness}
           submitLabel={checking ? tr('Checking secure setup…','جارٍ التحقق من الإعداد الآمن…') : tr('Save and continue','احفظ وتابع')}>
+          {errorNote}
           {!checking && !available && <p className="layla-notice layla-notice--progress" role="status">{tr('Your business facts are saved securely for 24 hours without a BznsFlow login. Meta connection is waiting for verified Blue test setup.', 'تُحفظ معلومات نشاطك بأمان لمدة ٢٤ ساعة دون تسجيل دخول إلى BznsFlow. ينتظر ربط Meta التحقق من إعداد الاختبار في Blue.')}</p>}
         </BusinessDetailsForm>}
         {step === 1 && <section className="layla-channel-stage">
           <p>{tr('Choose Instagram, WhatsApp, or both. Each connection has its own reply controls.', 'اختر إنستغرام أو واتساب أو كليهما. لكل اتصال أدوات مستقلة للتحكم بالردود.')}</p>
-          {needsAccount && <SaveAccountPanel {...saveProps} />}
+          {needsAccount && !data?.account && <SaveAccountPanel {...saveProps} />}
+          {needsAccount && !data?.account && errorNote}
           {!needsAccount && !reviewMode && <InstagramConnection lang={lang} showInbox />}
           <WhatsAppConnect tr={tr} explain={explain} open={whatsappOpen} onOpen={() => setWhatsappOpen(true)} data={data} busy={busy} available={available} reviewMode={reviewMode}
             prepared={prepared} preparing={preparing} path={path} onPathChange={changePath} preselect={preselect} onPreselectChange={changePreselect}
             onPrepare={() => { autoPrepared.current = path; prepare(); }} onConnect={connect} onCancelAttempt={reason => pending.current?.cancel(reason)}
-            run={run} act={act} request={request} applyState={applyState} />
+            run={run} act={act} request={request} applyState={applyState}
+            errorNote={needsAccount && !data?.account ? null : errorNote} onClaim={() => run({ action: 'claim_draft' })} />
           <button className="layla-secondary" disabled={busy} onClick={() => leaveChannels(0)}>{tr('Back to business details','العودة إلى معلومات النشاط')}</button>
           <button className="layla-primary" disabled={busy} onClick={() => leaveChannels(3)}>{tr('Continue to go live', 'متابعة إلى التشغيل')}</button>
         </section>}
