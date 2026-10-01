@@ -58,7 +58,7 @@ test('automotive keeps the legacy stock URL and exposes its dedicated Money sect
 test('a dental clinic: the same sections, a clinic’s views, and old links still land', () => {
   const dental = { modules: ['orders', 'stock', 'expenses', 'insights'], setupRequired: false, pack: { id: 'dental' } };
   const map = dashboardMap(dental);
-  assert.deepEqual(map.sections, ['today', 'chats', 'orders', 'stock', 'money', 'customers', 'settings']);
+  assert.deepEqual(map.sections, ['today', 'chats', 'orders', 'stock', 'money', 'customers', 'team', 'settings'], 'dental has a front-desk team');
   assert.deepEqual(map.views.stock, ['services', 'products'], 'treatments first, then supplies');
   assert.deepEqual(map.views.customers, ['contacts'], 'no mass messaging to patients');
   assert.deepEqual(resolveTab('broadcast', null, map), { tab: 'customers', view: 'contacts' });

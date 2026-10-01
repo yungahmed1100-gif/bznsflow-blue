@@ -1,4 +1,5 @@
-// What an invited employee may do in a catalog shop (retail, retail-tech): sell,
+// What an invited employee may do in a catalog shop (retail, retail-tech) or a clinic
+// that charges visits at catalogue prices (dental): sell,
 // take payment, move orders along, adjust stock, edit existing products and quote
 // repairs, at the catalogue prices and costs the manager set. Costs, cash totals,
 // refunds, discounts, catalogue price changes, trade-ins and warranty terms stay
@@ -11,7 +12,8 @@ import { REQUEST_ID } from './shared.js';
 const STAFF_HIDDEN = new Set(['costMinor', 'costKnown', 'unitCostMinor', 'operationalCostMinor', 'operationalCostKnown', 'channelCostMinor', 'lifetimeMinor']);
 const AUDIT_SCAN = 200;
 
-const staffGuarded = (tenant) => tenant.actor?.role === 'employee' && tenant.pack?.archetype === 'catalog';
+// Dental charges visits from its treatment and supply items, so its front desk follows the shop rules.
+const staffGuarded = (tenant) => tenant.actor?.role === 'employee' && (tenant.pack?.archetype === 'catalog' || !!tenant.pack?.serviceItems);
 
 /** A copy of `value` without the fields an employee must not see. */
 export function redactForStaff(value) {

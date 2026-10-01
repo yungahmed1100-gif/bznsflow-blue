@@ -1,5 +1,7 @@
 // End-to-end for the dental pack against the real-logic demo:
 //   npm run build && node scripts/hasib-demo.mjs 5312 --pack=dental & node tests/hasib-dental-browser.mjs http://localhost:5312
+// Add a receptionist pass with a second demo signed in as an invited employee:
+//   node scripts/hasib-demo.mjs 5313 --pack=dental --role=employee & node tests/hasib-dental-browser.mjs http://localhost:5312 http://localhost:5313
 import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
@@ -8,14 +10,18 @@ import { createStrings } from '../src/lib/dashboard/strings.js';
 import { createHasibStrings } from '../src/lib/hasib/strings.js';
 
 const BASE = process.argv[2] || 'http://localhost:5312';
+const STAFF_BASE = process.argv[3] || null;
 const OUT = process.env.HASIB_DENTAL_OUT || 'work/hasib-dental-browser';
 await mkdir(OUT, { recursive: true });
 const api = (action, body = {}) => fetch(`${BASE}/api/layla-meta?surface=hasib`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, ...body }) }).then(r => r.json());
 const noOverflow = page => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
 const axe = async (page, scope = '.ld') => (await new AxeBuilder({ page }).include(scope).analyze()).violations.filter(v => ['critical', 'serious'].includes(v.impact)).map(v => `${v.id}: ${v.nodes.map(n => n.target).join(', ')}`);
 const words = lang => ({ s: createStrings(lang, 'dental'), h: createHasibStrings(lang, 'dental') });
-// The seven approved tabs, in the clinic's own words.
-const tabs = lang => { const { s, h } = words(lang); return [s.t('today'), s.t('chats'), h.t('orders'), h.t('stock'), s.t('money'), s.t('customers'), s.t('settings')]; };
+// The seven approved tabs plus Team, in the clinic's own words.
+const team = lang => (lang === 'ar' ? 'الفريق' : 'Team');
+const tabs = lang => { const { s, h } = words(lang); return [s.t('today'), s.t('chats'), h.t('orders'), h.t('stock'), s.t('money'), s.t('customers'), team(lang), s.t('settings')]; };
+// The front desk: no Money, Team or Settings.
+const staffTabs = lang => { const { s, h } = words(lang); return [s.t('today'), s.t('chats'), h.t('orders'), h.t('stock'), s.t('customers')]; };
 
 // Each screen, and what shows it has rendered.
 const SCREENS = [
@@ -124,6 +130,50 @@ try {
     assert.deepEqual([overview.settings.vatRegistered, overview.settings.vatRateBps, overview.pack.id], [true, 500, 'dental']); count++;
     await api('settings_update', { vat: { registered: false, rateBps: 500, pricesIncludeVat: false } });
     await context.close();
+  }
+  // The receptionist: visits at the clinic's prices, supplies without costs, no cash, setup or refunds.
+  if (STAFF_BASE) {
+    const staffOpen = async (width, lang, path) => {
+      const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce' });
+      const page = await context.newPage();
+      const errors = [];
+      page.on('pageerror', e => errors.push(e.message));
+      await page.goto(`${STAFF_BASE}${lang === 'ar' ? '' : '/en'}${path}`);
+      return { page, context, errors };
+    };
+    for (const lang of ['en', 'ar']) {
+      for (const width of [1440, 768, 320]) {
+        const { page, context, errors } = await staffOpen(width, lang, '/layla/dashboard?tab=today');
+        await page.locator('.hb-today .hb-needs').waitFor();
+        const nav = (await page.getByRole('navigation', { name: words(lang).s.t('nav') }).locator('a span:first-of-type').allTextContents()).map(x => x.trim());
+        assert.deepEqual(nav, staffTabs(lang), `receptionist tabs ${lang} ${width}`); count++;
+        assert.equal(await page.locator('#hb-money-title').count(), 0, 'no cash figures on Today'); count++;
+        assert.equal(await page.locator('.hb-setup, .hb-checklist').count(), 0, 'no setup checklist'); count++;
+        assert.equal(await noOverflow(page), true, `receptionist overflow ${lang} ${width}`); count++;
+        assert.deepEqual(await axe(page), [], `receptionist axe ${lang} ${width}`); count++;
+        for (const path of ['/layla/dashboard?tab=orders', '/layla/dashboard?tab=stock&view=products', '/layla/dashboard?tab=customers']) {
+          await page.goto(`${STAFF_BASE}${lang === 'ar' ? '' : '/en'}${path}`);
+          await page.locator('.hb-order-table, .hb-stock-table, .ld-table').first().waitFor();
+          assert.equal(await noOverflow(page), true, `receptionist ${path} overflow ${lang} ${width}`); count++;
+          assert.deepEqual(await axe(page), [], `receptionist ${path} axe ${lang} ${width}`); count++;
+        }
+        assert.deepEqual(errors, [], `receptionist errors ${lang} ${width}`); count++;
+        if (width === 1440) await page.screenshot({ path: `${OUT}/receptionist-${lang}.png`, fullPage: true });
+        await context.close();
+      }
+    }
+    {
+      const staffApi = (action, body = {}) => fetch(`${STAFF_BASE}/api/layla-meta?surface=hasib`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, ...body }) }).then(r => r.json());
+      const supplies = await staffApi('items', { kind: 'product' });
+      assert.ok(supplies.items.length && supplies.items.flatMap(i => i.variants).every(v => v.costMinor === undefined), 'supply costs stay with the manager'); count++;
+      const visit = (await staffApi('orders', {})).items.find(o => o.paidMinor > 0);
+      if (visit) { assert.equal((await staffApi('payment_record', { requestId: crypto.randomUUID(), orderId: visit.id, amountMinor: -1000, method: 'cash' })).reason, 'manager_required', 'no refunds at the front desk'); count++; }
+      const { page, context } = await staffOpen(1280, 'en', '/layla/dashboard?tab=orders&create=1');
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      assert.equal(await dialog.getByRole('button', { name: 'Other charge' }).count(), 0, 'no free-typed charges'); count++;
+      await context.close();
+    }
   }
   console.log(`hasib dental browser: ${count} assertions passed`);
 } finally {

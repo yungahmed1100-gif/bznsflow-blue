@@ -12,7 +12,7 @@ import { restaurantSummary, expirySummary } from './restaurantState.js';
 import { displayName, sectorFor } from '../blueContacts.js';
 import { qualificationPack } from '../../config/layla-qualification.js';
 
-const DAY = 86400000, SHOW = 5, SCAN = 500, REQUEST_WINDOW = 14 * DAY;
+const DAY = 86400000, SHOW = 5, SCAN = 500, REQUEST_WINDOW = 14 * DAY, VISIT_SCAN = 20;
 const NOT_SENT = new Set(['blocked', 'failed']);
 const CLOSED = new Set(['cancelled', 'returned']);
 const CAPTURED = new Set(['customer', 'contextual']);
@@ -83,8 +83,9 @@ async function serviceRequests(ctx, accountId, now) {
   for (const c of contacts) {
     const service = (c.fields || []).find(f => f.key === 'service' && f.value && CAPTURED.has(f.source) && f.at >= now - REQUEST_WINDOW);
     if (!service || c.optout) continue;
-    const visit = await ctx.db.query('hasibOrders').withIndex('by_contact_created', q => q.eq('contactId', c._id).gte('createdAt', service.at)).first();
-    if (visit && visit.accountId === accountId) continue;
+    // A cancelled visit (a no-show) leaves the patient still needing one.
+    const visits = await ctx.db.query('hasibOrders').withIndex('by_contact_created', q => q.eq('contactId', c._id).gte('createdAt', service.at)).take(VISIT_SCAN);
+    if (visits.some(v => v.accountId === accountId && !CLOSED.has(v.status))) continue;
     open.push({ contact: c, service });
   }
   open.sort((a, b) => a.service.at - b.service.at);

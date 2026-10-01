@@ -52,7 +52,7 @@ function Figure({ label, help, children }) {
  * what Layla captured), chats handed over, visits still owed, low supplies; what
  * Layla handled at reception; and today's recorded revenue and cash.
  */
-function ClinicToday({ h, t, connected, onGo }) {
+function ClinicToday({ h, t, connected, onGo, staff }) {
   const n = t.needsYou, word = v => (v ? (h.ar ? v.ar : v.en) : '');
   const steps = [
     { id: 'whatsapp', done: connected, go: ['settings', { view: 'channels' }] },
@@ -102,16 +102,18 @@ function ClinicToday({ h, t, connected, onGo }) {
             <Figure label={h.t('handoffs')} help={h.t('help_handoffs')}><span className="ld-num">{t.layla.handoffs}</span></Figure>
           </dl>
         </section>
-        <section className="hb-today-card" aria-labelledby="hb-money-title">
+        {/* The front desk never receives cash totals (convex/hasib/staffPolicy.js). */}
+        {t.money && <section className="hb-today-card" aria-labelledby="hb-money-title">
           <h2 id="hb-money-title">{h.t('moneyTitle')}</h2>
           <dl className="hb-figures">
             <Figure label={h.t('revenueToday')} help={`${h.t('help_revenueToday')} ${h.t('visitsToday', { count: t.money.visitsToday })}.`}><Money h={h} minor={t.money.revenueTodayMinor} /></Figure>
             <Figure label={h.t('moneyToday')} help={h.t('help_moneyToday')}><Money h={h} minor={t.money.todayMinor} /></Figure>
             <Figure label={h.t('owedToYou')} help={h.t('help_owedToYou')}><Money h={h} minor={t.money.owedMinor} /></Figure>
           </dl>
-        </section>
+        </section>}
       </div>
-      <SetupChecklist h={h} steps={steps} onGo={onGo} />
+      {/* Setup is the manager's: its steps open Settings and Services, which the front desk doesn't have. */}
+      {!staff && <SetupChecklist h={h} steps={steps} onGo={onGo} />}
     </div>
   );
 }
@@ -150,9 +152,9 @@ export function TodayView({ s, h, hasibOverview, connected, onGo }) {
   }
   if (!t && today.error) return <div className="ld-state" role="alert"><p>{h.reason(today.error.reason) || s.reason(today.error.reason)}</p><button type="button" className="ld-button" onClick={() => today.refresh()}>{h.t('retry')}</button></div>;
   if (!t) return <p className="ld-state" role="status">{h.t('loading')}</p>;
-  if (t.clinic) return <ClinicToday h={h} t={t} connected={connected} onGo={onGo} />;
   // Employees don't import stock or run setup; those stay with the manager.
   const staff = hasibOverview.workspaceRole === 'employee';
+  if (t.clinic) return <ClinicToday h={h} t={t} connected={connected} onGo={onGo} staff={staff} />;
 
   const pack = hasibPack(hasibOverview.pack.id);
   const n = t.needsYou;

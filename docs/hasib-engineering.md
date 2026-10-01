@@ -223,7 +223,9 @@ Deployment `dpl_4FroRb8TVYoF946eTpiETYurga2v` is READY on Blue. Both Blue Convex
 Construction is the fifth live Blue pack and uses a dedicated domain/dashboard rather than the generic jobs presentation. It includes versioned projects and baselines, milestones/progress/worker hours, actual and forecast cost, manager-controlled variations/commitments/claims/retention, aggregate site safety reporting, quality/NCR, risks, experience, tasks, actor audit history, one manager plus five employees, and manager-only aggregate Money/Insights. Today shows exactly schedule risk, submitted variation exposure, and overdue certified receivables.
 
 Release evidence and rollback are owned by [`docs/construction-engineering.md`](/Users/ramsis21/Desktop/bznsflow-blue/docs/construction-engineering.md). Deployment `dpl_4v9qbw53sn8gTfSdSj4aMigYEt9H` is READY at the Blue alias; immediate rollback UI is `dpl_3ENSivCTsw2CopSt949hBQUmiDF7`. Clinic remains outside `HASIB_LIVE_PACKS`.
-## Dental pack — 2026-09-28 (local only, not pushed or deployed)
+## Dental pack — 2026-09-28 (merged and live on Blue 2026-10-01)
+
+> **Status 2026-10-01:** merged into `hardening/live-dashboards` (`8293408`), Convex pushed to `dev:quaint-nightingale-675`, deployed to Blue (`dpl_59qia4ViCrXdbTfVswXvCw7H9fVR`). No live account used dental, so no text shortening was needed. Hardening and the front-desk rules: [docs/hardening/dental.md](hardening/dental.md). The rollout steps below are historical.
 
 Built from Ahmed's "Dental Clinics Hasib Tabs" spec. Worktree `Desktop/bznsflow-blue-dental`, branch `feat/hasib-dental` from `a34b6d8`. It was built apart from `feat/instagram-channel` because another session was changing the same Hasib files there (a restaurant pack, uncommitted), so expect merge conflicts in `config/hasib-packs.js`, `convex/hasib/{hasibState,todayState,ordersState}.js`, `api/_lib/hasib/validate.js` and `src/lib/hasib/strings.js`.
 
