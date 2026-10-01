@@ -62,6 +62,7 @@ import type * as hasib_photosState from "../hasib/photosState.js";
 import type * as hasib_plans from "../hasib/plans.js";
 import type * as hasib_profit from "../hasib/profit.js";
 import type * as hasib_propertyState from "../hasib/propertyState.js";
+import type * as hasib_realEstateBoard from "../hasib/realEstateBoard.js";
 import type * as hasib_realEstateState from "../hasib/realEstateState.js";
 import type * as hasib_realEstateTurn from "../hasib/realEstateTurn.js";
 import type * as hasib_repairMachine from "../hasib/repairMachine.js";
@@ -147,6 +148,7 @@ declare const fullApi: ApiFromModules<{
   "hasib/plans": typeof hasib_plans;
   "hasib/profit": typeof hasib_profit;
   "hasib/propertyState": typeof hasib_propertyState;
+  "hasib/realEstateBoard": typeof hasib_realEstateBoard;
   "hasib/realEstateState": typeof hasib_realEstateState;
   "hasib/realEstateTurn": typeof hasib_realEstateTurn;
   "hasib/repairMachine": typeof hasib_repairMachine;
