@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { waLink } from '../../lib/whatsapp';
 
 /** True on a phone-sized or touch-first screen, where scanning a code on the same screen isn't possible. */
 export function usePhoneOnly() {
@@ -14,17 +13,15 @@ export function usePhoneOnly() {
   return phone;
 }
 
-/** "Stuck?" — ask Layla, message the team on WhatsApp, or email yourself this page for a computer. */
-export function SetupHelpLinks({ tr, businessName, reference, email, phoneOnly }) {
-  const message = `${tr('Hi BznsFlow, please help me connect WhatsApp to Layla.', 'مرحباً BznsFlow، أحتاج مساعدة في ربط واتساب بليلى.')} ${businessName ? `${tr('Business', 'النشاط')}: ${businessName}.` : ''} ${reference ? `${tr('Reference', 'المرجع')}: ${reference}` : ''}`.trim();
+/** "Stuck?" — ask Layla, or email yourself this page for a computer. */
+export function SetupHelpLinks({ tr, email, phoneOnly }) {
   const page = typeof window === 'undefined' ? '' : window.location.href.split('#')[0];
   const mail = `mailto:${encodeURIComponent(email || '')}?subject=${encodeURIComponent(tr('Finish setting up Layla', 'أكمل إعداد ليلى'))}&body=${encodeURIComponent(`${tr('Open this on a computer and keep your phone with you:', 'افتح هذا الرابط على كمبيوتر وأبقِ هاتفك معك:')}\n${page}`)}`;
   return <aside className="layla-help-links" aria-label={tr('Help with connecting', 'مساعدة في الربط')}>
-    <p><strong>{tr('Stuck?', 'تحتاج مساعدة؟')}</strong> {tr('Ask Layla in the chat at the bottom of the page, or let us do it with you.', 'اسأل ليلى في المحادثة أسفل الصفحة، أو دعنا نكمله معك.')}</p>
-    <div className="layla-help-actions">
-      <a className="layla-secondary" href={waLink(message)} target="_blank" rel="noopener noreferrer">{tr('Do it with us on WhatsApp', 'ساعدوني في الربط عبر واتساب')}</a>
-      {phoneOnly && email && <a className="layla-secondary" href={mail}>{tr('Easier on a computer? Email me this link', 'أسهل على الكمبيوتر؟ أرسل لي الرابط بالبريد')}</a>}
-    </div>
+    <p><strong>{tr('Stuck?', 'تحتاج مساعدة؟')}</strong> {tr('Ask Layla in the chat at the bottom of the page.', 'اسأل ليلى في المحادثة أسفل الصفحة.')}</p>
+    {phoneOnly && email && <div className="layla-help-actions">
+      <a className="layla-secondary" href={mail}>{tr('Easier on a computer? Email me this link', 'أسهل على الكمبيوتر؟ أرسل لي الرابط بالبريد')}</a>
+    </div>}
   </aside>;
 }
 

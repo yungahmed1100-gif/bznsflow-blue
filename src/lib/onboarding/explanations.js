@@ -204,12 +204,12 @@ export const EXPLANATIONS = {
     ar: "أُلغيت محاولة ربط Meta. يمكنك المحاولة مجدداً.",
   },
   meta_feature_invalid: {
-    en: "Facebook stopped the connection on its side. Nothing changed on your WhatsApp. Tap “Do it with us” and we’ll finish it with you.",
-    ar: "أوقف فيسبوك الربط من جهته، ولم يتغيّر شيء في واتساب لديك. اضغط «ساعدوني في الربط» وسنكمله معك.",
+    en: "Facebook stopped the connection on its side. Nothing changed on your WhatsApp. You can try again or ask Layla in the chat below.",
+    ar: "أوقف فيسبوك الربط من جهته، ولم يتغيّر شيء في واتساب لديك. يمكنك المحاولة مجدداً أو سؤال ليلى في المحادثة أدناه.",
   },
   meta_error: {
-    en: "Meta’s window reported an error. Tap “Do it with us” and include this support reference; we’ll check the connection before trying again.",
-    ar: "أبلغت نافذة Meta عن خطأ. اضغط «ساعدوني في الربط» وأرفق مرجع الدعم هذا؛ سنتحقق من الاتصال قبل إعادة المحاولة.",
+    en: "Meta’s window reported an error. You can try again or ask Layla in the chat below and include this support reference.",
+    ar: "أبلغت نافذة Meta عن خطأ. يمكنك المحاولة مجدداً أو سؤال ليلى في المحادثة أدناه مع إرفاق مرجع الدعم هذا.",
   },
   signup_configuration_not_in_app: {
     en: "WhatsApp connection is being reconfigured by BznsFlow. Your setup is saved; please try again shortly.",
