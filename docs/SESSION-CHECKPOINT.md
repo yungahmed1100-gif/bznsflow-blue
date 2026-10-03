@@ -12,8 +12,9 @@ people using a shared browser.
 Local evidence: `npm run verify` passes (all typechecks/tests/build; lint has 0
 errors and 13 hook warnings). `npm run test:whatsapp-browser` passes 62
 synthetic checks in EN/AR at 320/768/1440px, with no serious/critical axe
-findings. No real Meta consent, signup or message was tested. Deployment was
-pending at the time of this checkpoint update.
+findings. Commit `37eca87` is deployed to Blue production as Vercel deployment
+`dpl_CJGy45SYn4geJFUAF8nTNk6pUFXY` (READY); `/en/layla/setup` returned HTTP 200.
+No real Meta consent, signup or message was tested.
 
 ## WhatsApp Embedded Signup repair — 2026-10-01
 
