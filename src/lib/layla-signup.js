@@ -59,7 +59,10 @@ function signupFailure(data) {
   const message = typeof data?.error_message === 'string' ? data.error_message : '';
   const reference = /^\d{1,30}$/.test(String(data?.error_id ?? '')) ? String(data.error_id) : undefined;
   if (!message) return { reason: 'meta_cancelled' };
-  return { reason: /feature/i.test(message) && /invalid|not (?:available|supported)/i.test(message) ? 'meta_feature_invalid' : 'meta_error', ...(reference ? { reference } : {}) };
+  const reason = /feature/i.test(message) && /invalid|not (?:available|supported)/i.test(message) ? 'meta_feature_invalid'
+    : /version|update/i.test(message) && /app/i.test(message) ? 'whatsapp_app_update_required'
+      : /personal|messenger|not.*business app|consumer/i.test(message) ? 'whatsapp_not_business_app' : 'meta_error';
+  return { reason, ...(reference ? { reference } : {}) };
 }
 
 // One coordinator belongs to one popup attempt. Both SDK callback orders are

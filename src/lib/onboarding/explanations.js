@@ -16,8 +16,8 @@ export const EXPLANATIONS = {
     ar: "مسار المراجعة متاح دون دعوة من BznsFlow. ينتظر ربط Meta إعداد اختبار Blue.",
   },
   coexistence_not_verified: {
-    en: "Meta has not confirmed that this number can stay in the WhatsApp Business app. Your app has not been disconnected.",
-    ar: "لم تؤكد Meta أهلية الرقم للاستخدام المتزامن. لم نفصل تطبيقك.",
+    en: "Facebook couldn’t confirm this number is on the WhatsApp Business app. Check you typed the number your shop uses in WhatsApp Business, then try again.",
+    ar: "لم يتمكن فيسبوك من التأكد أن هذا الرقم على تطبيق واتساب للأعمال. تأكد أنك كتبت رقم متجرك في واتساب للأعمال ثم حاول مجدداً.",
   },
   business_app_requires_coexistence: {
     en: "This number uses WhatsApp Business. Choose “Keep using my WhatsApp Business app.”",
@@ -26,6 +26,14 @@ export const EXPLANATIONS = {
   onboarding_in_progress_or_limited: {
     en: "A connection is already in progress, or you have reached the attempt limit. Finish the current connection or try again later.",
     ar: "هناك عملية ربط قيد التنفيذ، أو بلغت حد المحاولات. أكمل الربط الحالي أو حاول لاحقاً.",
+  },
+  whatsapp_app_update_required: {
+    en: "Your WhatsApp Business app is too old. Update it in the App Store or Google Play, then try again.",
+    ar: "تطبيق واتساب للأعمال لديك قديم. حدّثه من App Store أو Google Play ثم حاول مجدداً.",
+  },
+  whatsapp_not_business_app: {
+    en: "This number uses regular WhatsApp. Switch it to the free WhatsApp Business app first — your chats move with you — then try again.",
+    ar: "هذا الرقم يستخدم واتساب العادي. انقله أولاً إلى تطبيق واتساب للأعمال المجاني (تنتقل محادثاتك معك) ثم حاول مجدداً.",
   },
   draft_expired: {
     en: "This setup was not saved in time and has expired. Enter your business details again; it takes a minute.",
@@ -188,20 +196,20 @@ export const EXPLANATIONS = {
     ar: "لم تؤكد Meta تفاصيل هذا الرقم بعد. حاول مجدداً بعد بضع دقائق.",
   },
   popup_blocked: {
-    en: "Allow the Facebook popup, then try again.",
-    ar: "اسمح بنافذة فيسبوك المنبثقة ثم حاول مجدداً.",
+    en: "Your browser blocked Facebook’s window. Allow pop-ups for this page, then press the button again.",
+    ar: "منع متصفحك نافذة فيسبوك. اسمح بالنوافذ المنبثقة لهذه الصفحة ثم اضغط الزر مجدداً.",
   },
   meta_cancelled: {
     en: "The Meta connection was cancelled. You can try again.",
     ar: "أُلغيت محاولة ربط Meta. يمكنك المحاولة مجدداً.",
   },
   meta_feature_invalid: {
-    en: "Meta refused BznsFlow’s WhatsApp signup settings. Nothing changed on your number. Please try again later or contact ahmed@bznsflowai.com with the reference below.",
-    ar: "رفضت Meta إعدادات تسجيل واتساب لدى BznsFlow. لم يتغيّر شيء في رقمك. حاول لاحقاً أو تواصل مع ahmed@bznsflowai.com برقم المرجع أدناه.",
+    en: "Facebook stopped the connection on its side. Nothing changed on your WhatsApp. Tap “Do it with us” and we’ll finish it with you.",
+    ar: "أوقف فيسبوك الربط من جهته، ولم يتغيّر شيء في واتساب لديك. اضغط «ساعدوني في الربط» وسنكمله معك.",
   },
   meta_error: {
-    en: "Meta’s window reported an error. Nothing changed on your number. Try again, or contact ahmed@bznsflowai.com with the reference below.",
-    ar: "أبلغت نافذة Meta عن خطأ. لم يتغيّر شيء في رقمك. حاول مجدداً أو تواصل مع ahmed@bznsflowai.com برقم المرجع أدناه.",
+    en: "Meta’s window reported an error. Tap “Do it with us” and include this support reference; we’ll check the connection before trying again.",
+    ar: "أبلغت نافذة Meta عن خطأ. اضغط «ساعدوني في الربط» وأرفق مرجع الدعم هذا؛ سنتحقق من الاتصال قبل إعادة المحاولة.",
   },
   signup_configuration_not_in_app: {
     en: "WhatsApp connection is being reconfigured by BznsFlow. Your setup is saved; please try again shortly.",

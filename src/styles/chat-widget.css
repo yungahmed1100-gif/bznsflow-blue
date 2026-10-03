@@ -36,7 +36,7 @@
 .chat-launcher:active { transform: translateY(-1px) scale(1.0); }
 .chat-launcher:focus-visible { outline: 3px solid rgba(92, 149, 198, 0.5); outline-offset: 3px; }
 /* When open, the avatar fades out and a gradient backdrop reveals the close × */
-.chat-launcher.is-open { background: var(--text-primary); }
+.chat-launcher.is-open { display: none; background: var(--text-primary); }
 
 .chat-launcher-icons { position: absolute; inset: 0; display: grid; place-items: center; }
 .chat-launcher-avatar {
@@ -275,3 +275,8 @@
   .chat-invite { animation: none; }
   .chat-panel, .chat-msg { transition-duration: 0.01ms; animation: none; }
 }
+
+/* One-tap suggested questions under the greeting (setup help) */
+.chat-suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; padding-inline-start: 36px; }
+.chat-suggestion { font: inherit; font-size: 13px; line-height: 1.3; padding: 7px 12px; border-radius: 999px; border: 1px solid currentColor; background: transparent; color: inherit; cursor: pointer; text-align: start; }
+.chat-suggestion:hover, .chat-suggestion:focus-visible { background: rgba(0, 0, 0, .06); }

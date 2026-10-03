@@ -1,5 +1,20 @@
 # Resume checkpoint — 2026-09-12 (active repair)
 
+## WhatsApp onboarding help — 2026-10-03
+
+Integrated the bilingual setup helper into the owner flow: Business App choice
+and preparation checklist, Meta window guide, local deterministic help chat,
+support links, readable error messages, and connected-state guidance. Meta
+signup remains on the existing v4 options; the phone-number-first experiment
+was removed. Checklist acknowledgements are per-page and do not persist between
+people using a shared browser.
+
+Local evidence: `npm run verify` passes (all typechecks/tests/build; lint has 0
+errors and 13 hook warnings). `npm run test:whatsapp-browser` passes 62
+synthetic checks in EN/AR at 320/768/1440px, with no serious/critical axe
+findings. No real Meta consent, signup or message was tested. Deployment was
+pending at the time of this checkpoint update.
+
 ## WhatsApp Embedded Signup repair — 2026-10-01
 
 Symptom: on Blue, every number option failed in Meta's window with "WhatsApp

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { InstagramConnection } from '../components/dashboard/InstagramConnection';
 // InstagramConnection and ActivationPanel render dashboard (ld-*) controls.
 import '../styles/layla-dashboard.css';
@@ -12,9 +12,11 @@ import { prepareFacebook } from '../lib/meta-sdk.js';
 import { callApi } from '../lib/api-client.js';
 import { BusinessDetailsForm } from '../components/business/BusinessDetailsForm.jsx';
 import { SaveAccountPanel } from '../components/onboarding/SaveAccountPanel.jsx';
-import { WhatsAppConnect, whatsappRequirements } from '../components/onboarding/WhatsAppConnect.jsx';
+import { WhatsAppConnect } from '../components/onboarding/WhatsAppConnect.jsx';
 import { GoLiveStep } from '../components/onboarding/GoLiveStep.jsx';
+import { ChatWidget } from '../components/chat/ChatWidget.jsx';
 import { explain as explainReason, instagramReturnMessage } from '../lib/onboarding/explanations.js';
+import { setupHelpReply, SUGGESTED, SUGGESTION_LABELS } from '../lib/onboarding/setupHelp.js';
 
 // Three steps, one primary action each. Ids are the saved journeyStep values
 // (a legacy saved 2 opens the channels step).
@@ -68,10 +70,31 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
   // Errors appear next to the step's action, not at the top of the page, and take focus so they are seen and read.
   const errorRef = useRef(null);
   useEffect(() => { if (error) { errorRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); errorRef.current?.focus({ preventScroll: true }); } }, [error]);
-  // The path Meta's window was last prepared for automatically: at most once per
-  // path, so an abandoned or failed attempt never burns the attempt budget in a loop.
-  const autoPrepared = useRef(null);
   const explain = reason => explainReason(reason, lang);
+  const setupChatText = {
+    chat_greeting: tr('Hi, I’m Layla. Ask me anything about connecting WhatsApp.', 'مرحباً، أنا ليلى. اسألني عن ربط واتساب.'),
+    chat_error: tr('I couldn’t answer just now. Please try again or contact the BznsFlow team.', 'لم أتمكن من الإجابة الآن. حاول مجدداً أو تواصل مع فريق BznsFlow.'),
+    chat_close: tr('Close help chat', 'إغلاق محادثة المساعدة'),
+    chat_open_aria: tr('Open setup help chat', 'فتح محادثة مساعدة الإعداد'),
+    chat_invite: tr('Need help connecting?', 'تحتاج مساعدة في الربط؟'),
+    chat_title: tr('Setup help', 'مساعدة الإعداد'),
+    chat_messages_label: tr('Setup help messages', 'رسائل مساعدة الإعداد'),
+    chat_subtitle: tr('Ask about WhatsApp setup', 'اسأل عن إعداد واتساب'),
+    chat_placeholder: tr('Type your question…', 'اكتب سؤالك…'),
+    chat_send: tr('Send question', 'إرسال السؤال'),
+    chat_footnote: tr('Answers are about setup only. A person can help with anything else.', 'الإجابات عن الإعداد فقط. يستطيع شخص مساعدتك في أي أمر آخر.'),
+    chat_typing: tr('Layla is thinking', 'ليلى تفكر'),
+    chat_wa_prefix: tr('Please help me with Layla setup', 'أحتاج مساعدة في إعداد ليلى'),
+    chat_wa_cta: tr('Message the BznsFlow team', 'مراسلة فريق BznsFlow'),
+    chat_email_subject: tr('Help with Layla setup', 'مساعدة في إعداد ليلى'),
+    chat_email_cta: tr('Email the BznsFlow team', 'مراسلة فريق BznsFlow بالبريد'),
+    chat_suggestions_label: tr('Common setup questions', 'أسئلة شائعة عن الإعداد'),
+  };
+  const answerSetupQuestion = useCallback(question => setupHelpReply(question, lang), [lang]);
+  const setupSuggestions = SUGGESTED.map(id => ({
+    question: SUGGESTION_LABELS[id][lang === 'ar' ? 1 : 0],
+    label: SUGGESTION_LABELS[id][lang === 'ar' ? 1 : 0],
+  }));
   async function request(body) {
     const surface = reviewMode ? 'customer-review' : 'customer';
     // 60s: signup and website import both wait on Meta or a third-party site.
@@ -91,7 +114,7 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
     setPath(r.integration?.path || r.prepared?.path || 'coexistence');
     setStep(r.journeyStep === 2 || r.journeyStep === undefined || r.journeyStep === null ? (r.profile ? 1 : 0) : r.journeyStep);
     if (r.prepared) {
-      autoPrepared.current = r.prepared.path; setWhatsappOpen(true);
+      setWhatsappOpen(true);
       prepareFacebook(r.prepared).then(() => setPrepared(r.prepared)).catch(() => setError(explain('meta_sdk_unavailable')));
     }
   }
@@ -152,15 +175,6 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
     claimTried.current = true;
     run({ action: 'claim_draft' });
   }, [data?.account, data?.savedToAccount, data?.profile, busy, checking]);
-  const ready = whatsappRequirements({ data, available, reviewMode }).every(([, ok]) => ok);
-  const hasPreselect = path !== 'coexistence' && (preselect.business || preselect.waba);
-  const canAutoPrepare = whatsappOpen && step === 1 && !checking && ready && !prepared && !preparing && !busy && !hasPreselect &&
-    !data?.integration && !data?.selection && !data?.ownerConnectAvailable && !['reconciliation_required', 'verifying'].includes(data?.status);
-  useEffect(() => {
-    if (!canAutoPrepare || autoPrepared.current === path) return;
-    autoPrepared.current = path;
-    prepare(path, preselect);
-  }, [canAutoPrepare, path]);
   useEffect(() => {
     if (!prepared) return;
     const receive = event => pending.current?.message(event);
@@ -264,7 +278,7 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
           {!needsAccount && !reviewMode && <InstagramConnection lang={lang} showInbox />}
           <WhatsAppConnect tr={tr} explain={explain} open={whatsappOpen} onOpen={() => setWhatsappOpen(true)} data={data} busy={busy} available={available} reviewMode={reviewMode}
             prepared={prepared} preparing={preparing} path={path} onPathChange={changePath} preselect={preselect} onPreselectChange={changePreselect}
-            onPrepare={() => { autoPrepared.current = path; prepare(); }} onConnect={connect} onCancelAttempt={reason => pending.current?.cancel(reason)}
+            onPrepare={() => prepare()} onConnect={connect} onCancelAttempt={reason => pending.current?.cancel(reason)}
             run={run} act={act} request={request} applyState={applyState}
             errorNote={needsAccount && !data?.account ? null : errorNote} onClaim={() => run({ action: 'claim_draft' })} />
           <button className="layla-secondary" disabled={busy} onClick={() => leaveChannels(0)}>{tr('Back to business details','العودة إلى معلومات النشاط')}</button>
@@ -275,5 +289,6 @@ export default function LaylaOnboarding({ lang = 'ar', reviewMode = false }) {
         <footer className="layla-customer-footer"><a href={ar ? '/privacy' : '/en/privacy'}>{tr('Privacy','الخصوصية')}</a><a href="mailto:ahmed@bznsflowai.com">{tr('Need a hand?','تحتاج مساعدة؟')}</a></footer>
       </div>
     </div>
+    <ChatWidget t={setupChatText} lang={lang} respond={answerSetupQuestion} suggestions={setupSuggestions} />
   </main>;
 }
